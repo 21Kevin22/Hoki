@@ -1,0 +1,10 @@
+__pycache__/
+.vscode/
+data/images/*
+!data/images/delta_sys_overview.png
+pddlgym_planners/
+result/*
+!result/.gitkeep
+VAL/
+.env
+*.bsub

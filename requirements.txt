@@ -1,0 +1,13 @@
+numpy==1.23.5
+openai==1.43.0
+pandas==1.4.1
+pddlgym==0.0.7
+plotly==5.19.0
+tiktoken==0.7.0
+torch==2.3.0
+transformers==4.44.2
+varname==0.13.3
+accelerate==0.33.0
+bitsandbytes==0.43.0
+dotenv==0.9.9
+python-dotenv==1.0.1
