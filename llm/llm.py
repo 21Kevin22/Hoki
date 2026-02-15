@@ -1,4 +1,4 @@
-from openai import AzureOpenAI
+from openai import OpenAI  # 変更: AzureOpenAI から OpenAI へ
 from copy import deepcopy
 import os
 import tiktoken
@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
-AZURE_API_KEY = os.getenv("AZURE_API_KEY")
-AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
+# 変更: Azure用の変数を削除し、OpenAIのAPIキーを読み込む
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") 
 MAX_NEW_TOKENS = 16384
 
 
@@ -120,24 +120,30 @@ class GPT(LLMBase):
     def __init__(self, model_name: str, temp: float = 0., top_p: float = 1.):
         super().__init__(temp, top_p)
         self.model_id = model_name
-        self.key = AZURE_API_KEY
-        self.client = AzureOpenAI(
-            api_key=self.key,
-            api_version="2024-02-15-preview",
-            azure_endpoint=AZURE_ENDPOINT
+        
+        # 変更: 標準のOpenAIクライアントの初期化
+        self.client = OpenAI(
+            api_key=OPENAI_API_KEY
         )
 
     def count_tokens(self, string: str):
         encoding_name = deepcopy(self.model_id)
+        # Azure特有のモデル名変換ロジックは残しておいても害はありませんが、
+        # 本家のモデル名(例: gpt-3.5-turbo)には影響しません。
         if "gpt-35" in encoding_name:
             encoding_name.replace("gpt-35", "gpt-3.5")
-        encoding = tiktoken.encoding_for_model(encoding_name)
+        try:
+            encoding = tiktoken.encoding_for_model(encoding_name)
+        except KeyError:
+            # モデル名が見つからない場合のフォールバック（念のため）
+            encoding = tiktoken.get_encoding("cl100k_base")
+            
         return len(encoding.encode(string))
 
     def init_prompt_chain(self, content: str, prompt: str):
         assert len(self.prompt_chain) == 0, "Prompt chain is not empty!"
         self.prompt_chain.extend([{"role": "system", "content": content},
-                                  {"role": "user", "content": prompt}])
+                                {"role": "user", "content": prompt}])
 
     def update_prompt_chain(self, content: str, prompt: str):
         self.prompt_chain[0]["content"] = content
