@@ -11,14 +11,41 @@ def export_result(response: str, file_name: str):
         f.write(response)
 
 
-def export_obj_list(response: str):
-    assert "[" in response and "]" in response, "No list found in response!"
-    start_idx = response.find("[")
-    end_idx = response.rfind("]")
+#def export_obj_list(response: str):
+#    assert "[" in response and "]" in response, "No list found in response!"
+#    start_idx = response.find("[")
+#    end_idx = response.rfind("]")
 
-    obj_list_str = response[start_idx + 1:end_idx]
-    return eval(obj_list_str)
+#    obj_list_str = response[start_idx + 1:end_idx]
+#    return eval(obj_list_str)
+import ast
 
+def export_obj_list(obj_list_str):
+    # 1. 前後の空白を削除
+    cleaned = obj_list_str.strip()
+    
+    # 2. Markdownのコードブロック (```python や ```) が含まれている場合は中身だけ取り出す
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        # 最初の ```... と 最後の ``` を除外
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines[-1].startswith("```"):
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+
+    # 3. 各行の先頭にある余計なインデントを削除
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    cleaned = "".join(lines)
+
+    # 4. eval よりも安全な ast.literal_eval を使用
+    try:
+        return ast.literal_eval(cleaned)
+    except Exception as e:
+        # 変換に失敗した場合、デバッグ用に内容を表示
+        print(f"Error parsing LLM response: {e}")
+        print(f"Original string: {obj_list_str}")
+        raise e
 
 def export_subgoal_list(response: str):
     subgoal_list = []
