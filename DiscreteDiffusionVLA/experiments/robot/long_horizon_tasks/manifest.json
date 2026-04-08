@@ -1,0 +1,41 @@
+{
+  "schema_version": "long_horizon_task_set.v1",
+  "description": "Custom multi-object, multi-subgoal scene-graph tasks for rollout evaluation.",
+  "tasks": [
+    {
+      "task_id": "libero_object_dual_basket_01",
+      "path": "/home/ubuntu/slocal/DiscreteDiffusionVLA/experiments/robot/long_horizon_tasks/libero_object_dual_basket_01.json",
+      "instruction": "put the alphabet soup and the cream cheese in the basket",
+      "task_suite_name": "libero_object",
+      "task_suite_task_id": 0
+    },
+    {
+      "task_id": "libero_object_triple_basket_01",
+      "path": "/home/ubuntu/slocal/DiscreteDiffusionVLA/experiments/robot/long_horizon_tasks/libero_object_triple_basket_01.json",
+      "instruction": "put the alphabet soup, the cream cheese, and the milk in the basket",
+      "task_suite_name": "libero_object",
+      "task_suite_task_id": 0
+    },
+    {
+      "task_id": "libero_object_dual_basket_reverse_01",
+      "path": "/home/ubuntu/slocal/DiscreteDiffusionVLA/experiments/robot/long_horizon_tasks/libero_object_dual_basket_reverse_01.json",
+      "instruction": "put the cream cheese in the basket and then put the alphabet soup in the basket",
+      "task_suite_name": "libero_object",
+      "task_suite_task_id": 0
+    },
+    {
+      "task_id": "libero_object_state_and_transport_01",
+      "path": "/home/ubuntu/slocal/DiscreteDiffusionVLA/experiments/robot/long_horizon_tasks/libero_object_state_and_transport_01.json",
+      "instruction": "put the alphabet soup in the basket and open the microwave",
+      "task_suite_name": "libero_object",
+      "task_suite_task_id": 0
+    },
+    {
+      "task_id": "libero_object_state_and_multi_transport_01",
+      "path": "/home/ubuntu/slocal/DiscreteDiffusionVLA/experiments/robot/long_horizon_tasks/libero_object_state_and_multi_transport_01.json",
+      "instruction": "open the microwave, then put the alphabet soup and the cream cheese in the basket",
+      "task_suite_name": "libero_object",
+      "task_suite_task_id": 0
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "task_id": "libero_object_dual_basket_01",
+  "instruction": "put the alphabet soup and the cream cheese in the basket",
+  "task_suite_name": "libero_object",
+  "task_suite_task_id": 0,
+  "goal_scene_graph": {
+    "objects": [
+      {
+        "id": "alphabet_soup_1",
+        "label": "alphabet soup"
+      },
+      {
+        "id": "cream_cheese_1",
+        "label": "cream cheese"
+      },
+      {
+        "id": "basket_1",
+        "label": "basket"
+      }
+    ],
+    "relations": [
+      {
+        "type": "in",
+        "subject": "alphabet_soup_1",
+        "object": "basket_1"
+      },
+      {
+        "type": "in",
+        "subject": "cream_cheese_1",
+        "object": "basket_1"
+      }
+    ],
+    "states": []
+  },
+  "subgoal_order_hint": [
+    "in:alphabet_soup_1:basket_1",
+    "in:cream_cheese_1:basket_1"
+  ]
+}
