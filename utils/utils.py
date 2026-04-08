@@ -42,8 +42,9 @@ def set_pddl_problem_init(p_path: str, new_init: list):
     with open(p_path, 'r') as pf:
         content = pf.readlines()
 
-    start_idx = content.index('    (:init\n') + 1
-    end_idx = content.index('    ; End init\n') - 1
+    # 【修正】完全一致の index() ではなく、柔軟な in 検索に変更
+    start_idx = next(i for i, line in enumerate(content) if "(:init" in line) + 1
+    end_idx = next(i for i, line in enumerate(content) if "; End init" in line) - 1
     content[start_idx:end_idx] = [new_init_str]
 
     with open(p_path, 'w') as pf:
@@ -61,8 +62,9 @@ def set_pddl_problem_goal(p_path: str, new_goal: str):
     with open(p_path, 'r') as pf:
         content = pf.readlines()
 
-    start_idx = content.index('    ; Begin goal\n') + 1
-    end_idx = content.index('    ; End goal\n')
+    # 【修正】完全一致の index() ではなく、柔軟な in 検索に変更
+    start_idx = next(i for i, line in enumerate(content) if "; Begin goal" in line) + 1
+    end_idx = next(i for i, line in enumerate(content) if "; End goal" in line)
     content[start_idx:end_idx] = [new_goal]
 
     with open(p_path, 'w') as pf:
