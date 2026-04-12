@@ -13,13 +13,10 @@ from pathlib import Path
 import plotly.graph_objects as go
 
 # =========================================================
-# 【重要】APIキーの設定 (Gemini / OpenAI 呼び出し用)
+# API key (environment variables only)
 # =========================================================
-OPENAI_API_KEY = "<OPENAI_API_KEY>"
-GOOGLE_API_KEY = "AIzaSyCsmmdOaLo7hdOXyyneRLA5kgQHBm516eQ"  # ★必ず書き換えてください
-
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "").strip()
 # =========================================================
 
 OUTPUT_DIR = Path("/home/ubuntu/slocal/evaluation")
