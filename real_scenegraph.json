@@ -1,0 +1,116 @@
+{
+    "frame": 4,
+    "timestamp": 0.06666666666666667,
+    "nodes": [
+        {
+            "label": "bottle",
+            "properties": {
+                "position_3d": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "affordance": [
+                    "graspable",
+                    "liftable",
+                    "pourable",
+                    "containable"
+                ],
+                "bbox_2d": [
+                    420,
+                    474,
+                    442,
+                    572
+                ]
+            }
+        },
+        {
+            "label": "bottle",
+            "properties": {
+                "position_3d": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "affordance": [
+                    "graspable",
+                    "liftable",
+                    "pourable",
+                    "containable"
+                ],
+                "bbox_2d": [
+                    461,
+                    468,
+                    482,
+                    565
+                ]
+            }
+        },
+        {
+            "label": "bottle",
+            "properties": {
+                "position_3d": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "affordance": [
+                    "graspable",
+                    "liftable",
+                    "pourable",
+                    "containable"
+                ],
+                "bbox_2d": [
+                    502,
+                    463,
+                    521,
+                    559
+                ]
+            }
+        },
+        {
+            "label": "bottle",
+            "properties": {
+                "position_3d": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "affordance": [
+                    "graspable",
+                    "liftable",
+                    "pourable",
+                    "containable"
+                ],
+                "bbox_2d": [
+                    540,
+                    457,
+                    561,
+                    553
+                ]
+            }
+        },
+        {
+            "label": "bottle",
+            "properties": {
+                "position_3d": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "affordance": [
+                    "graspable",
+                    "liftable",
+                    "pourable",
+                    "containable"
+                ],
+                "bbox_2d": [
+                    578,
+                    452,
+                    599,
+                    547
+                ]
+            }
+        }
+    ]
+}

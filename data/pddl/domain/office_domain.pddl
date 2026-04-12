@@ -1,5 +1,4 @@
-;Header and description
-(define (domain office)
+(define (domain office) ; 
 
     (:requirements :strips :typing :adl)
 
@@ -11,18 +10,22 @@
 
     ; Begin predicates
     (:predicates
+        (neighbor ?r1 - room ?r2 - room)
         (agent_at ?a - agent ?r - room)
         (item_at ?i - item ?r - room)
-        (item_in ?i2 - item ?i1 - item)
         (item_pickable ?i - item)
         (item_loadable ?i - item)
         (item_accessible ?i - item)
-        (item_empty ?i - item)
-
-        (neighbor ?r1 - room ?r2 - room)
-
         (agent_loaded ?a - agent)
         (agent_has_item ?a - agent ?i - item)
+        (item_in ?i1 - item ?i2 - item)
+        (item_empty ?i - item)
+        (item_dirty ?i - item)
+        (item_clean ?i - item)
+        (item_closed ?i - item)
+        (item_open ?i - item)
+
+        (item_is_sink ?i - item) 
     )
     ; End predicates
 
@@ -44,6 +47,7 @@
         :precondition (and
             (agent_at ?a ?r)
             (item_at ?i ?r)
+            (item_accessible ?i)
             (item_pickable ?i)
             (not(agent_loaded ?a))
             (not(agent_has_item ?a ?i))
@@ -61,6 +65,7 @@
         :precondition (and
             (agent_at ?a ?r)
             (not(item_at ?i ?r))
+            (item_accessible ?i)
             (item_pickable ?i)
             (agent_loaded ?a)
             (agent_has_item ?a ?i)
@@ -78,6 +83,7 @@
         :precondition (and
             (agent_at ?a ?r)
             (item_at ?i ?r)
+            (item_accessible ?i)
             (item_loadable ?i)
             (item_empty ?i)
             (not(agent_loaded ?a))
@@ -96,8 +102,8 @@
         :precondition (and
             (agent_at ?a ?r)
             (not(item_at ?i ?r))
+            (item_accessible ?i)
             (item_loadable ?i)
-            (item_empty ?i)
             (agent_loaded ?a)
             (agent_has_item ?a ?i)
         )
@@ -115,17 +121,16 @@
             (agent_at ?a ?r)
             (item_at ?i1 ?r)
             (item_loadable ?i1)
-            (item_pickable ?i2)
-            (not(item_in ?i2 ?i1))
+            (item_empty ?i1)
             (agent_loaded ?a)
             (agent_has_item ?a ?i2)
-            (item_empty ?i1)
+            (not(item_in ?i2 ?i1))
         )
         :effect (and
+            (item_in ?i2 ?i1)
             (not(item_at ?i2 ?r))
             (not(agent_loaded ?a))
             (not(agent_has_item ?a ?i2))
-            (item_in ?i2 ?i1)
             (not(item_empty ?i1))
         )
     )
@@ -135,18 +140,51 @@
         :precondition (and
             (agent_at ?a ?r)
             (item_at ?i1 ?r)
-            (not(item_at ?i2 ?r))
             (item_loadable ?i1)
-            (item_pickable ?i2)
-            (item_in ?i2 ?i1)
+            (not(item_empty ?i1))
             (not(agent_loaded ?a))
             (not(agent_has_item ?a ?i2))
-            (not(item_empty ?i1))
+            (item_in ?i2 ?i1)
         )
         :effect (and
-            (item_at ?i2 ?r)
             (not(item_in ?i2 ?i1))
+            (item_at ?i2 ?r)
             (item_empty ?i1)
+        )
+    )
+
+    ; --- 修正箇所: wash アクション ---
+    (:action wash
+        ; パラメータに ?s (シンク) を追加
+        :parameters (?a - agent ?i - item ?s - item ?r - room)
+        :precondition (and
+            (agent_at ?a ?r)
+            (agent_has_item ?a ?i)
+            (item_dirty ?i)
+            (item_accessible ?i)
+            
+            ; シンクが同じ部屋にあること
+            (item_at ?s ?r)
+            ; それがシンクであること
+            (item_is_sink ?s)
+        )
+        :effect (and
+            (not(item_dirty ?i))
+            (item_clean ?i)
+        )
+    )
+
+    (:action open
+        :parameters (?a - agent ?i - item ?r - room)
+        :precondition (and
+            (agent_at ?a ?r)
+            (item_at ?i ?r)
+            (item_closed ?i)
+            (item_accessible ?i)
+        )
+        :effect (and
+            (not(item_closed ?i))
+            (item_open ?i)
         )
     )
     ; End actions

@@ -21,14 +21,23 @@
         (agent_loaded ?a - agent)
         (agent_has_item ?a - agent ?i - item)
 
+        ; Object Types
         (item_is_mop ?i - item)
         (item_is_sink ?i - item)
         (item_is_rubbish_bin ?i - item)
         (item_is_robot_hub ?i - item)
+        
+        ; States
         (item_disposed ?i - item)
         (floor_clean ?r - room)
         (mop_clean ?i - item)
         (battery_full ?a - agent)
+
+        ; --- Added for Active Recovery ---
+        (item_dirty ?i - item)    ; 汎用的な汚れ
+        (item_clean ?i - item)    ; 汎用的なきれい
+        (item_closed ?i - item)   ; 閉まっている
+        (item_open ?i - item)     ; 開いている
     )
     ; End predicates
 
@@ -54,6 +63,7 @@
             (item_pickable ?i)
             (not(agent_loaded ?a))
             (not(agent_has_item ?a ?i))
+            ; (not (item_closed ?i)) ; 開いていないと取れない制約を入れるならここ
         )
         :effect (and
             (agent_at ?a ?r)
@@ -87,7 +97,6 @@
             (agent_at ?a ?r)
             (item_at ?i2 ?r)
             (item_accessible ?i1)
-            ; (item_accessible ?i2)
             (item_pickable ?i1)
             (item_is_rubbish_bin ?i2)
             (agent_loaded ?a)
@@ -127,7 +136,6 @@
             (agent_at ?a ?r)
             (item_at ?i2 ?r)
             (item_accessible ?i1)
-            ; (item_accessible ?i2)
             (item_pickable ?i1)
             (item_is_mop ?i1)
             (agent_loaded ?a)
@@ -156,6 +164,52 @@
         )
         :effect (and
             (battery_full ?a)
+        )
+    )
+
+    ; --- Added for Active Recovery ---
+    (:action wash
+        :parameters (?a - agent ?i - item ?s - item ?r - room)
+        :precondition (and 
+            (agent_at ?a ?r)
+            (item_at ?s ?r)
+            (item_is_sink ?s)
+            (agent_loaded ?a)
+            (agent_has_item ?a ?i)
+            (item_dirty ?i)
+        )
+        :effect (and 
+            (not (item_dirty ?i))
+            (item_clean ?i)
+            (not (battery_full ?a)) ; 洗うと疲れる(バッテリー消費)
+        )
+    )
+
+    (:action open
+        :parameters (?a - agent ?i - item ?r - room)
+        :precondition (and 
+            (agent_at ?a ?r)
+            (item_at ?i ?r)
+            (item_closed ?i)
+            (item_accessible ?i)
+        )
+        :effect (and 
+            (not (item_closed ?i))
+            (item_open ?i)
+        )
+    )
+
+    (:action close
+        :parameters (?a - agent ?i - item ?r - room)
+        :precondition (and 
+            (agent_at ?a ?r)
+            (item_at ?i ?r)
+            (item_open ?i)
+            (item_accessible ?i)
+        )
+        :effect (and 
+            (not (item_open ?i))
+            (item_closed ?i)
         )
     )
     ; End actions
