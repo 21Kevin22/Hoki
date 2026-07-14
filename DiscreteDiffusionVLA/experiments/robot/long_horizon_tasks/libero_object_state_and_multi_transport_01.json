@@ -1,0 +1,49 @@
+{
+  "task_id": "libero_object_state_and_multi_transport_01",
+  "instruction": "open the microwave, then put the alphabet soup and the cream cheese in the basket",
+  "task_suite_name": "libero_object",
+  "task_suite_task_id": 0,
+  "goal_scene_graph": {
+    "objects": [
+      {
+        "id": "alphabet_soup_1",
+        "label": "alphabet soup"
+      },
+      {
+        "id": "cream_cheese_1",
+        "label": "cream cheese"
+      },
+      {
+        "id": "basket_1",
+        "label": "basket"
+      },
+      {
+        "id": "microwave_1",
+        "label": "microwave"
+      }
+    ],
+    "relations": [
+      {
+        "type": "in",
+        "subject": "alphabet_soup_1",
+        "object": "basket_1"
+      },
+      {
+        "type": "in",
+        "subject": "cream_cheese_1",
+        "object": "basket_1"
+      }
+    ],
+    "states": [
+      {
+        "object": "microwave_1",
+        "state": "open"
+      }
+    ]
+  },
+  "subgoal_order_hint": [
+    "open:microwave_1",
+    "in:alphabet_soup_1:basket_1",
+    "in:cream_cheese_1:basket_1"
+  ]
+}
