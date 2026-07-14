@@ -18,8 +18,7 @@ RPC_DIR = "/tmp/occ_vla_rpc/pi05"
 def main():
     policy = Pi05Policy(
         config_name="pi05_libero",
-        checkpoint_dir=str(Path.home() / ".cache/openpi/openpi-assets/checkpoints/pi05_base"),
-        norm_stats_dir=str(Path.home() / ".cache/openpi/openpi-assets/checkpoints/pi05_base/assets/franka"),
+        checkpoint_dir=str(Path.home() / ".cache/openpi/openpi-assets/checkpoints/pi05_libero"),
     )
     policy.load()
     print("[pi05 worker] policy loaded", flush=True)

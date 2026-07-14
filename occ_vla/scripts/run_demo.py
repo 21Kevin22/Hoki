@@ -99,7 +99,8 @@ def main():
         # LIBERO's standard 8-dim state (eef pos [3] + eef orientation as
         # axis-angle [3] + gripper qpos [2]) — not the raw
         # robot0_proprio-state (39-dim, joint pos/vel/eef/gripper
-        # concatenated), which is what franka's norm_stats.json is shaped
+        # concatenated), which is what pi05_libero's
+        # assets/physical-intelligence/libero/norm_stats.json is shaped
         # for and what LiberoInputs/openpi convention expects. Confirmed
         # against the live pi0.5 worker: passing the 39-dim vector raised
         # ValueError: operands could not be broadcast together with

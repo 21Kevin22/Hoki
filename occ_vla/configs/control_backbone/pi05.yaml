@@ -1,6 +1,6 @@
 name: pi05
 config_name: pi05_libero  # openpi.training.config TrainConfig name (see third_party/openpi/src/openpi/training/config.py)
-checkpoint_dir: gs://openpi-assets/checkpoints/pi05_base  # auto-downloaded by openpi.shared.download
+checkpoint_dir: gs://openpi-assets/checkpoints/pi05_libero  # real LIBERO-finetuned inference checkpoint, auto-downloaded by openpi.shared.download
 device: cuda
 language_decoder: gemma-2.6b
 vision_encoder: siglip-400m
