@@ -1,0 +1,1 @@
+{"objects": [{"id": "alphabet_soup_1", "label": "alphabet soup"}, {"id": "cream_cheese_1", "label": "cream cheese"}, {"id": "basket_1", "label": "basket"}], "relations": [{"type": "in", "subject": "alphabet_soup_1", "object": "basket_1"}, {"type": "in", "subject": "cream_cheese_1", "object": "basket_1"}], "states": []}
