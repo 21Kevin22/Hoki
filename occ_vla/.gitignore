@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+.venv/
+
+# vendored reference implementations, reproduced by scripts/setup_third_party.sh
+third_party/openpi/
+third_party/mmada/

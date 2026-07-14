@@ -1,0 +1,10 @@
+name: mmada-8b
+checkpoint_path: Gen-Verse/MMaDA-8B-MixCoT  # HF hub id; CoT-tuned variant, for cot_anchor.py
+tokenizer:
+  name: magvit-v2
+  checkpoint_path: showlab/magvitv2  # HF hub id, reused by MMaDA from Show-o
+  num_tokens: 1024
+mask_token_id: 126336
+arm_occ_threshold: 0.30
+denoise_timesteps: 18
+device: cuda
