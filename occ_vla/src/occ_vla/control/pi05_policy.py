@@ -75,17 +75,18 @@ class Pi05Policy:
         self.config_name = config_name
         self.checkpoint_dir = checkpoint_dir
         self.pytorch_device = pytorch_device
-        # `pi05_base` (the only publicly released pi0.5 checkpoint at time
-        # of writing) has no LIBERO fine-tune and its assets/ dir has no
-        # `physical-intelligence/libero` norm_stats.json — confirmed
-        # against the live checkpoint (2026-07-14): create_trained_policy's
-        # default norm-stats lookup raises FileNotFoundError for
-        # config_name="pi05_libero" on pi05_base. `norm_stats_dir` lets a
-        # caller pass a stand-in (e.g. the checkpoint's own "franka" assets,
-        # the same physical Panda arm LIBERO uses) via
-        # create_trained_policy's `norm_stats` override — actions will be
-        # normalized for whatever embodiment norm_stats_dir names, not a
-        # LIBERO-trained policy, since no such checkpoint exists publicly.
+        # A real LIBERO-finetuned inference checkpoint IS publicly released
+        # at gs://openpi-assets/checkpoints/pi05_libero, with its own
+        # assets/physical-intelligence/libero/norm_stats.json — confirmed
+        # by loading it directly (2026-07-14), no override needed. This
+        # correction supersedes an earlier, wrong assumption in this file
+        # that only the un-finetuned pi05_base existed publicly and a
+        # stand-in embodiment's norm_stats had to be substituted; that was
+        # based on checking pi05_base's own assets/ dir only, not the
+        # openpi docs' separate checkpoints table. `norm_stats_dir` is kept
+        # as a general escape hatch (e.g. for a checkpoint/config
+        # combination that genuinely has no bundled norm_stats), not
+        # because it's required for LIBERO.
         self.norm_stats_dir = norm_stats_dir
         self._policy = None
 

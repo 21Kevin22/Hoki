@@ -1,12 +1,12 @@
-"""A second, targeted demo: since scripts/run_demo.py's pi0.5 (running
-on franka norm_stats, not a LIBERO-trained policy — see README/session
-notes on why no LIBERO-finetuned pi0.5 checkpoint exists publicly)
-doesn't reliably move the arm over the target, natural self-occlusion
-never triggered in that rollout. This script forces the SELF-occlusion
-path on real LIBERO frames (not synthetic noise) so the actual
-mechanism — arm-mask detection -> MMaDA sample_arm_free_image() ->
-PlausibilityChecker -> right_wrist_0_rgb injection — is visible on
-camera, and writes a side-by-side comparison video.
+"""A second, targeted demo: natural self-occlusion is rare within a
+short LIBERO rollout even with the real pi05_libero-finetuned
+checkpoint (scripts/run_demo.py), since it only fires when the arm
+happens to cross in front of the target from the agentview camera.
+This script forces the SELF-occlusion path on real LIBERO frames (not
+synthetic noise) so the actual mechanism — arm-mask detection -> MMaDA
+sample_arm_free_image() -> PlausibilityChecker -> right_wrist_0_rgb
+injection — is visible on camera every run, and writes a side-by-side
+comparison video.
 """
 
 import sys

@@ -159,8 +159,14 @@ segmentation-instance name as `"Panda0"` to compute
 `reset()` instead of editing the vendored file.
 
 Checkpoints (also not pip-installable, fetched on first use):
-- pi0.5 base: `gs://openpi-assets/checkpoints/pi05_base` (auto-downloaded
-  by `openpi.shared.download`, see `configs/control_backbone/pi05.yaml`)
+- pi0.5, LIBERO-finetuned: `gs://openpi-assets/checkpoints/pi05_libero`
+  (auto-downloaded by `openpi.shared.download`, see
+  `configs/control_backbone/pi05.yaml`) — a real inference-ready
+  checkpoint with its own `assets/physical-intelligence/libero/norm_stats.json`,
+  not the un-finetuned `pi05_base`. (An earlier version of this file
+  claimed no LIBERO-finetuned pi0.5 checkpoint existed publicly — wrong;
+  that was checked against `pi05_base`'s own assets/ dir only, not
+  openpi's separate released-checkpoints list.)
 - MMaDA-8B: `Gen-Verse/MMaDA-8B-MixCoT` on the HF Hub (CoT-tuned variant,
   see `configs/world_model/mmada.yaml`)
 - MAGVIT-v2 tokenizer: `showlab/magvitv2` on the HF Hub
