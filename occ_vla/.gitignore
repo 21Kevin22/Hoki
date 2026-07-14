@@ -4,7 +4,14 @@ __pycache__/
 *.egg-info/
 build/
 .venv/
+.venv_mmada/
 
 # vendored reference implementations, reproduced by scripts/setup_third_party.sh
 third_party/openpi/
 third_party/mmada/
+
+# demo run outputs (checkpoints/media) — reproducible via scripts/run_demo*.py, not checked in
+demo_output.mp4
+demo_mechanism.png
+demo_mechanism.mp4
+

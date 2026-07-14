@@ -14,11 +14,12 @@ job is only to produce the candidate image.
 import math
 from dataclasses import dataclass
 
+import cv2
 import numpy as np
 import torch
 
 from occ_vla.world_model.mmada import MASK_TOKEN_ID, MMaDAWorldModel
-from occ_vla.world_model.tokenizer import SUBGOAL_NUM_TOKENS
+from occ_vla.world_model.tokenizer import SUBGOAL_IMAGE_SIDE, SUBGOAL_NUM_TOKENS
 
 ARM_OCC_THRESHOLD = 0.30
 TOKEN_GRID_SIDE = int(math.isqrt(SUBGOAL_NUM_TOKENS))  # 32x32 for 1024 tokens
@@ -70,9 +71,30 @@ class ArmFreeSubgoalGenerator:
         instruction: str,
         horizon: int = DEFAULT_SUBGOAL_HORIZON,
     ) -> SubgoalResult:
-        image_ids = self.world_model.tokenizer.encode(image)  # (SUBGOAL_NUM_TOKENS,)
+        # MagvitV2Tokenizer.encode requires exactly SUBGOAL_IMAGE_SIDE^2 input
+        # (verified against the live model: token count scales with input
+        # resolution, 1024 only comes out of a 512x512 input) — the caller's
+        # camera frame is whatever size the robot's camera produces, so
+        # resize here rather than pushing this constraint out to every caller.
+        if image.shape[0] != SUBGOAL_IMAGE_SIDE or image.shape[1] != SUBGOAL_IMAGE_SIDE:
+            image = cv2.resize(image, (SUBGOAL_IMAGE_SIDE, SUBGOAL_IMAGE_SIDE), interpolation=cv2.INTER_AREA)
+        if arm_pixel_mask.shape[0] != SUBGOAL_IMAGE_SIDE or arm_pixel_mask.shape[1] != SUBGOAL_IMAGE_SIDE:
+            arm_pixel_mask = (
+                cv2.resize(
+                    arm_pixel_mask.astype(np.uint8),
+                    (SUBGOAL_IMAGE_SIDE, SUBGOAL_IMAGE_SIDE),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+                > 0
+            )
+
+        image_ids = self.world_model.tokenizer.encode(image)  # (SUBGOAL_NUM_TOKENS,), raw 0..codebook_size-1
         token_mask = self._arm_token_mask(arm_pixel_mask)
-        masked_ids = np.where(token_mask, MASK_TOKEN_ID, image_ids)
+        # Non-mask positions must be offset into MMaDA's combined vocab
+        # (image_token_offset's docstring); MASK_TOKEN_ID itself is a
+        # reserved id, not part of the codebook range, so it's untouched.
+        offset_image_ids = image_ids + self.world_model.image_token_offset
+        masked_ids = np.where(token_mask, MASK_TOKEN_ID, offset_image_ids)
 
         prompt = self._build_subgoal_prompt(instruction, horizon)
         batch = self.world_model.build_prompt(prompt, torch.from_numpy(masked_ids).long().unsqueeze(0))
