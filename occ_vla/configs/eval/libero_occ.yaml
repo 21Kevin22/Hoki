@@ -1,0 +1,6 @@
+name: libero-occ
+libero_root: third_party/openpi/third_party/libero  # cloned by scripts/setup_third_party.sh
+benchmark_suite: libero_spatial  # or libero_object | libero_goal | libero_10 | libero_90 | libero_100
+difficulty: medium  # light | medium | heavy
+task_ids: [0]  # indices into the chosen suite; benchmark.get_task_names() lists them
+control_freq: 20  # LIBERO's native control_freq; pi0.5 outputs 50Hz action chunks, resample before env.step()

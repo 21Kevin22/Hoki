@@ -1,0 +1,7 @@
+name: pklp
+optical_flow:
+  backbone: raft
+  checkpoint_path: null
+  patch_size: 16
+extrapolation_steps: 5
+device: cuda

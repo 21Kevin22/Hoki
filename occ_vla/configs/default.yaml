@@ -1,0 +1,6 @@
+defaults:
+  - control_backbone: pi05
+  - world_model: mmada
+  - pklp: pklp
+  - eval: libero_occ
+  - _self_

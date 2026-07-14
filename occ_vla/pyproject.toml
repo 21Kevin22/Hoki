@@ -1,0 +1,44 @@
+[project]
+name = "occ_vla"
+version = "0.1.0"
+description = "Occlusion-aware VLA: pi0.5 control backbone + MMaDA-8B world model + PKLP physical prediction, evaluated on LIBERO-Occ"
+# matches third_party/openpi's own requires-python (>=3.11); see README Setup.
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.2",
+    "transformers>=4.44",
+    "einops",
+    "numpy",
+    "opencv-python",
+    "omegaconf",
+    "hydra-core",
+    "pillow",
+]
+
+[project.optional-dependencies]
+# RAFT optical flow for PKLP
+pklp = ["torchvision"]
+# MMaDA-8B needs mmada's own pinned versions; see
+# third_party/mmada/requirements.txt (installed separately, not merged
+# here — its deepspeed/lightning/accelerate stack is easiest to keep
+# isolated from openpi's jax stack). world-model here is only what
+# occ_vla's own wrapper code (world_model/*.py) imports directly.
+world-model = ["diffusers"]
+# LIBERO-Occ evaluation harness (LIBERO itself is installed separately, see README).
+# Pins verified against a live run (2026-07-14): LIBERO's vendored env code
+# imports robosuite.environments.manipulation.single_arm_env, removed in
+# robosuite>=1.5; robosuite 1.4.1's OSC controller in turn calls
+# mujoco.mj_fullM() with the pre-3.1 argument order, which mujoco>=3.1
+# no longer accepts. 1.4.1 + 3.0.0 is the intersection that imports and
+# runs. See README "Setup" for the other two runtime workarounds
+# (torch.load weights_only, and a LIBERO robot-instance-name mismatch)
+# needed on top of these pins.
+eval = ["robosuite==1.4.1", "mujoco==3.0.0", "cloudpickle", "gym", "thop"]
+dev = ["pytest", "ruff"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
