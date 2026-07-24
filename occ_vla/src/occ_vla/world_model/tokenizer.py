@@ -10,6 +10,7 @@ import torch
 
 SUBGOAL_NUM_TOKENS = 1024  # seq_len used by MMadaModelLM.t2i_generate
 SUBGOAL_IMAGE_SIDE = 512  # MAGVIT-v2 downsamples 16x spatially: 512/16=32, 32*32=1024
+CODEBOOK_SIZE = 8192  # confirmed against the live model's startup log ("Look-up free quantizer with codebook size: 8192")
 
 _MMADA_ROOT = Path(__file__).resolve().parents[3] / "third_party" / "mmada"
 

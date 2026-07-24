@@ -15,7 +15,9 @@ from occ_vla.world_model.arm_free_subgoal import ArmFreeSubgoalGenerator  # noqa
 from occ_vla.world_model.mmada import MMaDAWorldModel  # noqa: E402
 from occ_vla.world_model.tokenizer import MagvitV2Tokenizer  # noqa: E402
 
-RPC_DIR = "/tmp/occ_vla_rpc/mmada"
+
+# Not /tmp -- see pi05_worker.py's RPC_DIR comment.
+RPC_DIR = str(_ROOT / ".rpc" / "mmada")
 
 
 def main():

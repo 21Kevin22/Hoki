@@ -38,6 +38,9 @@ see scripts/setup_third_party.sh):
 from dataclasses import dataclass
 from typing import Any
 
+import cv2
+import numpy as np
+
 from occ_vla.eval.metrics import Difficulty, SoccMetric
 from occ_vla.eval.occluder import OccluderPlacer
 
@@ -45,6 +48,11 @@ AGENTVIEW_KEY = "agentview_image"
 WRIST_KEY = "robot0_eye_in_hand_image"
 AGENTVIEW_SEGMENTATION_KEY = "agentview_segmentation_instance"
 LIBERO_CONTROL_HZ = 20
+# openpi's own LIBERO eval (third_party/openpi/examples/libero/main.py)
+# renders at 256 and only then resize_with_pad's down to the policy's
+# 224 input -- not a direct 224 render -- so this wrapper renders at the
+# same 256 by default and leaves the resize step to the caller.
+DEFAULT_CAMERA_RESOLUTION = 256
 
 
 @dataclass
@@ -52,6 +60,34 @@ class LiberoOccEnvConfig:
     benchmark_suite: str  # e.g. "libero_spatial", "libero_10"
     task_id: int
     difficulty: Difficulty
+    init_state_idx: int = 0
+    camera_resolution: int = DEFAULT_CAMERA_RESOLUTION
+    seed: int | None = None
+    # False skips OccluderPlacer entirely -- no box is inserted into the
+    # scene, so there is nothing for the robot to physically contact.
+    # Added after finding (2026-07-15 session) that the placed occluder
+    # box is a real collidable MuJoCo body sitting on the camera-target
+    # line, on the table, in the robot's own workspace -- pi0.5's
+    # gripper was observed repeatedly approaching/resting against the
+    # box itself instead of the task's real target object, confounding
+    # any conclusion about vision-only occlusion robustness with
+    # physical-obstacle and OOD-object-attraction effects. Callers
+    # wanting a *clean* visual-occlusion test should mask pixels in the
+    # rendered image directly (e.g. via the target's clear/baseline
+    # segmentation footprint) instead of relying on this env to inject
+    # a physical body.
+    place_occluder: bool = True
+    # Pixel-space clean occlusion test (2026-07-15 finding, see
+    # place_occluder above): blackens the target's clear/baseline
+    # segmentation footprint directly in the rendered agentview RGB
+    # every step, with zero 3D-scene footprint -- nothing to collide
+    # with or mistake for a real object, unlike OccluderPlacer's
+    # physical body. Independent of place_occluder; the standard clean
+    # config is place_occluder=False, pixel_mask=True. Requires calling
+    # capture_clear_baseline() once (after any settle-wait steps) before
+    # it takes effect -- see that method's docstring.
+    pixel_mask: bool = False
+    pixel_mask_dilate_px: int = 0
 
 
 class LiberoOccEnv:
@@ -66,6 +102,9 @@ class LiberoOccEnv:
         self._env: Any = None
         self._benchmark: Any = None
         self.last_s_occ: float | None = None
+        self.target_body_name: str | None = None
+        self._target_mask_clear: np.ndarray | None = None
+        self._pixel_mask_region: np.ndarray | None = None
 
     def _build_env(self):
         import sys  # noqa: PLC0415
@@ -80,8 +119,16 @@ class LiberoOccEnv:
         self._benchmark = benchmark.get_benchmark(self.config.benchmark_suite)()
         bddl_file = self._benchmark.get_task_bddl_file_path(self.config.task_id)
         self._env = SegmentationRenderEnv(
-            bddl_file_name=bddl_file, camera_names=["agentview", "robot0_eye_in_hand"]
+            bddl_file_name=bddl_file,
+            camera_names=["agentview", "robot0_eye_in_hand"],
+            camera_heights=self.config.camera_resolution,
+            camera_widths=self.config.camera_resolution,
         )
+        if self.config.seed is not None:
+            # openpi's eval script notes the seed affects object initial
+            # positions even under a fixed init_state -- see
+            # examples/libero/main.py's env.seed(seed) call.
+            self._env.seed(self.config.seed)
 
     def _fix_segmentation_robot_id(self) -> None:
         """Work around the "Panda0" vs "MountedPanda0" mismatch (see
@@ -108,10 +155,18 @@ class LiberoOccEnv:
         self._env.reset()
         self._fix_segmentation_robot_id()
         init_states = self._benchmark.get_task_init_states(self.config.task_id)
-        self._env.set_init_state(init_states[0])
+        self._env.set_init_state(init_states[self.config.init_state_idx])
+        self.target_body_name = self._env.obj_of_interest[0]
+        # A new episode invalidates any previously captured baseline.
+        self._target_mask_clear = None
+        self._pixel_mask_region = None
 
-        target_body_name = self._env.obj_of_interest[0]
-        spec = self.occluder_placer.place(self._env, target_body_name, self.config.difficulty)
+        if not self.config.place_occluder:
+            self.last_s_occ = None
+            baseline_state = self._env.get_sim_state()
+            return self._env.regenerate_obs_from_state(baseline_state)
+
+        spec = self.occluder_placer.place(self._env, self.target_body_name, self.config.difficulty)
         self.last_s_occ = spec.achieved_s_occ
 
         # occluder_placer.search() leaves self._env reset onto the winning
@@ -121,7 +176,66 @@ class LiberoOccEnv:
         baseline_state = self._env.get_sim_state()
         return self._env.regenerate_obs_from_state(baseline_state)
 
+    def capture_clear_baseline(self, obs: dict) -> None:
+        """Snapshot the target's clear/unoccluded segmentation footprint,
+        to diff future frames against (CLAUDE.md item 7: clear-baseline
+        diff, not live-vs-live intersection -- MuJoCo segmentation is
+        single-layer, so a pixel where the arm occludes the target gets
+        only the *arm's* id, never both).
+
+        Call this once per episode, after any settle-wait steps (a few
+        dummy `step()` calls to let dropped objects finish falling) --
+        not right at `reset()` -- so the "clear" footprint reflects the
+        object's actual resting pose, not its initial drop position.
+        Required before `pixel_mask`, `compute_arm_s_occ`, or
+        `compute_total_occ` are used.
+        """
+        if self._env is None or self.target_body_name is None:
+            raise RuntimeError("call reset() first")
+        seg_dict = self._env.get_segmentation_instances(obs[AGENTVIEW_SEGMENTATION_KEY])
+        target_mask_raw = seg_dict.get(self.target_body_name)
+        if target_mask_raw is None:
+            self._target_mask_clear = np.zeros(obs[AGENTVIEW_SEGMENTATION_KEY].shape[:2], dtype=bool)
+        else:
+            self._target_mask_clear = target_mask_raw.squeeze(-1) != 0
+
+        region = self._target_mask_clear
+        if self.config.pixel_mask_dilate_px > 0:
+            kernel = np.ones((self.config.pixel_mask_dilate_px, self.config.pixel_mask_dilate_px), np.uint8)
+            region = cv2.dilate(region.astype(np.uint8), kernel).astype(bool)
+        self._pixel_mask_region = region
+
+    def compute_arm_s_occ(self, obs: dict) -> float:
+        """Fraction of the target's clear/baseline footprint currently
+        occluded specifically by the arm (not any other occluder)."""
+        if self._target_mask_clear is None:
+            raise RuntimeError("call capture_clear_baseline() first")
+        seg_dict = self._env.get_segmentation_instances(obs[AGENTVIEW_SEGMENTATION_KEY])
+        target_mask_now_raw = seg_dict.get(self.target_body_name)
+        if target_mask_now_raw is None:
+            return 0.0
+        target_mask_now = target_mask_now_raw.squeeze(-1) != 0
+        arm_mask = seg_dict["robot"].squeeze(-1) != 0
+        return self.metric.compute(self._target_mask_clear, (~target_mask_now) & arm_mask)
+
+    def compute_total_occ(self, obs: dict) -> float:
+        """Fraction of the target's clear/baseline footprint no longer
+        visible right now, regardless of what's blocking it (arm,
+        placed scene occluder, or both)."""
+        if self._target_mask_clear is None:
+            raise RuntimeError("call capture_clear_baseline() first")
+        seg_dict = self._env.get_segmentation_instances(obs[AGENTVIEW_SEGMENTATION_KEY])
+        target_mask_now_raw = seg_dict.get(self.target_body_name)
+        if target_mask_now_raw is None:
+            return 0.0
+        target_mask_now = target_mask_now_raw.squeeze(-1) != 0
+        return self.metric.compute(self._target_mask_clear, ~target_mask_now)
+
     def step(self, action):
         if self._env is None:
             raise RuntimeError("call reset() first")
-        return self._env.step(action)
+        obs, reward, done, info = self._env.step(action)
+        if self.config.pixel_mask and self._pixel_mask_region is not None:
+            obs[AGENTVIEW_KEY] = obs[AGENTVIEW_KEY].copy()
+            obs[AGENTVIEW_KEY][self._pixel_mask_region] = 0
+        return obs, reward, done, info
