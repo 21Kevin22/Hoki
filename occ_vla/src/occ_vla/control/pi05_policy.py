@@ -71,10 +71,19 @@ class Pi05Policy:
         checkpoint_dir: str,
         pytorch_device: str | None = None,
         norm_stats_dir: str | None = None,
+        use_occ_vla_inputs: bool = False,
     ):
         self.config_name = config_name
         self.checkpoint_dir = checkpoint_dir
         self.pytorch_device = pytorch_device
+        # When True, builds the policy with
+        # control/occ_vla_policy_config.py::OccVlaLeRobotLiberoDataConfig
+        # instead of the stock LIBERO data config -- the actual wiring
+        # for a generated subgoal_image/cot_anchor to reach the model
+        # (see control/observation_injection.py::OccVlaLiberoInputs).
+        # Defaults to False: every experiment run before 2026-07-20 used
+        # the stock path and must stay reproducible unchanged.
+        self.use_occ_vla_inputs = use_occ_vla_inputs
         # A real LIBERO-finetuned inference checkpoint IS publicly released
         # at gs://openpi-assets/checkpoints/pi05_libero, with its own
         # assets/physical-intelligence/libero/norm_stats.json — confirmed
@@ -97,7 +106,12 @@ class Pi05Policy:
         from openpi.shared import normalize as _normalize  # noqa: PLC0415
         from openpi.training import config as openpi_config  # noqa: PLC0415
 
-        train_config = openpi_config.get_config(self.config_name)
+        if self.use_occ_vla_inputs:
+            from occ_vla.control.occ_vla_policy_config import build_occ_vla_train_config  # noqa: PLC0415
+
+            train_config = build_occ_vla_train_config(self.config_name)
+        else:
+            train_config = openpi_config.get_config(self.config_name)
         norm_stats = _normalize.load(self.norm_stats_dir) if self.norm_stats_dir else None
         self._policy = policy_config.create_trained_policy(
             train_config, self.checkpoint_dir, pytorch_device=self.pytorch_device, norm_stats=norm_stats

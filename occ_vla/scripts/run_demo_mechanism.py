@@ -27,7 +27,9 @@ from occ_vla.eval.libero_occ_env import AGENTVIEW_KEY, LiberoOccEnv, LiberoOccEn
 from occ_vla.eval.metrics import Difficulty  # noqa: E402
 from occ_vla.integration.uncertainty import PlausibilityChecker  # noqa: E402
 
-MMADA_RPC_DIR = "/tmp/occ_vla_rpc/mmada"
+# Not /tmp -- this environment has cleared /tmp mid-session before,
+# silently killing workers and losing RPC state.
+MMADA_RPC_DIR = str(_ROOT / ".rpc" / "mmada")
 INSTRUCTION = "pick up the black bowl and place it on the plate"
 
 

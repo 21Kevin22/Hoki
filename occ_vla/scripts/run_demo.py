@@ -30,8 +30,10 @@ from occ_vla.eval.metrics import Difficulty  # noqa: E402
 from occ_vla.integration.occlusion_router import OcclusionRouter, OcclusionSignals, OcclusionSource  # noqa: E402
 from occ_vla.integration.uncertainty import PlausibilityChecker  # noqa: E402
 
-PI05_RPC_DIR = "/tmp/occ_vla_rpc/pi05"
-MMADA_RPC_DIR = "/tmp/occ_vla_rpc/mmada"
+# Not /tmp -- this environment has cleared /tmp mid-session before,
+# silently killing workers and losing RPC state.
+PI05_RPC_DIR = str(_ROOT / ".rpc" / "pi05")
+MMADA_RPC_DIR = str(_ROOT / ".rpc" / "mmada")
 MAX_STEPS = 60
 INSTRUCTION = "pick up the black bowl and place it on the plate"
 

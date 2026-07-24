@@ -19,10 +19,36 @@ from pathlib import Path
 
 import torch
 
-from occ_vla.world_model.tokenizer import SUBGOAL_NUM_TOKENS, MagvitV2Tokenizer
+from occ_vla.world_model.tokenizer import CODEBOOK_SIZE, SUBGOAL_NUM_TOKENS, MagvitV2Tokenizer
 
 MASK_TOKEN_ID = 126336
 DEFAULT_TIMESTEPS = 18  # MMadaModelLM.t2i_generate default ("ideal" per MaskGIT paper)
+
+
+def _compounding_temperature_schedule(timesteps: int, initial_temperature: float = 1.0) -> list[float]:
+    """Reproduces MMadaModelLM.t2i_generate's temperature recurrence for
+    mask_by_random_topk (third_party/mmada/models/modeling_mmada.py,
+    `temperature = temperature * (1.0 - ratio)` at both line 203 and the
+    stepwise variant's line 642): temperature is decayed from the
+    *running* value each step, not recomputed fresh from
+    initial_temperature every time -- temperature_i = temperature_{i-1}
+    * (1 - ratio_i), ratio_i = (i+1)/timesteps.
+
+    This compounds much faster than `initial_temperature * (1 -
+    ratio_i)` evaluated fresh each step (which is what an earlier
+    version of _denoise_impl below did, missing the compounding): e.g.
+    for timesteps=18, step 8 is ~0.044 here vs ~0.5 non-compounding --
+    over 10x more Gumbel-noise randomness in mask_by_random_topk's
+    token-confidence ranking throughout the middle of the schedule,
+    every one of the 70+ MMaDA generations logged before this fix was
+    found (t08_mmada_log/) used the non-compounding version."""
+    temperature = initial_temperature
+    schedule = []
+    for step in range(timesteps):
+        ratio = 1.0 * (step + 1) / timesteps
+        temperature = temperature * (1.0 - ratio)
+        schedule.append(temperature)
+    return schedule
 
 _MMADA_ROOT = Path(__file__).resolve().parents[3] / "third_party" / "mmada"
 
@@ -99,22 +125,81 @@ class MMaDAWorldModel:
         """Iteratively unmask MASK_TOKEN_ID positions in batch.input_ids.
         Returns the resolved image-token ids, shape (1, SUBGOAL_NUM_TOKENS).
 
-        `t2i_generate` reads `uni_prompting` out of **kwargs (it's not a
-        named parameter) — confirmed against the live model: omitting it
-        raises AttributeError('NoneType' object has no attribute
-        'text_tokenizer') since the function defaults it to None via
-        `kwargs.get("uni_prompting", None)`. inference_t2i.py's own call
-        site passes it the same way (models/modeling_mmada.py:146,576)."""
+        This is NOT a call to `MMadaModelLM.t2i_generate` — it's a
+        reimplementation of the same MaskGIT-style loop (reusing the
+        vendored `cosine_schedule`/`mask_by_random_topk` helpers) with one
+        deliberate change: the per-step reveal-count schedule is driven by
+        the number of tokens actually masked in `batch.input_ids`, not by
+        `SUBGOAL_NUM_TOKENS` (1024, the full image region).
+
+        `t2i_generate` hardcodes `mask_len = floor(num_vq_tokens *
+        mask_ratio)` with `num_vq_tokens = seq_len = 1024` — correct for
+        its intended use (from-scratch generation, where all 1024 tokens
+        start masked) but wrong for arm_free_subgoal.py's inpainting use,
+        where only the arm's ~13% of tokens (~130/1024) start masked.
+        Traced through the schedule: for the first ~16 of
+        DEFAULT_TIMESTEPS=18 steps, `1024 * mask_ratio` stays far above
+        the true remaining-masked count, so the
+        `min(unknown_count - 1, mask_len)` clamp always picks the small
+        side and only ONE token gets confidently committed per step — then
+        the remaining ~88% of the masked region is dumped out in the last
+        1-2 steps at near-zero temperature. That's close to a single
+        unrefined resample, not the intended gradual coarse-to-fine
+        denoising, and matches exactly what was observed: every one of 70
+        logged t08 generations (t08_mmada_log/calibration_summary.json)
+        showed the same garbled/blob-like held-object artifact regardless
+        of PlausibilityChecker score — a generation-quality bug, not a
+        metric-calibration issue. Driving the schedule off the actual
+        initial masked-token count instead fixes the reveal-per-step
+        arithmetic for any mask size without touching the vendored file."""
         if self._model is None:
             raise RuntimeError("call load() first")
-        return self._model.t2i_generate(
-            input_ids=batch.input_ids,
-            attention_mask=batch.attention_mask,
-            timesteps=timesteps,
-            seq_len=SUBGOAL_NUM_TOKENS,
-            mask_token_id=MASK_TOKEN_ID,
-            uni_prompting=self._uni_prompting,
-        )
+        from models.sampling import cosine_schedule, mask_by_random_topk  # noqa: PLC0415 (vendored helper, reused not duplicated)
+
+        return self._denoise_impl(batch, timesteps, cosine_schedule, mask_by_random_topk)
+
+    @torch.no_grad()
+    def _denoise_impl(self, batch, timesteps, cosine_schedule, mask_by_random_topk):
+        input_ids = batch.input_ids.clone()
+        attention_mask = batch.attention_mask
+        text_vocab = len(self._uni_prompting.text_tokenizer)
+        num_vq_tokens = SUBGOAL_NUM_TOKENS  # image-region slice width in the token *layout* — unrelated to the schedule fix above
+
+        image_slice = input_ids[:, -(num_vq_tokens + 1) : -1].clone()
+        ids_minus_vocab = torch.where(image_slice == MASK_TOKEN_ID, MASK_TOKEN_ID, image_slice - text_vocab)
+        initial_mask_count = int((ids_minus_vocab == MASK_TOKEN_ID).sum().item())
+
+        temperature_schedule = _compounding_temperature_schedule(timesteps)
+        sampled_ids = ids_minus_vocab
+        for step in range(timesteps):
+            attention_bias = (attention_mask[:, :, None] & attention_mask[:, None, :]).bool().unsqueeze(1)
+            logits = self._model(input_ids, attention_bias=attention_bias).logits
+            logits = logits[:, -(num_vq_tokens + 1) : -1, text_vocab : text_vocab + CODEBOOK_SIZE]
+
+            probs = logits.softmax(dim=-1)
+            sampled = probs.reshape(-1, logits.size(-1))
+            sampled_ids = torch.multinomial(sampled, 1)[:, 0].view(*logits.shape[:-1])
+
+            unknown_map = ids_minus_vocab == MASK_TOKEN_ID
+            sampled_ids = torch.where(unknown_map, sampled_ids, ids_minus_vocab)
+
+            ratio = 1.0 * (step + 1) / timesteps
+            mask_ratio = cosine_schedule(torch.tensor(ratio))
+            selected_probs = torch.gather(probs, -1, sampled_ids.long()[..., None]).squeeze(-1)
+            selected_probs = torch.where(unknown_map, selected_probs, torch.finfo(selected_probs.dtype).max)
+
+            # the fix: initial_mask_count in place of t2i_generate's num_vq_tokens (1024)
+            mask_len = (initial_mask_count * mask_ratio).floor().unsqueeze(0).to(logits.device)
+            mask_len = torch.max(
+                torch.tensor([1], device=logits.device),
+                torch.min(unknown_map.sum(dim=-1, keepdim=True) - 1, mask_len),
+            )
+
+            masking = mask_by_random_topk(mask_len, selected_probs, temperature_schedule[step])
+            input_ids[:, -(num_vq_tokens + 1) : -1] = torch.where(masking, MASK_TOKEN_ID, sampled_ids + text_vocab)
+            ids_minus_vocab = torch.where(masking, MASK_TOKEN_ID, sampled_ids)
+
+        return sampled_ids
 
     def generate_text(self, prompt: str, max_new_tokens: int = 128, steps: int = 128) -> str:
         """Block-wise diffusion text decoding via MMadaModelLM.mmu_generate
