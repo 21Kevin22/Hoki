@@ -1,0 +1,88 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 8,
+    "num_trials": 10,
+    "checkpoint": "/home/ubuntu/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa",
+    "vjepa_checkpoint": null,
+    "midlayer_split_frac": 0.67,
+    "results_path": "oft_wrist_partial_midlayer_oracle_n10_split067.json",
+    "conditions": [
+      "wrist_partial_midlayer_oracle"
+    ]
+  },
+  "results": {
+    "wrist_partial_midlayer_oracle": [
+      {
+        "episode": 0,
+        "success": true,
+        "done_step": 390,
+        "n_calls": 48,
+        "wall_s": 90.00785970687866
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 123.69255018234253
+      },
+      {
+        "episode": 2,
+        "success": true,
+        "done_step": 387,
+        "n_calls": 48,
+        "wall_s": 91.75193953514099
+      },
+      {
+        "episode": 3,
+        "success": true,
+        "done_step": 385,
+        "n_calls": 47,
+        "wall_s": 91.33131837844849
+      },
+      {
+        "episode": 4,
+        "success": true,
+        "done_step": 437,
+        "n_calls": 54,
+        "wall_s": 103.80519199371338
+      },
+      {
+        "episode": 5,
+        "success": true,
+        "done_step": 401,
+        "n_calls": 49,
+        "wall_s": 94.69254732131958
+      },
+      {
+        "episode": 6,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 125.22512316703796
+      },
+      {
+        "episode": 7,
+        "success": true,
+        "done_step": 384,
+        "n_calls": 47,
+        "wall_s": 90.75073599815369
+      },
+      {
+        "episode": 8,
+        "success": true,
+        "done_step": 399,
+        "n_calls": 49,
+        "wall_s": 95.22980523109436
+      },
+      {
+        "episode": 9,
+        "success": true,
+        "done_step": 516,
+        "n_calls": 64,
+        "wall_s": 122.74177956581116
+      }
+    ]
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 8,
+    "num_trials": 3,
+    "checkpoint": "moojink/openvla-7b-oft-finetuned-libero-10",
+    "results_path": "oft_camera_dropout_results_libero_10_task8_moka_pots_n3_pilot.json",
+    "conditions": [
+      "baseline",
+      "agentview_occluded",
+      "wrist_occluded"
+    ]
+  },
+  "results": {
+    "baseline": [
+      {
+        "episode": 0,
+        "success": true,
+        "done_step": 377,
+        "n_calls": 46,
+        "wall_s": 84.73315858840942
+      },
+      {
+        "episode": 1,
+        "success": true,
+        "done_step": 351,
+        "n_calls": 43,
+        "wall_s": 74.55160331726074
+      },
+      {
+        "episode": 2,
+        "success": true,
+        "done_step": 383,
+        "n_calls": 47,
+        "wall_s": 81.99177050590515
+      }
+    ],
+    "agentview_occluded": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.8273994922638
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.82569241523743
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.69349718093872
+      }
+    ],
+    "wrist_occluded": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.37669682502747
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.17658543586731
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.37935471534729
+      }
+    ]
+  }
+}

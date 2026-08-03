@@ -1,0 +1,38 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 8,
+    "num_trials": 3,
+    "checkpoint": "/home/ubuntu/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa",
+    "vjepa_checkpoint": null,
+    "results_path": "oft_wrist_partial_oracle_n3.json",
+    "conditions": [
+      "wrist_partial_oracle"
+    ]
+  },
+  "results": {
+    "wrist_partial_oracle": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 190.23708987236023
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 191.1578347682953
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 191.36686825752258
+      }
+    ]
+  }
+}
