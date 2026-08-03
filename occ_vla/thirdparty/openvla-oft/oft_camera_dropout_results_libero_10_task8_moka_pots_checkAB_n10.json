@@ -1,0 +1,305 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 8,
+    "num_trials": 10,
+    "checkpoint": "moojink/openvla-7b-oft-finetuned-libero-10",
+    "results_path": "oft_camera_dropout_results_libero_10_task8_moka_pots_checkAB_n10.json",
+    "conditions": [
+      "agentview_hold",
+      "wrist_hold",
+      "agentview_partial",
+      "wrist_partial"
+    ]
+  },
+  "results": {
+    "agentview_hold": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.13105082511902
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.04802227020264
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 114.12692260742188
+      },
+      {
+        "episode": 3,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.66904544830322
+      },
+      {
+        "episode": 4,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.24547123908997
+      },
+      {
+        "episode": 5,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.95563554763794
+      },
+      {
+        "episode": 6,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.38060736656189
+      },
+      {
+        "episode": 7,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.35274577140808
+      },
+      {
+        "episode": 8,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.52651047706604
+      },
+      {
+        "episode": 9,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.94974064826965
+      }
+    ],
+    "wrist_hold": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.30703496932983
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.09511089324951
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.13938689231873
+      },
+      {
+        "episode": 3,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.75779438018799
+      },
+      {
+        "episode": 4,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.1001603603363
+      },
+      {
+        "episode": 5,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.99388313293457
+      },
+      {
+        "episode": 6,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.51075887680054
+      },
+      {
+        "episode": 7,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.32727670669556
+      },
+      {
+        "episode": 8,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.09331154823303
+      },
+      {
+        "episode": 9,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.03981900215149
+      }
+    ],
+    "agentview_partial": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.01271843910217
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.84259748458862
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.23020362854004
+      },
+      {
+        "episode": 3,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.65138411521912
+      },
+      {
+        "episode": 4,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.84814500808716
+      },
+      {
+        "episode": 5,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.81432914733887
+      },
+      {
+        "episode": 6,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.07334017753601
+      },
+      {
+        "episode": 7,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.99676442146301
+      },
+      {
+        "episode": 8,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.67460227012634
+      },
+      {
+        "episode": 9,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.89517164230347
+      }
+    ],
+    "wrist_partial": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.27638030052185
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.92152333259583
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.30587577819824
+      },
+      {
+        "episode": 3,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.07240581512451
+      },
+      {
+        "episode": 4,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.32137393951416
+      },
+      {
+        "episode": 5,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.14707469940186
+      },
+      {
+        "episode": 6,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.45321393013
+      },
+      {
+        "episode": 7,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.39963293075562
+      },
+      {
+        "episode": 8,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.3315544128418
+      },
+      {
+        "episode": 9,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.14964723587036
+      }
+    ]
+  }
+}

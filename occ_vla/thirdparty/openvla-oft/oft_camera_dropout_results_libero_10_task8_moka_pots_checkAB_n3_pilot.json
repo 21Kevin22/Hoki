@@ -1,0 +1,109 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 8,
+    "num_trials": 3,
+    "checkpoint": "moojink/openvla-7b-oft-finetuned-libero-10",
+    "results_path": "oft_camera_dropout_results_libero_10_task8_moka_pots_checkAB_n3_pilot.json",
+    "conditions": [
+      "agentview_hold",
+      "wrist_hold",
+      "agentview_partial",
+      "wrist_partial"
+    ]
+  },
+  "results": {
+    "agentview_hold": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 110.57991194725037
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.02870535850525
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 114.00993800163269
+      }
+    ],
+    "wrist_hold": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.01003623008728
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.13007664680481
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.57579016685486
+      }
+    ],
+    "agentview_partial": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.12399411201477
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.903311252594
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.81674909591675
+      }
+    ],
+    "wrist_partial": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.84850263595581
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.8453950881958
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.2151255607605
+      }
+    ]
+  }
+}

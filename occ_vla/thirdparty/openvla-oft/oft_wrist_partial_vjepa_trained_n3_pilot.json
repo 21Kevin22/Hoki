@@ -1,0 +1,62 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 8,
+    "num_trials": 3,
+    "checkpoint": "/home/ubuntu/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa",
+    "vjepa_checkpoint": "vjepa_predictor_smoke_test.pt",
+    "results_path": "oft_wrist_partial_vjepa_trained_n3_pilot.json",
+    "conditions": [
+      "baseline",
+      "wrist_partial_vjepa"
+    ]
+  },
+  "results": {
+    "baseline": [
+      {
+        "episode": 0,
+        "success": true,
+        "done_step": 377,
+        "n_calls": 46,
+        "wall_s": 78.96537399291992
+      },
+      {
+        "episode": 1,
+        "success": true,
+        "done_step": 380,
+        "n_calls": 47,
+        "wall_s": 81.4715645313263
+      },
+      {
+        "episode": 2,
+        "success": true,
+        "done_step": 383,
+        "n_calls": 47,
+        "wall_s": 82.08610606193542
+      }
+    ],
+    "wrist_partial_vjepa": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.22027850151062
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.3332941532135
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.56630992889404
+      }
+    ]
+  }
+}

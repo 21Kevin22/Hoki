@@ -1,0 +1,87 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 9,
+    "num_trials": 3,
+    "checkpoint": "/home/ubuntu/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa",
+    "vjepa_checkpoint": "vjepa_predictor_scaled_3000steps.pt",
+    "midlayer_split_frac": 0.67,
+    "results_path": "oft_mug_generalization_n3.json",
+    "conditions": [
+      "baseline",
+      "wrist_partial_midlayer_oracle",
+      "wrist_partial_vjepa"
+    ]
+  },
+  "results": {
+    "baseline": [
+      {
+        "episode": 0,
+        "success": true,
+        "done_step": 255,
+        "n_calls": 31,
+        "wall_s": 53.14014148712158
+      },
+      {
+        "episode": 1,
+        "success": true,
+        "done_step": 271,
+        "n_calls": 33,
+        "wall_s": 57.773558139801025
+      },
+      {
+        "episode": 2,
+        "success": true,
+        "done_step": 259,
+        "n_calls": 32,
+        "wall_s": 56.12004041671753
+      }
+    ],
+    "wrist_partial_midlayer_oracle": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 10,
+        "n_calls": 0,
+        "wall_s": 2.708461284637451
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 10,
+        "n_calls": 0,
+        "wall_s": 2.5730247497558594
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 10,
+        "n_calls": 0,
+        "wall_s": 2.5745582580566406
+      }
+    ],
+    "wrist_partial_vjepa": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.86613512039185
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.30653119087219
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.49251985549927
+      }
+    ]
+  }
+}

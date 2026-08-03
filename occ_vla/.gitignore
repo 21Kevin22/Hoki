@@ -15,3 +15,37 @@ demo_output.mp4
 demo_mechanism.png
 demo_mechanism.mp4
 
+# --- OpenVLA-OFT vjepa_predictor investigation (thirdparty/openvla-oft/) ---
+# Local-only notes for the pi0.5/MMaDA investigation, not meant for this repo.
+CLAUDE.md
+
+# Stray binary (not project source) sitting at the occ_vla root — flagged for
+# the user to inspect/remove, never intended for commit either way.
+/claude
+
+# Downloaded base-model checkpoints (each ~15GB, one per LIBERO suite) —
+# reproducible via huggingface_hub.snapshot_download, not versioned here.
+checkpoints/
+
+# Vendored LIBERO source checkout, reproducible via setup.
+.libero_oft_src/
+
+# Vendored reference repos not imported by any of our scripts.
+thirdparty/ManiCM/
+thirdparty/vjepa2/
+
+# Collected on-policy rollout / failure-probe training data — large,
+# reproducible via scripts/collect_oft_onpolicy_rollout_data.py /
+# scripts/collect_failure_probe_data.py.
+thirdparty/openvla-oft/oft_onpolicy_rollout_data*/
+thirdparty/openvla-oft/failure_probe_data*/
+thirdparty/openvla-oft/vjepa_error_diagnosis_raw.json
+thirdparty/openvla-oft/vjepa_error_diagnosis_*.png
+thirdparty/openvla-oft/vjepa_error_diagnosis_*.npy
+
+# Intermediate (mid-training) predictor checkpoints — only the final
+# vjepa_predictor_*.pt files are kept, not the periodic .stepNNNN snapshots.
+thirdparty/openvla-oft/*.pt.step*
+thirdparty/openvla-oft/*.pt.back.*
+thirdparty/openvla-oft/**/*.back.*
+

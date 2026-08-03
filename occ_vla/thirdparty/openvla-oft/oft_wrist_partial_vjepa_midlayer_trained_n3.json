@@ -1,0 +1,63 @@
+{
+  "args": {
+    "task_suite": "libero_10",
+    "task_id": 8,
+    "num_trials": 3,
+    "checkpoint": "/home/ubuntu/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa",
+    "vjepa_checkpoint": "vjepa_predictor_midlayer.pt",
+    "midlayer_split_frac": 0.67,
+    "results_path": "oft_wrist_partial_vjepa_midlayer_trained_n3.json",
+    "conditions": [
+      "baseline",
+      "wrist_partial_vjepa"
+    ]
+  },
+  "results": {
+    "baseline": [
+      {
+        "episode": 0,
+        "success": true,
+        "done_step": 377,
+        "n_calls": 46,
+        "wall_s": 79.80914545059204
+      },
+      {
+        "episode": 1,
+        "success": true,
+        "done_step": 374,
+        "n_calls": 46,
+        "wall_s": 79.83572268486023
+      },
+      {
+        "episode": 2,
+        "success": true,
+        "done_step": 361,
+        "n_calls": 44,
+        "wall_s": 76.60977721214294
+      }
+    ],
+    "wrist_partial_vjepa": [
+      {
+        "episode": 0,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.19233536720276
+      },
+      {
+        "episode": 1,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 113.43040037155151
+      },
+      {
+        "episode": 2,
+        "success": false,
+        "done_step": 530,
+        "n_calls": 65,
+        "wall_s": 112.93606472015381
+      }
+    ]
+  }
+}
