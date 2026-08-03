@@ -17,7 +17,9 @@ demo_mechanism.mp4
 
 # --- OpenVLA-OFT vjepa_predictor investigation (thirdparty/openvla-oft/) ---
 # Local-only notes for the pi0.5/MMaDA investigation, not meant for this repo.
-CLAUDE.md
+# Anchored to the occ_vla root only -- thirdparty/openvla-oft/CLAUDE.md is a
+# separate, intentionally-committed file for the OpenVLA-OFT investigation.
+/CLAUDE.md
 
 # Stray binary (not project source) sitting at the occ_vla root — flagged for
 # the user to inspect/remove, never intended for commit either way.
