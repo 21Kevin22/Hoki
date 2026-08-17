@@ -30,8 +30,21 @@ from prismatic.models.projectors import NoisyActionProjector, ProprioProjector
 from prismatic.vla.constants import (
     ACTION_DIM,
     ACTION_PROPRIO_NORMALIZATION_TYPE,
+    NormalizationType,
 )
-from prismatic.vla.datasets.rlds.utils.data_utils import NormalizationType
+# occ_vla local patch (2026-08-18): NormalizationType used to be imported
+# from prismatic.vla.datasets.rlds.utils.data_utils, which is just a
+# re-export of THIS SAME prismatic.vla.constants.NormalizationType -- but
+# reaching that submodule forces prismatic/vla/datasets/__init__.py's
+# eager `from .datasets import ...` chain to execute, which pulls in
+# dlimp/tensorflow/tensorflow_datasets (RLDS training-data loading, unused
+# by any inference path) and, on real Kaggle infra this session, an
+# unresolvable protobuf version conflict inside that chain
+# (tensorflow==2.15.0's protobuf ceiling vs. tensorflow_metadata's
+# generated code needing google.protobuf.runtime_version, added only in
+# protobuf>=5.26). Importing the same class directly from its actual home
+# (prismatic.vla.constants, which only imports stdlib sys/enum) sidesteps
+# the whole chain with zero behavior change.
 
 # Initialize important constants
 DATE = time.strftime("%Y_%m_%d")
