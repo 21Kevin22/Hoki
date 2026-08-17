@@ -301,6 +301,19 @@ def get_vla(cfg: Any) -> torch.nn.Module:
         check_model_logic_mismatch(cfg.pretrained_checkpoint)
 
     # Load the model
+    # occ_vla local patch (2026-08-18): pass device_map explicitly when
+    # quantizing. Without it, transformers' from_pretrained internally
+    # calls dispatch_model(...) -> model.to(device) regardless of
+    # quantization, and that .to() is unconditionally disallowed on a
+    # bitsandbytes 4-bit/8-bit model ("`.to` is not supported for `4-bit`
+    # or `8-bit` bitsandbytes models") -- a real ValueError observed on
+    # Kaggle infra this session, only once --load-in-4bit was actually
+    # exercised for the first time (the plain bf16 path below, `vla =
+    # vla.to(DEVICE)`, was never affected -- that's a different, later
+    # code path that only runs when NOT quantizing). device_map pins the
+    # whole model to DEVICE at load time instead, which accelerate is
+    # able to do for a quantized model.
+    quantizing = cfg.load_in_8bit or cfg.load_in_4bit
     vla = AutoModelForVision2Seq.from_pretrained(
         cfg.pretrained_checkpoint,
         # attn_implementation="flash_attention_2",
@@ -309,6 +322,7 @@ def get_vla(cfg: Any) -> torch.nn.Module:
         load_in_4bit=cfg.load_in_4bit,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
+        device_map={"": DEVICE} if quantizing else None,
     )
 
     # `vision_backbone.vjepa_predictor_dino`/`_siglip` are never present in
