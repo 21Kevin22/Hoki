@@ -103,14 +103,30 @@
 # Every cell below uses this instead of bare `subprocess.run(..., check=True)`
 # -- always prints stdout/stderr BEFORE raising, so a failure is always
 # debuggable from the cell output alone (see revision note 1 above).
+#
+# **Revision note (2026-08-18, revision 5)**: also strips/overrides
+# `MPLBACKEND` in the child process's environment. Jupyter/IPython sets
+# `MPLBACKEND=module://matplotlib_inline.backend_inline` in the KERNEL's
+# own environment (for inline plot rendering) -- `subprocess.run` inherits
+# the full parent environment by default, so every `VENV_PY` subprocess
+# call was getting this value too, and matplotlib's own `rcParams`
+# validation rejects it outside an actual IPython context (a real
+# `ValueError` observed crashing `run_oft_camera_dropout_eval.py`, which
+# imports matplotlib transitively via LIBERO's env wrapper). Forced to
+# `Agg` (a plain headless raster backend, appropriate here regardless --
+# there's no display) for every subprocess this helper launches.
 
 # %%
 import subprocess
 
 
 def run(cmd, cwd=None, check=True):
+    import os
+
+    env = os.environ.copy()
+    env["MPLBACKEND"] = "Agg"
     print("$ " + " ".join(cmd) + (f"   (cwd={cwd})" if cwd else ""))
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
     if result.stdout:
         print(result.stdout[-4000:])
     if result.stderr:
