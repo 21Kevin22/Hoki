@@ -322,27 +322,29 @@ def get_vla(cfg: Any) -> torch.nn.Module:
         load_in_4bit=cfg.load_in_4bit,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
-        # occ_vla local patch, take 3 (2026-08-18): "auto" was tried next
-        # and behaves DIFFERENTLY depending on GPU count, both badly --
-        # confirmed on real (2-GPU) Kaggle infra this session: with 2 GPUs
-        # visible, "auto" split the model's LAYERS across both cuda:0 AND
-        # cuda:1 (dispatch_model succeeds, no .to() call -- but our own
-        # code elsewhere pins vjepa_predictor_dino/_siglip and the action
-        # head/proprio projector to a single fixed DEVICE, causing a real
-        # cross-device RuntimeError the moment inference actually runs:
-        # "Expected all tensors to be on the same device... cuda:1 and
-        # cuda:0"). With only 1 GPU visible (CUDA_VISIBLE_DEVICES=0), "auto"
-        # instead degenerated back to the ORIGINAL ".to is not supported
-        # for 4-bit/8-bit models" failure the very first {"": DEVICE}
-        # attempt hit. The earlier {"": DEVICE} attempt's real bug was
-        # passing a `torch.device` OBJECT as the dict value -- accelerate's
-        # device_map convention expects a plain int GPU index (or "cpu"/
-        # "disk"/a device STRING), not a torch.device instance; {"": 0}
-        # (an int) is what's actually documented/tested. Combined with
-        # restricting visibility to one physical GPU (CUDA_VISIBLE_DEVICES
-        # set by the caller) so index 0 unambiguously means the single card
-        # everything else in this file is pinned to via DEVICE.
-        device_map={"": 0} if quantizing else None,
+        # occ_vla local patch, take 4 (2026-08-18): every EXPLICIT
+        # device_map (None, {"": torch.device}, {"": 0}, on either 1 or 2
+        # visible GPUs) hits the identical "`.to` is not supported for
+        # 4-bit/8-bit models" ValueError -- confirmed on real Kaggle infra
+        # this session, repeatedly. Only "auto" avoids it, but "auto" with
+        # 2 GPUs visible instead SPLITS the model's layers across both
+        # cuda:0 and cuda:1, conflicting with our own code elsewhere that
+        # pins vjepa_predictor_dino/_siglip/the action head/proprio
+        # projector to one fixed DEVICE ("Expected all tensors to be on
+        # the same device... cuda:1 and cuda:0" at actual inference time).
+        # Fix: keep "auto" (the only dispatch code path confirmed to avoid
+        # the .to() bug) but constrain it to a single GPU's worth of
+        # memory via `max_memory` -- accelerate's own standard mechanism
+        # for forcing "auto"'s balancing algorithm onto fewer devices
+        # without touching CUDA_VISIBLE_DEVICES (which, alone, triggers
+        # the single-device .to() bug above). Requires BOTH physical GPUs
+        # visible to the process (do not set CUDA_VISIBLE_DEVICES=0 when
+        # using this) -- max_memory's keys are real cuda ordinals, and
+        # capping GPU 1 to ~0 makes "auto" place everything on GPU 0
+        # (comfortably enough for a 4-bit ~4GB model) while still going
+        # through the working multi-device dispatch path internally.
+        device_map="auto" if quantizing else None,
+        max_memory={0: "14GiB", 1: "0GiB"} if quantizing else None,
     )
 
     # `vision_backbone.vjepa_predictor_dino`/`_siglip` are never present in
