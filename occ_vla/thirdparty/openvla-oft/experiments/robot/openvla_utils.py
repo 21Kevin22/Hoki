@@ -330,11 +330,35 @@ def get_vla(cfg: Any) -> torch.nn.Module:
     # code path for single-device quantized loading rather than whatever
     # internal conversion+device_map-defaulting logic the deprecated kwarg
     # path was going through.
+    # occ_vla local patch (2026-08-18): exclude vjepa_predictor_dino/
+    # _siglip from quantization via llm_int8_skip_modules. Without this,
+    # transformers' quantization-prep step structurally converts EVERY
+    # nn.Linear in the model tree to a Linear4bit wrapper BEFORE weights
+    # are loaded -- including these newly-added (not-in-checkpoint)
+    # submodules' own Linear layers, discovered purely by walking
+    # `named_modules()`, unrelated to whether the checkpoint has real
+    # weights for them. Our own to_empty()/_force_dtype()/
+    # reset_parameters() sequence then writes plain (non-packed) values
+    # into what's now a Linear4bit's specially-packed `Params4bit`
+    # storage, corrupting it -- confirmed on real Kaggle infra this
+    # session: the first real forward call through the (corrupted)
+    # quantized proprio_proj crashed with "mat1 and mat2 shapes cannot be
+    # multiplied (256x256 and 1x32768)". These modules are tiny relative
+    # to the 7B backbone (negligible memory cost either way) and need real
+    # (non-quantized) floating-point semantics for our own init code to
+    # work correctly regardless.
     quantization_config = None
     if cfg.load_in_4bit:
-        quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            llm_int8_skip_modules=["vjepa_predictor_dino", "vjepa_predictor_siglip"],
+        )
     elif cfg.load_in_8bit:
-        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+        quantization_config = BitsAndBytesConfig(
+            load_in_8bit=True,
+            llm_int8_skip_modules=["vjepa_predictor_dino", "vjepa_predictor_siglip"],
+        )
     vla = AutoModelForVision2Seq.from_pretrained(
         cfg.pretrained_checkpoint,
         # attn_implementation="flash_attention_2",
