@@ -25,7 +25,11 @@ Run with the openvla-oft conda env:
 import os
 import sys
 
-OCC_VLA_ROOT = "/home/ubuntu/slocal1/Hoki/occ_vla"
+# Derived from __file__ (was hardcoded to the original project server's
+# path, "/home/ubuntu/slocal1/Hoki/occ_vla" -- broke on any other machine,
+# e.g. a Kaggle clone under /root/oft_work/Hoki/...).
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+OCC_VLA_ROOT = os.path.dirname(SCRIPTS_DIR)
 OFT_ROOT = os.path.join(OCC_VLA_ROOT, "thirdparty/openvla-oft")
 sys.path.insert(0, OCC_VLA_ROOT)  # for `scripts.collect_oft_onpolicy_rollout_data` / `scripts.train_vjepa_predictor_smoke_test`
 sys.path.insert(0, OFT_ROOT)  # for `experiments`, `prismatic`, `libero`

@@ -34,7 +34,10 @@ from collections import deque
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS_DIR)
-OFT_ROOT = "/home/ubuntu/slocal1/Hoki/occ_vla/thirdparty/openvla-oft"
+# Derived from __file__ (was hardcoded to the original project server's
+# path, "/home/ubuntu/slocal1/Hoki/occ_vla/thirdparty/openvla-oft" -- broke
+# on any other machine, e.g. a Kaggle clone under /root/oft_work/Hoki/...).
+OFT_ROOT = os.path.normpath(os.path.join(SCRIPTS_DIR, "..", "thirdparty", "openvla-oft"))
 sys.path.insert(0, OFT_ROOT)
 os.chdir(OFT_ROOT)
 os.environ.setdefault("LIBERO_CONFIG_PATH", os.path.expanduser("~/.libero_oft"))
@@ -76,7 +79,7 @@ def run_episode_and_collect(cfg, env, task_description, model, resize_size, proc
                 t += 1
                 continue
 
-            observation, _, _ = prepare_observation(obs, resize_size, occlude="wrist_partial", num_images=cfg.num_images_in_input)
+            observation, _, _, _ = prepare_observation(obs, resize_size, occlude="wrist_partial", num_images=cfg.num_images_in_input)
 
             if len(action_queue) == 0:
                 actions, hidden_state = get_vla_action(

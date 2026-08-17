@@ -51,3 +51,4 @@ thirdparty/openvla-oft/*.pt.step*
 thirdparty/openvla-oft/*.pt.back.*
 thirdparty/openvla-oft/**/*.back.*
 
+.venv_dev_test/
