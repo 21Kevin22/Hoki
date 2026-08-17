@@ -322,7 +322,14 @@ def get_vla(cfg: Any) -> torch.nn.Module:
         load_in_4bit=cfg.load_in_4bit,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
-        device_map={"": DEVICE} if quantizing else None,
+        # "auto" (not a pinned {"": DEVICE} dict) -- confirmed on real
+        # Kaggle infra this session that a pinned single-device dict still
+        # hit the same "`.to` is not supported for `4-bit`/`8-bit`
+        # bitsandbytes models" error `device_map` is meant to avoid; "auto"
+        # is the well-tested code path transformers/accelerate's own
+        # quantization+dispatch logic is built around, and correctly
+        # avoids that internal `.to()` call even with a single GPU.
+        device_map="auto" if quantizing else None,
     )
 
     # `vision_backbone.vjepa_predictor_dino`/`_siglip` are never present in
@@ -339,14 +346,29 @@ def get_vla(cfg: Any) -> torch.nn.Module:
     # can do anything -- confirmed via occ_vla's own diagnostic that skipping
     # `to_empty` leaves the tensors on meta, which then crashes the later
     # `vla.to(DEVICE)` call with "Cannot copy out of meta tensor; no data!".
+    #
+    # occ_vla local patch (2026-08-18): the dtype cast (`.to(dtype=...)`)
+    # used to run AFTER `reset_parameters()`. That's fine when quantizing
+    # is off (these meta tensors' recorded dtype already defaults to a
+    # floating type) but NOT when --load-in-4bit is on: confirmed on real
+    # Kaggle infra this session that these newly-added submodules' meta
+    # tensors come out as dtype=torch.uint8 in that case (plausibly an
+    # interaction with bitsandbytes' packed-uint8 storage for the
+    # surrounding quantized vision_backbone), and reset_parameters()'s
+    # `nn.init.normal_` has no CUDA kernel for a Byte tensor
+    # ("normal_kernel_cuda" not implemented for 'Byte'). Moved the dtype
+    # cast BEFORE reset_parameters() -- safe on a meta tensor (pure
+    # shape/dtype metadata, no real data yet), and makes the *_kernel_cuda
+    # call operate on a real floating dtype regardless of the quantization
+    # path taken.
     if hasattr(vla.vision_backbone, "vjepa_predictor_dino"):
+        vla.vision_backbone.vjepa_predictor_dino.to(dtype=torch.bfloat16)
         vla.vision_backbone.vjepa_predictor_dino.to_empty(device=DEVICE)
         vla.vision_backbone.vjepa_predictor_dino.reset_parameters()
-        vla.vision_backbone.vjepa_predictor_dino.to(dtype=torch.bfloat16)
     if hasattr(vla.vision_backbone, "vjepa_predictor_siglip"):
+        vla.vision_backbone.vjepa_predictor_siglip.to(dtype=torch.bfloat16)
         vla.vision_backbone.vjepa_predictor_siglip.to_empty(device=DEVICE)
         vla.vision_backbone.vjepa_predictor_siglip.reset_parameters()
-        vla.vision_backbone.vjepa_predictor_siglip.to(dtype=torch.bfloat16)
 
     # If using FiLM, wrap the vision backbone to allow for infusion of language inputs
     if cfg.use_film:
