@@ -26,7 +26,11 @@ import sys
 import time
 from collections import deque
 
-OFT_ROOT = "/home/ubuntu/slocal1/Hoki/occ_vla/thirdparty/openvla-oft"
+# Derived from __file__ (was hardcoded to the original project server's
+# path, "/home/ubuntu/slocal1/Hoki/occ_vla/thirdparty/openvla-oft" -- broke
+# on any other machine, e.g. a Kaggle clone under /root/oft_work/Hoki/...).
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+OFT_ROOT = os.path.normpath(os.path.join(SCRIPTS_DIR, "..", "thirdparty", "openvla-oft"))
 sys.path.insert(0, OFT_ROOT)
 os.chdir(OFT_ROOT)
 os.environ.setdefault("LIBERO_CONFIG_PATH", os.path.expanduser("~/.libero_oft"))
