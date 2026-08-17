@@ -356,18 +356,34 @@ def get_vla(cfg: Any) -> torch.nn.Module:
     # interaction with bitsandbytes' packed-uint8 storage for the
     # surrounding quantized vision_backbone), and reset_parameters()'s
     # `nn.init.normal_` has no CUDA kernel for a Byte tensor
-    # ("normal_kernel_cuda" not implemented for 'Byte'). Moved the dtype
-    # cast BEFORE reset_parameters() -- safe on a meta tensor (pure
-    # shape/dtype metadata, no real data yet), and makes the *_kernel_cuda
-    # call operate on a real floating dtype regardless of the quantization
-    # path taken.
+    # ("normal_kernel_cuda" not implemented for 'Byte').
+    #
+    # occ_vla local patch, take 2 (2026-08-18): moving `.to(dtype=...)`
+    # before `reset_parameters()` (the first attempted fix) did NOT
+    # actually work -- confirmed on real Kaggle infra that the identical
+    # error still occurs. Root cause: `nn.Module.to()`'s own `_apply`
+    # conversion function only forwards `dtype` to a leaf tensor's `.to()`
+    # call when that tensor `.is_floating_point()` is ALREADY True
+    # (`t.to(device, dtype if t.is_floating_point() or t.is_complex() else
+    # None, non_blocking)` -- this exact line is visible in the OOM
+    # traceback earlier this session). Since these parameters start as
+    # `torch.uint8` (not floating-point), calling `module.to(dtype=...)`
+    # on them is a SILENT NO-OP regardless of where it's placed in the
+    # sequence. Fixed by bypassing `Module.to()` entirely for the dtype
+    # cast: reassign each parameter's `.data` directly (unconditional,
+    # ignores the current dtype) via `_force_dtype` below, after
+    # `to_empty()` has given them real (if wrong-dtype) storage.
+    def _force_dtype(module, dtype):
+        for param in module.parameters(recurse=True):
+            param.data = param.data.to(dtype=dtype)
+
     if hasattr(vla.vision_backbone, "vjepa_predictor_dino"):
-        vla.vision_backbone.vjepa_predictor_dino.to(dtype=torch.bfloat16)
         vla.vision_backbone.vjepa_predictor_dino.to_empty(device=DEVICE)
+        _force_dtype(vla.vision_backbone.vjepa_predictor_dino, torch.bfloat16)
         vla.vision_backbone.vjepa_predictor_dino.reset_parameters()
     if hasattr(vla.vision_backbone, "vjepa_predictor_siglip"):
-        vla.vision_backbone.vjepa_predictor_siglip.to(dtype=torch.bfloat16)
         vla.vision_backbone.vjepa_predictor_siglip.to_empty(device=DEVICE)
+        _force_dtype(vla.vision_backbone.vjepa_predictor_siglip, torch.bfloat16)
         vla.vision_backbone.vjepa_predictor_siglip.reset_parameters()
 
     # If using FiLM, wrap the vision backbone to allow for infusion of language inputs
