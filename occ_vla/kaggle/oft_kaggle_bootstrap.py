@@ -15,6 +15,32 @@
 #
 # **Revision history (real Kaggle runs, 2026-08-18)**, most recent first:
 #
+# 4. **`import libero` "succeeded" but was actually broken, two layers
+#    deep.** First: `pip install -e LIBERO_DIR` (default PEP 660 editable
+#    mode) reported success, but `import libero` raised
+#    `ModuleNotFoundError` -- `pip show -f libero` showed the editable
+#    finder files WERE created, but a `sys.path` dump showed only
+#    openvla-oft's own finder hook was actually registered at interpreter
+#    startup, not LIBERO's -- its `.pth`/finder silently never loaded.
+#    Root cause: LIBERO's nested `libero/libero/` package layout (the repo
+#    root's `libero/` dir is not itself the importable package; the real
+#    one is one level deeper) trips up the modern build backend's
+#    auto-discovery. Fixed with `--config-settings editable_mode=compat`
+#    (forces the classic `setup.py`-driven editable install, which
+#    respects the layout `setup.py` explicitly declares). Second, once
+#    THAT was fixed, `import libero` succeeded but `libero.__file__` was
+#    `None` (an empty PEP 420 namespace package) -- turned out to be
+#    harmless: `from libero.libero import benchmark` (what
+#    `run_oft_camera_dropout_eval.py` actually needs) resolved to a real
+#    file correctly. Third, THAT import surfaced a real, separate problem:
+#    a `UserWarning: Failed to initialize NumPy: _ARRAY_API not found`
+#    from torch, because `libero_requirements.txt`'s install had silently
+#    upgraded numpy to 2.2.6 (incompatible with `torch==2.2.0`'s compiled
+#    C-extension, which needs NumPy's 1.x C-API) and mujoco to 3.11.0
+#    (incompatible with `robosuite==1.4.1`'s `mj_fullM()` signature, an
+#    already-known cross-track finding in this project). Fixed by
+#    re-pinning both explicitly, AFTER the requirements install, in cell 3
+#    (see its own revision note there).
 # 3. **`No space left on device` even after freeing everything findable
 #    under `/kaggle/working`** -- `df -h` (real output pasted into this
 #    revision note) showed the actual container filesystem (`overlay`,
@@ -184,19 +210,32 @@ run([VENV_PY, "-m", "pip", "install", "-e", OFT_DIR], cwd=OFT_DIR)
 LIBERO_DIR = os.path.join(WORK_ROOT, "LIBERO")
 if not os.path.isdir(LIBERO_DIR):
     run(["git", "clone", "https://github.com/Lifelong-Robot-Learning/LIBERO.git", LIBERO_DIR])
-run([VENV_PY, "-m", "pip", "install", "-e", LIBERO_DIR])
+# Revision note (2026-08-18): plain `pip install -e LIBERO_DIR` builds a
+# PEP 660 editable install whose finder never actually got registered for
+# LIBERO's nested `libero/libero/` package layout (`import libero`
+# succeeded as an empty PEP 420 namespace package, `libero.__file__ is
+# None`, but `libero.libero`'s real finder was silently missing from
+# sys.path). `--config-settings editable_mode=compat` forces the classic
+# setup.py-driven editable install instead, which handles this nested
+# layout correctly (confirmed on real Kaggle infra this session).
+run([VENV_PY, "-m", "pip", "install", "-e", LIBERO_DIR, "--config-settings", "editable_mode=compat"])
 run([VENV_PY, "-m", "pip", "install", "-r",
      os.path.join(OFT_DIR, "experiments/robot/libero/libero_requirements.txt")])
 
-# robosuite/mujoco version pin -- cross-track finding (this project's
-# separate pi0.5/MWM work independently hit `mujoco>=3.1` breaking
-# `robosuite==1.4.1`'s `mj_fullM()` call signature; not yet independently
-# re-verified against THIS track's own robosuite version, so check this
-# actually matches whatever libero_requirements.txt pins before trusting
-# it blindly -- if libero_requirements.txt already pins a compatible pair,
-# this line is redundant/harmless; if a robosuite/mujoco mismatch error
-# shows up on first `import robosuite`, this is the first thing to check.
-run([VENV_PY, "-m", "pip", "install", "-q", "mujoco==3.0.0"])
+# Revision note (2026-08-18): the requirements install above pulled in
+# numpy==2.2.6 and mujoco==3.11.0, BOTH confirmed-broken on real Kaggle
+# infra this session: (1) torch==2.2.0's compiled C-extension needs
+# NumPy's 1.x C-API ("Failed to initialize NumPy: _ARRAY_API not found",
+# a real UserWarning observed, not hypothetical) -- pip's own resolver even
+# printed this exact conflict at install time
+# ("tensorflow 2.15.0 requires numpy<2.0.0,>=1.23.5, but you have
+# numpy 2.2.6"), it just doesn't refuse to proceed. (2) mujoco>=3.1 breaks
+# robosuite==1.4.1's `mj_fullM()` call signature -- an already-documented
+# cross-track finding in this project (pi0.5/MWM work), now independently
+# confirmed relevant to this track's own dependency resolution too. Pin
+# both back down explicitly, AFTER the requirements install so this wins
+# the last-writer-takes-it fight against pip's own resolution.
+run([VENV_PY, "-m", "pip", "install", "-q", "numpy==1.26.4", "mujoco==3.0.0"])
 
 # %%
 # huggingface_hub is used below by the (environment-agnostic) checkpoint
