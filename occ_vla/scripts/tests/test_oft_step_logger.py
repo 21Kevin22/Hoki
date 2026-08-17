@@ -79,10 +79,38 @@ def test_numpy_values_are_coerced_to_plain_json_types(tmp_path):
     assert records[1]["steps_to_success"] is None
 
 
-def test_append_mode_accumulates_across_multiple_writer_instances(tmp_path):
+def test_default_mode_does_not_leak_stale_content_from_a_prior_run(tmp_path):
+    # Regression test for a real bug found on Kaggle infra (2026-08-18):
+    # mode="a" used to be the default, so a script rerun (e.g. retrying
+    # after an earlier crash) silently appended onto whatever a PRIOR,
+    # unrelated attempt had already written at the same path -- a real
+    # run's log ended up with a stale episode_summary(success=False) row
+    # from an old failed attempt sitting before its own real data.
+    path = str(tmp_path / "log.jsonl")
+    stale_writer = StepLogWriter(path, episode=0, task_id=0, seed=0)
+    stale_writer.log_step(
+        step=0, s_occ=0.9, occ_flag=True, debounce_counter=1, correction_applied=False,
+        occ_gt=0.9, ee_position=[9, 9, 9], action=[9] * 7, t_vla_ms=1.0, t_predictor_ms=0.0, t_total_ms=1.0,
+    )
+    stale_writer.close(success=False, steps_to_success=None)  # simulates an earlier failed attempt
+
+    fresh_writer = StepLogWriter(path, episode=0, task_id=0, seed=0)  # default mode -- must NOT see the stale content
+    fresh_writer.log_step(
+        step=0, s_occ=0.0, occ_flag=False, debounce_counter=0, correction_applied=False,
+        occ_gt=0.0, ee_position=[0, 0, 0], action=[0] * 7, t_vla_ms=1.0, t_predictor_ms=0.0, t_total_ms=1.0,
+    )
+    fresh_writer.close(success=True, steps_to_success=0)
+
+    records = read_jsonl(path)
+    assert len(records) == 2  # exactly this run's step + trailer, no stale leftovers
+    assert records[0]["s_occ"] == 0.0  # NOT the stale 0.9
+    assert records[1]["success"] is True  # NOT the stale False
+
+
+def test_append_mode_accumulates_across_multiple_writer_instances_when_explicitly_requested(tmp_path):
     path = str(tmp_path / "log.jsonl")
     for ep in range(2):
-        writer = StepLogWriter(path, episode=ep, task_id=0, seed=0)
+        writer = StepLogWriter(path, episode=ep, task_id=0, seed=0, mode="a")
         writer.log_step(
             step=0, s_occ=0.0, occ_flag=False, debounce_counter=0, correction_applied=False,
             occ_gt=0.0, ee_position=[0, 0, 0], action=[0] * 7, t_vla_ms=1.0, t_predictor_ms=0.0, t_total_ms=1.0,

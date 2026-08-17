@@ -80,7 +80,8 @@ class StepLogRecord:
 
 
 class StepLogWriter:
-    """Append-only JSONL writer for one episode's step log.
+    """JSONL writer for one episode's step log, appending one line per
+    `log_step()` call within its own lifetime (open -> log_step* -> close).
 
     Usage:
         writer = StepLogWriter(path, episode=ep, task_id=task_id, seed=seed)
@@ -88,9 +89,24 @@ class StepLogWriter:
             ...
             writer.log_step(step=t, s_occ=..., occ_flag=..., ...)
         writer.close(success=success, steps_to_success=done_step)
+
+    `mode="w"` (default): truncates `path` on open. Each fresh
+    StepLogWriter instance represents ONE run's data for that (condition,
+    episode) -- re-running the exact same script invocation against the
+    same `--log-steps-dir` (a very normal thing to do while iterating,
+    e.g. retrying after a crash) must NOT silently concatenate onto
+    whatever a PRIOR, unrelated attempt left behind at that same path.
+    Confirmed as a real bug, not a hypothetical: `mode="a"` used to be the
+    default, and a real Kaggle debugging session's finally-successful run
+    appended its data after a stale `episode_summary` (success=False) row
+    from an earlier failed attempt at the same path, silently corrupting
+    the log's first row. Pass `mode="a"` explicitly if you genuinely want
+    to accumulate multiple runs into one file (e.g. a controlled multi-
+    invocation batch script that manages this deliberately) -- that is
+    NOT the safe default for casual reruns.
     """
 
-    def __init__(self, path: str, episode: int, task_id: int, seed: int, mode: str = "a"):
+    def __init__(self, path: str, episode: int, task_id: int, seed: int, mode: str = "w"):
         self.path = path
         self.episode = episode
         self.task_id = task_id
