@@ -16,7 +16,7 @@ import tensorflow as tf
 import torch
 from huggingface_hub import HfApi, hf_hub_download
 from PIL import Image
-from transformers import AutoConfig, AutoImageProcessor, AutoModelForVision2Seq, AutoProcessor
+from transformers import AutoConfig, AutoImageProcessor, AutoModelForVision2Seq, AutoProcessor, BitsAndBytesConfig
 
 # Apply JSON numpy patch for serialization
 json_numpy.patch()
@@ -314,37 +314,35 @@ def get_vla(cfg: Any) -> torch.nn.Module:
     # whole model to DEVICE at load time instead, which accelerate is
     # able to do for a quantized model.
     quantizing = cfg.load_in_8bit or cfg.load_in_4bit
+    # occ_vla local patch, take 5 (2026-08-18): EVERY combination of the
+    # legacy `load_in_4bit=True`/`load_in_8bit=True` from_pretrained kwargs
+    # with a device_map that resolves to a SINGLE device -- None, {"":
+    # torch.device}, {"": 0}, "auto"+max_memory forcing one GPU -- hit the
+    # identical "`.to` is not supported for 4-bit/8-bit models" ValueError
+    # on real Kaggle infra this session. Only a genuinely multi-device
+    # "auto" split avoided it, which broke elsewhere (cross-device
+    # mismatch, see the take-4 note this replaces). Switched from the
+    # legacy kwargs to the modern, explicit `quantization_config=
+    # BitsAndBytesConfig(...)` API instead -- `load_in_4bit`/`load_in_8bit`
+    # as direct from_pretrained kwargs are deprecated pass-throughs that
+    # transformers internally converts into a BitsAndBytesConfig anyway;
+    # building it explicitly here takes transformers' own better-tested
+    # code path for single-device quantized loading rather than whatever
+    # internal conversion+device_map-defaulting logic the deprecated kwarg
+    # path was going through.
+    quantization_config = None
+    if cfg.load_in_4bit:
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
+    elif cfg.load_in_8bit:
+        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
     vla = AutoModelForVision2Seq.from_pretrained(
         cfg.pretrained_checkpoint,
         # attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16,
-        load_in_8bit=cfg.load_in_8bit,
-        load_in_4bit=cfg.load_in_4bit,
+        quantization_config=quantization_config,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
-        # occ_vla local patch, take 4 (2026-08-18): every EXPLICIT
-        # device_map (None, {"": torch.device}, {"": 0}, on either 1 or 2
-        # visible GPUs) hits the identical "`.to` is not supported for
-        # 4-bit/8-bit models" ValueError -- confirmed on real Kaggle infra
-        # this session, repeatedly. Only "auto" avoids it, but "auto" with
-        # 2 GPUs visible instead SPLITS the model's layers across both
-        # cuda:0 and cuda:1, conflicting with our own code elsewhere that
-        # pins vjepa_predictor_dino/_siglip/the action head/proprio
-        # projector to one fixed DEVICE ("Expected all tensors to be on
-        # the same device... cuda:1 and cuda:0" at actual inference time).
-        # Fix: keep "auto" (the only dispatch code path confirmed to avoid
-        # the .to() bug) but constrain it to a single GPU's worth of
-        # memory via `max_memory` -- accelerate's own standard mechanism
-        # for forcing "auto"'s balancing algorithm onto fewer devices
-        # without touching CUDA_VISIBLE_DEVICES (which, alone, triggers
-        # the single-device .to() bug above). Requires BOTH physical GPUs
-        # visible to the process (do not set CUDA_VISIBLE_DEVICES=0 when
-        # using this) -- max_memory's keys are real cuda ordinals, and
-        # capping GPU 1 to ~0 makes "auto" place everything on GPU 0
-        # (comfortably enough for a 4-bit ~4GB model) while still going
-        # through the working multi-device dispatch path internally.
-        device_map="auto" if quantizing else None,
-        max_memory={0: "14GiB", 1: "0GiB"} if quantizing else None,
+        device_map={"": 0} if quantizing else None,
     )
 
     # `vision_backbone.vjepa_predictor_dino`/`_siglip` are never present in
