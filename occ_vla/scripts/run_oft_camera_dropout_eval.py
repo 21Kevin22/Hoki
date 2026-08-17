@@ -446,7 +446,11 @@ def main():
     parser.add_argument("--gate-no-latch", action="store_true", help="disable latching (correction_applied drops back to False as soon as debounce_counter falls below k) -- default is latched (stays on for the rest of the episode once triggered, matching this project's own established pi0.5-track gate convention)")
     parser.add_argument("--measure-latency", action="store_true", help="wrap vjepa_predictor_dino/_siglip forward calls with CUDA-synced timers for t_predictor_ms (A1). Adds real overhead (a GPU sync per predictor call) -- leave off for non-A1 runs.")
     parser.add_argument("--seed", type=int, default=None, help="value to log in the seed column; defaults to cfg.seed (the single global seed GenerateConfig/set_seed_everywhere already use) if not given")
+    parser.add_argument("--load-in-4bit", action="store_true", help="4-bit-quantize the base VLA (bitsandbytes nf4). The 7B model needs ~14GB in bf16 alone -- confirmed OOM on a 16GB Kaggle T4 (get_action_head's own tiny module failed to allocate 32MiB with the base model already using the entire card). 4-bit cuts the base model to ~4GB, leaving real headroom for the action head/proprio projector/LIBERO rendering. Mutually exclusive with --load-in-8bit.")
+    parser.add_argument("--load-in-8bit", action="store_true", help="8-bit-quantize the base VLA instead of 4-bit -- a milder memory reduction (~7GB base model), only meaningful on a GPU with more headroom than a 16GB card provides. Mutually exclusive with --load-in-4bit.")
     args = parser.parse_args()
+    if args.load_in_4bit and args.load_in_8bit:
+        raise ValueError("--load-in-4bit and --load-in-8bit are mutually exclusive")
 
     cfg = GenerateConfig(
         pretrained_checkpoint=args.checkpoint,
@@ -455,8 +459,8 @@ def main():
         use_film=False,
         num_images_in_input=2,
         use_proprio=True,
-        load_in_8bit=False,
-        load_in_4bit=False,
+        load_in_8bit=args.load_in_8bit,
+        load_in_4bit=args.load_in_4bit,
         center_crop=True,
         num_open_loop_steps=8,
         task_suite_name=args.task_suite,
