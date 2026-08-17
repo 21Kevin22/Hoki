@@ -322,14 +322,27 @@ def get_vla(cfg: Any) -> torch.nn.Module:
         load_in_4bit=cfg.load_in_4bit,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
-        # "auto" (not a pinned {"": DEVICE} dict) -- confirmed on real
-        # Kaggle infra this session that a pinned single-device dict still
-        # hit the same "`.to` is not supported for `4-bit`/`8-bit`
-        # bitsandbytes models" error `device_map` is meant to avoid; "auto"
-        # is the well-tested code path transformers/accelerate's own
-        # quantization+dispatch logic is built around, and correctly
-        # avoids that internal `.to()` call even with a single GPU.
-        device_map="auto" if quantizing else None,
+        # occ_vla local patch, take 3 (2026-08-18): "auto" was tried next
+        # and behaves DIFFERENTLY depending on GPU count, both badly --
+        # confirmed on real (2-GPU) Kaggle infra this session: with 2 GPUs
+        # visible, "auto" split the model's LAYERS across both cuda:0 AND
+        # cuda:1 (dispatch_model succeeds, no .to() call -- but our own
+        # code elsewhere pins vjepa_predictor_dino/_siglip and the action
+        # head/proprio projector to a single fixed DEVICE, causing a real
+        # cross-device RuntimeError the moment inference actually runs:
+        # "Expected all tensors to be on the same device... cuda:1 and
+        # cuda:0"). With only 1 GPU visible (CUDA_VISIBLE_DEVICES=0), "auto"
+        # instead degenerated back to the ORIGINAL ".to is not supported
+        # for 4-bit/8-bit models" failure the very first {"": DEVICE}
+        # attempt hit. The earlier {"": DEVICE} attempt's real bug was
+        # passing a `torch.device` OBJECT as the dict value -- accelerate's
+        # device_map convention expects a plain int GPU index (or "cpu"/
+        # "disk"/a device STRING), not a torch.device instance; {"": 0}
+        # (an int) is what's actually documented/tested. Combined with
+        # restricting visibility to one physical GPU (CUDA_VISIBLE_DEVICES
+        # set by the caller) so index 0 unambiguously means the single card
+        # everything else in this file is pinned to via DEVICE.
+        device_map={"": 0} if quantizing else None,
     )
 
     # `vision_backbone.vjepa_predictor_dino`/`_siglip` are never present in
