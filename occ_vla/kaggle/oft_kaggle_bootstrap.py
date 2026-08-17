@@ -253,6 +253,32 @@ run([VENV_PY, "-m", "pip", "install", "-r",
 # the last-writer-takes-it fight against pip's own resolution.
 run([VENV_PY, "-m", "pip", "install", "-q", "numpy==1.26.4", "mujoco==3.0.0"])
 
+# Revision note (2026-08-18): --load-in-4bit (needed -- the 7B model OOMs
+# in bf16 on a 16GB Kaggle T4) needs bitsandbytes, not in either
+# requirements file. Plain `pip install bitsandbytes` (unpinned) silently
+# upgraded torch 2.2.0 -> 2.13.0 to satisfy the latest bitsandbytes'
+# `torch<3,>=2.4` requirement, breaking torchvision==0.17.0
+# ("operator torchvision::nms does not exist"). bitsandbytes==0.43.1 is a
+# version contemporary with torch 2.2.0 (pre-dates its `torch>=2.4`
+# requirement) -- confirmed working on real Kaggle infra this session.
+run([VENV_PY, "-m", "pip", "install", "-q", "--no-deps", "bitsandbytes==0.43.1"])
+
+# Revision note (2026-08-18): quantized model loading
+# (AutoModelForVision2Seq.from_pretrained(..., quantization_config=
+# BitsAndBytesConfig(...), device_map=...)) raised
+# "`.to` is not supported for `4-bit`/`8-bit` bitsandbytes models" with
+# EVERY device_map tried that resolves to a single device (None,
+# {"": torch.device}, {"": 0}, "auto"+max_memory forcing one GPU) --
+# confirmed on real Kaggle infra this session, five separate device_map/
+# quantization-API permutations, all failing identically. Root cause:
+# pip's default resolution pulled `accelerate==1.14.0` (a major-version
+# rewrite of the library), while openvla-oft's pinned transformers fork
+# dates to ~mid-2024, contemporary with accelerate's 0.3x line --
+# downgrading accelerate (NOT changing device_map/quantization_config
+# again) is what actually fixed it. --load-in-4bit end-to-end confirmed
+# working after this pin: a real episode completed with success=True.
+run([VENV_PY, "-m", "pip", "install", "-q", "accelerate==0.30.1"])
+
 # %%
 # huggingface_hub is used below by the (environment-agnostic) checkpoint
 # download cell, which intentionally stays on the notebook's OWN kernel
@@ -347,7 +373,7 @@ print(
 )
 
 # %% [markdown]
-# ## 7. Smoke test: the extended logging + debounce-gate pipeline (2026-08-17)
+# ## 7. Smoke test: the extended logging + debounce-gate pipeline (2026-08-17/18)
 #
 # Small on purpose (num-trials=1, 4 conditions incl. the two new ones --
 # `wrist_partial_vjepa_gated`, `wrist_partial_prevframe`) so this costs
@@ -359,36 +385,50 @@ print(
 #   - occ_gt (patch-level ground truth -- oft_occlusion_gt.py)
 #   - A1 latency timing (--measure-latency)
 #   - B3's zero-parameter previous-frame-copy control
+#   - `--load-in-4bit` (REQUIRED -- the 7B model OOMs in plain bf16 on a
+#     16GB Kaggle T4; confirmed end-to-end working after the accelerate
+#     pin above, real episode completed with success=True)
 #
 # Runs via `VENV_PY` (Python 3.10), not the notebook kernel -- this is the
-# actual point of cell 2's venv setup. If this cell runs clean, the
-# pipeline is validated end-to-end for real (not just unit-tested on a Mac
-# with no GPU/LIBERO, which is as far as this could be verified before
-# reaching Kaggle) -- THEN scale up --num-trials and --conditions for the
-# real A1/A2/A4/B1/B3 runs.
+# actual point of cell 2's venv setup. Uses a live-streaming subprocess
+# call (not the `run()` helper, which buffers ALL output until the process
+# exits) -- a real multi-episode LIBERO rollout with a 7B model can take
+# several minutes with ZERO output in between (this script only prints
+# once per COMPLETED episode), which looked indistinguishable from a hang
+# using `run()` on real Kaggle infra this session. If this cell runs
+# clean, the pipeline is validated end-to-end for real (not just
+# unit-tested on a Mac with no GPU/LIBERO) -- THEN scale up --num-trials
+# for the real A1/A2/A4/B1/B3 runs.
 
 # %%
+import subprocess
+
 STEPLOGS_DIR = os.path.join(WORK_ROOT, "steplogs_smoketest")
 RESULTS_PATH = os.path.join(WORK_ROOT, "smoketest_results.json")
 
-result = run(
-    [
-        VENV_PY, "scripts/run_oft_camera_dropout_eval.py",
-        "--task-suite", "libero_10",
-        "--task-id", "8",  # moka_pots -- this project's most-tested task
-        "--num-trials", "1",
-        "--checkpoint", CHECKPOINT_DIR,
-        "--conditions", "baseline", "wrist_partial", "wrist_partial_vjepa_gated", "wrist_partial_prevframe",
-        "--log-steps-dir", STEPLOGS_DIR,
-        "--s-occ-source", "oracle",
-        "--debounce-k", "3",
-        "--measure-latency",
-        "--results-path", RESULTS_PATH,
-    ],
-    cwd=OCC_VLA_DIR,
-    check=False,  # print whatever happened either way; don't lose the log dir just because of a late failure
-)
-print("Exit code:", result.returncode)
+cmd = [
+    VENV_PY, "scripts/run_oft_camera_dropout_eval.py",
+    "--task-suite", "libero_10",
+    "--task-id", "8",  # moka_pots -- this project's most-tested task
+    "--num-trials", "1",
+    "--checkpoint", CHECKPOINT_DIR,
+    "--load-in-4bit",
+    "--conditions", "baseline", "wrist_partial", "wrist_partial_vjepa_gated", "wrist_partial_prevframe",
+    "--log-steps-dir", STEPLOGS_DIR,
+    "--s-occ-source", "oracle",
+    "--debounce-k", "3",
+    "--measure-latency",
+    "--results-path", RESULTS_PATH,
+]
+env = os.environ.copy()
+env["MPLBACKEND"] = "Agg"
+env["PYTHONUNBUFFERED"] = "1"
+
+proc = subprocess.Popen(cmd, cwd=OCC_VLA_DIR, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+for line in proc.stdout:
+    print(line, end="")
+proc.wait()
+print("\nExit code:", proc.returncode)
 
 # %% [markdown]
 # ## 8. Inspect one step log by hand before trusting anything downstream
