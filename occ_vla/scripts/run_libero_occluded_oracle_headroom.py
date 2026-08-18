@@ -290,7 +290,18 @@ def _run_vit_with_midlayer_splice(featurizer, x_corrupted_pixels, x_clean_pixels
             del x_clean
         if i == extraction_layer:
             break
-    return x_corrupted[:, num_prefix:]
+    final_patches = x_corrupted[:, num_prefix:]
+    # occ_vla addition (2026-08-18, per user request -- distribution-shift
+    # measurement): also stash the FINAL representation, after the spliced
+    # patch_clean has been carried through the remaining transformer blocks
+    # alongside the rest of the (still-occluded) sequence. This is what
+    # actually reaches the action head, and is the natural place to check
+    # whether "the injected real clean patch is in-distribution" (patch_clean
+    # above, already saved) also implies "the resulting mixed-source sequence
+    # is in-distribution" (this) -- they are not the same claim.
+    if feature_store is not None and feature_store_key is not None:
+        feature_store[f"{feature_store_key}_final"] = final_patches.detach().to(torch.float32).cpu().numpy()
+    return final_patches
 
 
 def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=0):
