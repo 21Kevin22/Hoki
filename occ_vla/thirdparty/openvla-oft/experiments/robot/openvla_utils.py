@@ -359,14 +359,29 @@ def get_vla(cfg: Any) -> torch.nn.Module:
             load_in_8bit=True,
             llm_int8_skip_modules=["vjepa_predictor_dino", "vjepa_predictor_siglip"],
         )
+    # attn_implementation: default (unset) resolves to whatever this transformers version
+    # picks (confirmed SDPA in this environment) -- pass cfg.attn_implementation="eager" to force
+    # eager attention for the WHOLE model/rollout consistently. Needed for the attention-entropy
+    # gate (2026-08-09): output_attentions=True on a single call silently forces an SDPA->eager
+    # fallback for THAT call only (confirmed via smoke test -- a real, measurable action-output
+    # difference from the numerically-different kernel, not just a performance warning), so mixing
+    # SDPA-default calls with occasional output_attentions=True calls within one rollout would
+    # inject a spurious per-step behavioral perturbation uncorrelated with the gate's actual
+    # decision. Pinning eager for the entire rollout removes this confound. getattr(...) keeps this
+    # fully backward-compatible for every caller that doesn't set the attribute. CAUTION (occ_vla,
+    # 2026-08-12): only set this when actually MIXING output_attentions=True/False calls within one
+    # episode -- forcing it unconditionally for a whole rollout that never uses output_attentions
+    # collapsed baseline success 95%->0% (see thirdparty/openvla-oft/CLAUDE.md's Gotchas table).
+    attn_implementation = getattr(cfg, "attn_implementation", None)
+    extra_kwargs = {"attn_implementation": attn_implementation} if attn_implementation else {}
     vla = AutoModelForVision2Seq.from_pretrained(
         cfg.pretrained_checkpoint,
-        # attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16,
         quantization_config=quantization_config,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
         device_map={"": 0} if quantizing else None,
+        **extra_kwargs,
     )
 
     # `vision_backbone.vjepa_predictor_dino`/`_siglip` are never present in
@@ -858,6 +873,7 @@ def get_vla_action(
     use_film: bool = False,
     occlusion_mask: Optional[torch.Tensor] = None,
     return_hidden_states: bool = False,
+    return_attn_entropy: bool = False,
 ) -> List[np.ndarray]:
     """
     Generate action predictions with the VLA policy.
@@ -884,10 +900,18 @@ def get_vla_action(
             near-term OpenVLA failure under occlusion is linearly decodable
             from exactly this kind of feedforward activation. Default False
             is fully backward-compatible (return type unchanged).
+        return_attn_entropy: If True, requests attention weights from the same
+            forward pass (`vla.predict_action(..., output_attentions=True)`, no
+            extra forward/backward call) and also returns the normalized [0,1]
+            action-token-to-vision-patch attention entropy scalar (float) --
+            see `PrismaticForConditionalGeneration._compute_action_patch_attn_entropy`'s
+            docstring for the full rationale (2026-08-09, replaces the earlier
+            rejected mask-geometry-only shape_confidence_gate). Default False is
+            fully backward-compatible (return type unchanged, zero extra compute).
 
     Returns:
-        List[np.ndarray]: Predicted actions (or (actions, hidden_state) tuple
-        if return_hidden_states=True)
+        List[np.ndarray]: Predicted actions, or a tuple with `hidden_state` and/or
+        `attn_entropy` appended (in that order) per the two flags above.
     """
     with torch.inference_mode():
 
@@ -929,7 +953,9 @@ def get_vla_action(
         # Generate action
         if action_head is None:
             # Standard VLA output (single-image inputs, discrete actions)
-            action, actions_hidden_states = vla.predict_action(**inputs, unnorm_key=cfg.unnorm_key, do_sample=False)
+            action, actions_hidden_states = vla.predict_action(
+                **inputs, unnorm_key=cfg.unnorm_key, do_sample=False, output_attentions=return_attn_entropy
+            )
         else:
             # Custom action head for continuous actions
             action, actions_hidden_states = vla.predict_action(
@@ -942,10 +968,17 @@ def get_vla_action(
                 action_head=action_head,
                 use_film=use_film,
                 occlusion_mask=occlusion_mask,
+                output_attentions=return_attn_entropy,
             )
+        attn_entropy = getattr(vla, "_last_action_attn_entropy", None) if return_attn_entropy else None
 
     # Return action chunk as list of actions
     action_list = [action[i] for i in range(len(action))]
+    if return_hidden_states and return_attn_entropy:
+        hidden_state_vec = actions_hidden_states.mean(dim=1).squeeze(0).float().cpu().numpy()  # (D,)
+        return action_list, hidden_state_vec, attn_entropy
+    if return_attn_entropy:
+        return action_list, attn_entropy
     if return_hidden_states:
         hidden_state_vec = actions_hidden_states.mean(dim=1).squeeze(0).float().cpu().numpy()  # (D,)
         return action_list, hidden_state_vec

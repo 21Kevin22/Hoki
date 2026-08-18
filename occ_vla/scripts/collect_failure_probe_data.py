@@ -19,7 +19,7 @@ computed internally for every call, not a new forward pass. Captured via
 
 Saves one .npz per episode to --out-dir:
   activations: (n_calls, D) float32 -- one row per VLA-query step
-  success: bool, done_step: int, task_suite: str, task_id: int
+  success: bool, done_step: int, task_suite: str, task_id: int, condition: str
 
 Run with the openvla-oft conda env:
   python scripts/collect_failure_probe_data.py \
@@ -61,7 +61,7 @@ def process_action(action, model_family):
     return action
 
 
-def run_episode_and_collect(cfg, env, task_description, model, resize_size, processor, action_head, proprio_projector, initial_state, max_steps):
+def run_episode_and_collect(cfg, env, task_description, model, resize_size, processor, action_head, proprio_projector, initial_state, max_steps, condition="wrist_partial"):
     env.reset()
     obs = env.set_init_state(initial_state) if initial_state is not None else env.get_observation()
     if hasattr(model, "reset_vjepa_state"):
@@ -79,14 +79,21 @@ def run_episode_and_collect(cfg, env, task_description, model, resize_size, proc
                 t += 1
                 continue
 
-            observation, _, _, _ = prepare_observation(obs, resize_size, occlude="wrist_partial", num_images=cfg.num_images_in_input)
+            observation, occlusion_mask_np, _, _ = prepare_observation(
+                obs, resize_size, occlude=condition, num_images=cfg.num_images_in_input
+            )
+            occlusion_mask = None
+            if occlusion_mask_np is not None and condition == "wrist_partial_vjepa":
+                occlusion_mask = torch.from_numpy(occlusion_mask_np).to(
+                    device=model.device, dtype=torch.bfloat16
+                ).reshape(1, -1, 1)
 
             if len(action_queue) == 0:
                 actions, hidden_state = get_vla_action(
                     cfg, model, processor, observation, task_description,
                     action_head=action_head, proprio_projector=proprio_projector,
                     noisy_action_projector=None, use_film=cfg.use_film,
-                    occlusion_mask=None, return_hidden_states=True,
+                    occlusion_mask=occlusion_mask, return_hidden_states=True,
                 )
                 action_queue.extend(actions)
                 activations.append(hidden_state)
@@ -118,6 +125,20 @@ def main():
     parser.add_argument("--start-episode", type=int, default=0)
     parser.add_argument("--checkpoint", default=os.path.expanduser("~/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa"))
     parser.add_argument("--out-dir", default="failure_probe_data")
+    parser.add_argument(
+        "--condition", default="wrist_partial",
+        help="occlusion condition passed to run_oft_camera_dropout_eval.prepare_observation "
+             "(e.g. 'baseline' for clean/unoccluded rollouts -- the intervention-gating probe's "
+             "negative/no-intervention-needed class, added 2026-08-04; 'wrist_partial_vjepa' for "
+             "corrected rollouts -- requires --vjepa-checkpoint to actually engage the correction, "
+             "otherwise it's a mathematical no-op identical to wrist_partial)",
+    )
+    parser.add_argument(
+        "--vjepa-checkpoint", default=None,
+        help="path to a {'dino': state_dict, 'siglip': state_dict} .pt file to load into "
+             "vision_backbone.vjepa_predictor_dino/_siglip -- only meaningful with "
+             "--condition wrist_partial_vjepa (same loading logic as run_oft_camera_dropout_eval.py)",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -132,6 +153,13 @@ def main():
 
     print(f"Loading model from {cfg.pretrained_checkpoint} ...")
     model = get_model(cfg)
+    if args.vjepa_checkpoint:
+        state_dicts = torch.load(args.vjepa_checkpoint, map_location=model.device)
+        model.vision_backbone.vjepa_predictor_dino.load_state_dict(state_dicts["dino"])
+        model.vision_backbone.vjepa_predictor_dino.to(dtype=torch.bfloat16)
+        model.vision_backbone.vjepa_predictor_siglip.load_state_dict(state_dicts["siglip"])
+        model.vision_backbone.vjepa_predictor_siglip.to(dtype=torch.bfloat16)
+        print(f"Loaded vjepa_predictor_dino/_siglip weights from {args.vjepa_checkpoint}")
     proprio_projector = get_proprio_projector(cfg, model.llm_dim, proprio_dim=8)
     action_head = get_action_head(cfg, model.llm_dim)
     processor = get_processor(cfg)
@@ -151,16 +179,17 @@ def main():
         t0 = time.time()
         data = run_episode_and_collect(
             cfg, env, task_description, model, resize_size, processor, action_head, proprio_projector,
-            initial_states[ep], max_steps,
+            initial_states[ep], max_steps, condition=args.condition,
         )
         data["task_suite"] = args.task_suite
         data["task_id"] = args.task_id
+        data["condition"] = args.condition
         n_success += int(data["success"])
         out_path = os.path.join(args.out_dir, f"episode_{ep:03d}.npz")
         np.savez_compressed(out_path, **data)
         print(f"ep{ep}: success={data['success']} done_step={data['done_step']} n_calls={data['n_calls']} wall={time.time()-t0:.1f}s -> {out_path}")
 
-    print(f"\nDone: {n_success}/{args.num_episodes} succeeded despite wrist_partial occlusion (episodes {args.start_episode}-{end_episode-1})")
+    print(f"\nDone: {n_success}/{args.num_episodes} succeeded under condition={args.condition} (episodes {args.start_episode}-{end_episode-1})")
 
 
 if __name__ == "__main__":

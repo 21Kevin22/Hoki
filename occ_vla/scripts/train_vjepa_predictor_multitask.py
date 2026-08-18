@@ -136,6 +136,137 @@ def apply_partial_patch_jittered(img_resized, jitter_px, size_jitter_frac, rng):
     return out, (r0, r0 + ph, c0, c0 + pw)
 
 
+# ADR (Automatic Domain Randomization)-style curriculum for apply_irregular_edge_patch
+# (occ_vla, 2026-08-11): both a "strong" (area 3-20%, n_freq=4, radius_jitter=0.6,
+# edge_margin 0.2-0.9) and a "weakened" (area 6-18%, n_freq=2, radius_jitter=0.2,
+# edge_margin 0.6-1.4) --mask-diverse run were flat at 0/10 on 2 of 3 tasks through
+# the FULL 6000 steps -- the augmentation may simply be too hard from step 0 for this
+# data scale (~30 episodes/task), independent of its exact final strength. Real,
+# published technique (OpenAI 2019, "Solving Rubik's Cube with a Robot Hand" and
+# follow-ups; general "curriculum domain randomization" in sim-to-real robotics):
+# start at an EASY setting, and only widen toward the target difficulty while eval
+# success stays above a threshold -- narrows back down (not just holds) if the model
+# is struggling, unlike a naive fixed linear/step-based schedule. ADR_START is a near-
+# -trivial version of apply_irregular_edge_patch's own parameter space (large area
+# close to the original apply_partial_patch's ~35% fixed square, minimal irregularity,
+# large edge_margin so the centroid lands close to the image center for typical sizes
+# rather than genuinely edge-clipped) -- deliberately NOT literally apply_partial_patch
+# itself, so the whole curriculum stays inside one code path (no cross-function
+# blending). ADR_TARGET is supplied via the existing --mask-diverse-* CLI args (so
+# both the strong and weak configs already tried remain valid curriculum endpoints).
+ADR_START = {
+    "area_min": 0.30, "area_max": 0.35,
+    "n_freq": 1, "radius_jitter": 0.05,
+    "edge_margin_min": 1.5, "edge_margin_max": 2.5,
+}
+
+
+def adr_curriculum_params(level, args):
+    """level: 0.0 (ADR_START, easiest) .. 1.0 (the --mask-diverse-* CLI target,
+    hardest). Linear interpolation per-field."""
+    target = {
+        "area_min": args.mask_diverse_area_min, "area_max": args.mask_diverse_area_max,
+        "n_freq": args.mask_diverse_n_freq, "radius_jitter": args.mask_diverse_radius_jitter,
+        "edge_margin_min": args.mask_diverse_edge_margin_min, "edge_margin_max": args.mask_diverse_edge_margin_max,
+    }
+    out = {}
+    for k in ADR_START:
+        out[k] = ADR_START[k] + (target[k] - ADR_START[k]) * level
+    return out
+
+
+def build_patch_token_mask_256_from_pixelmask(pixel_mask):
+    """Same center-point-in-region convention as build_patch_token_mask_256
+    (train_vjepa_predictor_scaled.py), generalized to an arbitrary boolean
+    HxW pixel mask instead of a single rectangle -- needed for
+    apply_irregular_edge_patch below, whose corrupted region isn't a
+    rectangle."""
+    from train_vjepa_predictor_scaled import GRID_SIDE, PATCH_PX
+
+    mask_grid = np.zeros((GRID_SIDE, GRID_SIDE), dtype=bool)
+    for i in range(GRID_SIDE):
+        for j in range(GRID_SIDE):
+            center_r = int(i * PATCH_PX + PATCH_PX / 2)
+            center_c = int(j * PATCH_PX + PATCH_PX / 2)
+            if pixel_mask[center_r, center_c]:
+                mask_grid[i, j] = True
+    return mask_grid.reshape(-1)
+
+
+def apply_irregular_edge_patch(img_resized, rng, area_frac_range=(0.03, 0.20), n_freq=4, radius_jitter=0.6, edge_margin_range=(0.2, 0.9)):
+    """Irregular, edge-anchored occlusion mask -- P2 augmentation (occ_vla
+    2026-08-10), targeting the root cause found by the natural-occlusion
+    (LIBERO-Occ) investigation in this project's sibling directory
+    (openvla-oft/CLAUDE.md, natural_occ_report): apply_partial_patch /
+    apply_partial_patch_jittered above are BOTH always a solid, CENTERED
+    SQUARE (~35-39% area, only jittered a little in position/size) -- real
+    LIBERO-Occ occluders are irregular blobs, much smaller (measured max
+    wrist-camera area 6.56-18.23% across the 6 tasks that actually occlude
+    the wrist camera), and enter the frame from a screen EDGE rather than
+    sitting centered. This augmentation samples area/position/shape from
+    ranges grounded in those measurements, not guessed:
+      - area_frac_range default (0.03, 0.20) brackets the real measured
+        6.56-18.23% severity band with a little margin on both sides.
+      - the mask's centroid is anchored near one of 4 edges/4 corners
+        (randomly chosen), matching real occluders' edge-entry behavior
+        instead of apply_partial_patch's dead-center placement.
+      - the boundary is a solid but IRREGULAR blob (polar-coordinate radius
+        modulated by a few random low-frequency sinusoids around the
+        centroid), not a perfect rectangle or ellipse -- real occluder
+        silhouettes are irregular, per the same investigation's feature-
+        level generalization check (task7, 47/256 real patches).
+    Eval-time geometry is unaffected (always the fixed apply_partial_patch)
+    -- this only perturbs the TRAINING distribution. Returns
+    (corrupted_img, pixel_mask) -- pixel_mask is a boolean HxW array (not a
+    rectangle tuple), consumed by build_patch_token_mask_256_from_pixelmask
+    above, not build_patch_token_mask_256 (which expects a rectangle)."""
+    from train_vjepa_predictor_scaled import GRAY_FILL
+
+    h, w = img_resized.shape[:2]
+    area_frac = rng.uniform(*area_frac_range)
+    target_area = area_frac * h * w
+    base_radius = np.sqrt(target_area / np.pi)
+
+    anchor = rng.choice(["top", "bottom", "left", "right", "tl", "tr", "bl", "br"])
+    edge_margin = base_radius * rng.uniform(*edge_margin_range)  # how far the centroid sits from the true edge
+    if anchor == "top":
+        cy, cx = edge_margin, rng.uniform(0, w)
+    elif anchor == "bottom":
+        cy, cx = h - edge_margin, rng.uniform(0, w)
+    elif anchor == "left":
+        cy, cx = rng.uniform(0, h), edge_margin
+    elif anchor == "right":
+        cy, cx = rng.uniform(0, h), w - edge_margin
+    elif anchor == "tl":
+        cy, cx = edge_margin, edge_margin
+    elif anchor == "tr":
+        cy, cx = edge_margin, w - edge_margin
+    elif anchor == "bl":
+        cy, cx = h - edge_margin, edge_margin
+    else:
+        cy, cx = h - edge_margin, w - edge_margin
+
+    n_theta = 64
+    thetas = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
+    radius_theta = np.ones(n_theta)
+    for k in range(1, n_freq + 1):
+        amp = rng.uniform(0, radius_jitter / k)
+        phase = rng.uniform(0, 2 * np.pi)
+        radius_theta = radius_theta + amp * np.sin(k * thetas + phase)
+    radius_theta = base_radius * np.clip(radius_theta, 0.3, 2.0)
+
+    yy, xx = np.mgrid[0:h, 0:w]
+    dy, dx = yy - cy, xx - cx
+    r = np.sqrt(dy ** 2 + dx ** 2)
+    theta = (np.arctan2(dy, dx) + 2 * np.pi) % (2 * np.pi)
+    r_boundary = np.interp(theta, thetas, radius_theta, period=2 * np.pi)
+    pixel_mask = r <= r_boundary
+
+    out = img_resized.copy()
+    out[pixel_mask] = GRAY_FILL
+    return out, pixel_mask
+
+
 def build_temporal_weight_table(diagnosis_json_path, task_names, n_bins=10):
     """Spatio-Temporal Adaptive Loss, time component: per-task, per-decile
     weight derived directly from diagnose_vjepa_predictor_errors.py's own
@@ -243,6 +374,22 @@ def eval_all_tasks(task_contexts, model, resize_size, processor, action_head, pr
     return results
 
 
+def adr_update_level(results, level, args):
+    """ADR step: widen (increase level, capped at 1.0) if mean success across all
+    tasks' just-measured eval >= args.adr_threshold, else narrow back down (decrease
+    by half the widen step, floored at 0.0) -- the "narrows back down if struggling"
+    property that distinguishes ADR from a naive fixed schedule."""
+    n_succ = sum(s for s, _ in results.values())
+    n_tot = sum(t for _, t in results.values())
+    mean_success = n_succ / n_tot if n_tot > 0 else 0.0
+    if mean_success >= args.adr_threshold:
+        new_level = min(1.0, level + args.adr_step)
+    else:
+        new_level = max(0.0, level - args.adr_step / 2)
+    print(f"  [ADR] mean_success={mean_success:.3f} (threshold={args.adr_threshold}) curriculum_level {level:.3f} -> {new_level:.3f}")
+    return new_level
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -311,6 +458,46 @@ def main():
     )
     parser.add_argument("--mask-jitter-px", type=int, default=20, help="Max +/- pixel offset for --mask-jitter's center.")
     parser.add_argument("--mask-jitter-size-frac", type=float, default=0.1, help="Max +/- fractional size change for --mask-jitter.")
+    parser.add_argument(
+        "--mask-diverse", action="store_true",
+        help="P2 (occ_vla 2026-08-10): use apply_irregular_edge_patch instead of the fixed centered "
+             "square (with or without --mask-jitter) -- irregular, small, edge-anchored masks sampled "
+             "from the real LIBERO-Occ severity/geometry range, directly targeting the geometric-"
+             "overfitting root cause found by the natural-occlusion investigation. Mutually exclusive "
+             "with --mask-jitter in effect (if both are passed, --mask-diverse takes precedence per "
+             "training step). Eval-time geometry is unaffected (always the fixed apply_partial_patch).",
+    )
+    parser.add_argument("--mask-diverse-area-min", type=float, default=0.03)
+    parser.add_argument("--mask-diverse-area-max", type=float, default=0.20)
+    parser.add_argument(
+        "--mask-diverse-n-freq", type=int, default=4,
+        help="apply_irregular_edge_patch: number of sinusoidal harmonics perturbing the boundary radius. "
+             "Lower = smoother/rounder blob, closer to an ellipse. Weakened-strength runs (occ_vla 2026-08-11, "
+             "after the first --mask-diverse attempt failed 0/10 on 2 of 3 tasks) should lower this.",
+    )
+    parser.add_argument(
+        "--mask-diverse-radius-jitter", type=float, default=0.6,
+        help="apply_irregular_edge_patch: max amplitude of the boundary-radius perturbation (as a fraction of "
+             "base_radius). Lower = less irregular/more circular. Same weakening rationale as --mask-diverse-n-freq.",
+    )
+    parser.add_argument(
+        "--mask-diverse-edge-margin-min", type=float, default=0.2,
+        help="apply_irregular_edge_patch: min centroid-to-edge distance (as a multiple of base_radius). "
+             "Higher = less extreme edge-clipping/cropping of the occluder.",
+    )
+    parser.add_argument(
+        "--mask-diverse-edge-margin-max", type=float, default=0.9,
+        help="apply_irregular_edge_patch: max centroid-to-edge distance (as a multiple of base_radius).",
+    )
+    parser.add_argument(
+        "--adr-curriculum", action="store_true",
+        help="ADR (Automatic Domain Randomization)-style curriculum (occ_vla 2026-08-11): requires --mask-diverse. "
+             "Starts at ADR_START (near-trivial: large centered-ish area, minimal irregularity) and widens toward "
+             "the --mask-diverse-* CLI target only while eval success stays >= --adr-threshold, narrowing back down "
+             "otherwise -- see adr_curriculum_params()'s docstring for the full rationale.",
+    )
+    parser.add_argument("--adr-threshold", type=float, default=0.3, help="Mean eval success rate (across all tasks) needed to widen the curriculum.")
+    parser.add_argument("--adr-step", type=float, default=0.15, help="Curriculum level (0..1) change per eval checkpoint.")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -392,7 +579,11 @@ def main():
     proprio_norm_stats = model.norm_stats[_tmp_cfg.unnorm_key]["proprio"]
 
     print("\n=== Eval before training (step 0) ===")
-    eval_all_tasks(task_contexts, model, resize_size, processor, action_head, proprio_projector, args.eval_episodes)
+    _pretrain_results = eval_all_tasks(task_contexts, model, resize_size, processor, action_head, proprio_projector, args.eval_episodes)
+
+    curriculum_level = 0.0
+    if args.adr_curriculum:
+        curriculum_level = adr_update_level(_pretrain_results, curriculum_level, args)
 
     task_order = list(range(len(task_specs)))
 
@@ -428,16 +619,37 @@ def main():
             wrist_t.append(ep["wrist"][t])
             agentview_tm1.append(ep["agentview"][t - 1])
             wrist_tm1.append(ep["wrist"][t - 1])
-            if args.mask_jitter:
+            if args.mask_diverse:
+                if args.adr_curriculum:
+                    p = adr_curriculum_params(curriculum_level, args)
+                    corrupted, pixel_mask = apply_irregular_edge_patch(
+                        ep["wrist"][t], random,
+                        area_frac_range=(p["area_min"], p["area_max"]),
+                        n_freq=max(1, round(p["n_freq"])),
+                        radius_jitter=p["radius_jitter"],
+                        edge_margin_range=(p["edge_margin_min"], p["edge_margin_max"]),
+                    )
+                else:
+                    corrupted, pixel_mask = apply_irregular_edge_patch(
+                        ep["wrist"][t], random,
+                        area_frac_range=(args.mask_diverse_area_min, args.mask_diverse_area_max),
+                        n_freq=args.mask_diverse_n_freq,
+                        radius_jitter=args.mask_diverse_radius_jitter,
+                        edge_margin_range=(args.mask_diverse_edge_margin_min, args.mask_diverse_edge_margin_max),
+                    )
+                sample_mask_256 = build_patch_token_mask_256_from_pixelmask(pixel_mask)
+            elif args.mask_jitter:
                 corrupted, pixel_bounds = apply_partial_patch_jittered(
                     ep["wrist"][t], args.mask_jitter_px, args.mask_jitter_size_frac, random
                 )
+                sample_mask_256 = build_patch_token_mask_256(pixel_bounds)
             else:
                 corrupted, pixel_bounds = apply_partial_patch(ep["wrist"][t])
+                sample_mask_256 = build_patch_token_mask_256(pixel_bounds)
             wrist_t_corrupted.append(corrupted)
             proprio_t.append(normalize_proprio(ep["proprio"][t], proprio_norm_stats))
             prompts.append(tc["prompt"])
-            mask_per_sample.append(build_patch_token_mask_256(pixel_bounds))
+            mask_per_sample.append(sample_mask_256)
 
             # Timestep-based precision-phase proxy: no action data is collected in
             # oft_onpolicy_rollout_data (only agentview/wrist/proprio), so the
@@ -571,7 +783,9 @@ def main():
 
         if step % args.eval_every == 0:
             print(f"\n=== Eval at step {step} ===")
-            eval_all_tasks(task_contexts, model, resize_size, processor, action_head, proprio_projector, args.eval_episodes)
+            _step_results = eval_all_tasks(task_contexts, model, resize_size, processor, action_head, proprio_projector, args.eval_episodes)
+            if args.adr_curriculum:
+                curriculum_level = adr_update_level(_step_results, curriculum_level, args)
             ckpt_path = f"{args.save_path}.step{step}"
             torch.save({"dino": vb.vjepa_predictor_dino.state_dict(), "siglip": vb.vjepa_predictor_siglip.state_dict()}, ckpt_path)
             print(f"  saved checkpoint to {ckpt_path}\n")
