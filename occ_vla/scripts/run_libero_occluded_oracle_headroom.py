@@ -545,10 +545,19 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
 
                 if feature_store is not None:
                     fname = f"task{task_id}_ep{episode_idx}_t{t}_features.npz"
+                    # occ_vla bug fix (2026-08-18): this call only ever
+                    # persisted "dino"/"siglip" explicitly -- the
+                    # "dino_final"/"siglip_final" keys added the same day
+                    # (distribution-shift measurement) were being computed
+                    # and placed into feature_store correctly, but silently
+                    # dropped here since np.savez_compressed only writes
+                    # what's passed as kwargs, not the whole dict. Caught by
+                    # inspecting a real saved .npz's keys before trusting the
+                    # analysis pipeline. Pass every feature_store key through.
                     np.savez_compressed(
                         os.path.join(save_features_dir, fname),
-                        dino=feature_store.get("dino"), siglip=feature_store.get("siglip"),
                         occluded_pixel_mask=occluded_pixel_mask, t=t,
+                        **{k: v for k, v in feature_store.items() if v is not None},
                     )
                     model.vision_backbone._diagnostic_feature_store = None
 
