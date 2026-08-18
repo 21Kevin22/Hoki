@@ -387,3 +387,132 @@ result on the real benchmark.**
 | Multiple GPU processes sharing one `--results-dir`, each writing its OWN local `summary.json` after every task | The shared `summary.json` gets silently overwritten by whichever process finishes last (only its own task subset survives) — per-task JSON files (distinct filenames) are safe; recompute the combined summary from those, don't trust the shared aggregation file after a multi-process parallel scan |
 | bitsandbytes 4-bit/8-bit quantization structurally converts EVERY `nn.Linear` found by `named_modules()` to `Linear4bit`, including newly-added (not-in-checkpoint) submodules like `vjepa_predictor_dino/_siglip` | Pass `llm_int8_skip_modules=["vjepa_predictor_dino", "vjepa_predictor_siglip"]` in `BitsAndBytesConfig` |
 | `nn.Module.to()`'s `_apply` only forwards `dtype` to a leaf tensor already `.is_floating_point()` — a `torch.uint8` meta tensor (seen for these submodules specifically under 4-bit quantization) silently no-ops on `.to(dtype=...)` regardless of call order | Bypass `Module.to()` for the dtype cast: reassign each parameter's `.data` directly via a small `_force_dtype()` helper, after `to_empty()` gives real (if wrong-dtype) storage |
+
+## Phase A1 (real LIBERO-Occ oracle-correction headroom check): infra
+built and debugged on Kaggle, task selection still in progress
+(2026-08-18)
+
+Per the 2026-08-18 experiment plan: before investing in training a
+predictor or an image-based detector for the REAL `libero_10_occluded`
+benchmark (not the plain-`libero_10` incidental self-occlusion tested by
+findings 7/11 above), first confirm ORACLE mid-layer correction (ground-
+truth clean content, not a learned predictor) has any headroom over
+baseline at all. If oracle can't beat baseline, nothing built on top of
+it (trained predictor, image-based detector) can either.
+
+**New script**: `scripts/run_libero_occluded_oracle_headroom.py`.
+Generalizes `midlayer_oracle_splice.py`'s wrist-only (image index 1)
+ground-truth splice to AGENTVIEW (image index 0), since the real
+benchmark's occlusion is agentview-side (deliberately-placed 3D
+occluder objects, per finding 12), not wrist-side. Occluder identification
+is NOT hardcoded per task -- diffs the occluded task's sim body-name set
+against the matching stock `libero_10` task's (same `bddl_file`), reusing
+`register_libero_occ_suites.py`'s registration + the same alpha-zero
+hide-and-reveal rendering technique already established in
+`run_libero_occ_benchmark.py`. McNemar's paired test included per task.
+
+**Three real bugs found and fixed via actual Kaggle smoke-test runs
+(n=2, task_id=3="both moka pots" in `libero_10_occluded`'s own
+alphabetical-by-BDDL-filename numbering), none caught by inspection alone
+-- confirms this project's own standing rule that untested code needs a
+real run, not just a careful read, before trusting it**:
+
+1. **`clear_target_mask` captured from an already-occluded raw frame.**
+   The occluder here is a STATIC, ALWAYS-PRESENT fixture (unlike the
+   arm's self-occlusion) -- it's already blocking the target in the very
+   FIRST live frame, so a "clear baseline" taken from that raw frame is
+   already-occluded and self-consistent with every later frame (occlusion
+   never registers as a CHANGE). Symptom: `n_occluded_steps=0` across all
+   4 smoke-test episodes despite a confirmed real 2-object occluder.
+   Fixed by alpha-zeroing the occluder geoms (same technique already used
+   for the oracle content splice) before capturing the one-time baseline.
+   Known remaining caveat, NOT fixed: this baseline is still captured only
+   ONCE per episode -- valid for agentview's static camera, but not for a
+   moving TARGET (moka_pots' own task moves the pots onto the stove, so
+   the baseline goes stale once a pot is picked up -- same category of
+   caveat already documented for PKLP-style tracking elsewhere in this
+   project). Acceptable first approximation.
+2. **Stale render context after `find_occluder_body_names` opens/closes
+   2 temporary `OffScreenRenderEnv` instances.** An isolated diagnostic
+   script (hide-and-reveal on a single freshly-created env, no other envs
+   opened/closed first) confirmed the segmentation hide-and-reveal
+   technique itself is correct (hiding `moka_pot_1`'s geoms cleanly
+   removed exactly its own segmentation value, 248px, nothing else
+   changed) -- but the SAME logic returned empty `target_seg_ids` in the
+   real script, on the same `env`, right after `find_occluder_body_names`'s
+   temp envs (`env_occ`/`env_stock`) had been opened and closed.
+   MuJoCo/robosuite's offscreen EGL rendering likely shares process-global
+   context state; closing those temp envs left the main env's own render
+   state stale. Same category as this project's own already-documented
+   "re-fetch sim after reset" caution, just triggered by a DIFFERENT env's
+   lifecycle. Fixed by `env.reset()` + re-fetching `sim` again AFTER
+   `find_occluder_body_names` returns.
+3. **`run_libero_occluded_fast_scan.py` had no `--checkpoint` flag at
+   all** -- `CHECKPOINT` was a fixed module constant hardcoded to
+   `/home/ubuntu/slocal/occ_vla/checkpoints/...` (this script lived on the
+   `add-openvla-oft-investigation` branch until the 2026-08-18 PR #2
+   merge, so it missed the `--checkpoint`/`--load-in-4bit` pass every
+   other eval script already got this session). Fixed: added both flags,
+   `CHECKPOINT` kept only as the (now-overridable) default.
+
+**Smoke-test result, once both bugs above were fixed (n=2, task_id=3)**:
+`baseline=0/2, oracle=0/2, chi2=0.00` -- pipeline runs end-to-end
+correctly (occlusion IS now measured, `n_occluded_steps=520/520` both
+conditions -- this task's 2-object occluder blocks the target for
+essentially the entire episode from this static agentview angle), but
+**this specific task is UNINFORMATIVE for the headroom question**: with
+baseline already at 0%, there's no room to show ANY correction effect
+(floor effect) -- matches this project's own repeated "picked the wrong
+axis (too hard), both conditions fail for unrelated reasons" lesson.
+n=2 is also far too small to trust on its own regardless.
+
+**Explicit methodological decision (2026-08-18): do NOT test oracle
+across several tasks and pick whichever looks best.** This is
+selection-bias/cherry-picking -- even with zero real effect, some task
+out of 10 will show a numerically better oracle result by chance alone at
+small n. This project has been burned by exactly this pattern multiple
+times already (moka_pots' gate_engaged_steps=0 "promising trend" chased
+across two sessions before the bug was found; the T08 n=3 result that
+evaporated at n=10; `spatial_text`'s bowl_top_drawer win that didn't
+replicate on mug_in_microwave) -- the whole point of building McNemar's
+test into this script was to not repeat that pattern here. **Correct
+sequence, in order**:
+1. Find a task with real baseline headroom (neither ~0% nor ~100%
+   success) using `run_libero_occluded_fast_scan.py` (baseline-only, no
+   oracle, so task selection never looks at oracle's outcome) across all
+   10 `libero_10_occluded` tasks, n=5 first pass.
+2. Only THEN run `run_libero_occluded_oracle_headroom.py` on that one
+   task, n>=20, read the McNemar chi2.
+3. If oracle shows a real effect there, it must be REPLICATED on a second
+   headroom-having task before being reported as "the method works" --
+   same bar this project has applied to every other single-task result.
+
+**Status as of this note: step 1 (the all-10-task baseline-only scan) was
+about to be launched but not yet completed/reported** --
+`run_libero_occluded_fast_scan.py --task-ids 0 1 2 3 4 5 6 7 8 9
+--n-episodes 5 --checkpoint <path> --load-in-4bit --results-dir <dir>`.
+Whichever environment picks this up next should run that scan first, per
+the sequence above, before touching the oracle script again.
+
+**Environment setup a fresh (non-Kaggle) SSH machine needs, beyond
+"Environment setup" above, specifically for this LIBERO-Occ thread**:
+1. `register_libero_occ_suites.py` needs the real benchmark assets
+   installed first: clone `https://github.com/litsh/Libero-Occ.git`
+   (MIT-licensed), then `LIBERO_ROOT=<this LIBERO checkout> bash
+   scripts/setup/install_libero_occ_assets.sh` from inside that clone
+   (copies `bddl_files`/`init_files` for the 4 `_occluded` suites into
+   `<LIBERO_ROOT>/libero/libero/{bddl_files,init_files}/`). One-time per
+   LIBERO checkout, safe to re-run.
+2. Any script using these suites must `import register_libero_occ_suites`
+   (or run it directly once) BEFORE calling
+   `benchmark.get_benchmark_dict()`/`get_benchmark(name)` -- it's a
+   purely-additive runtime registration (extends `libero_task_map` +
+   `register_benchmark`), no vendored LIBERO source is edited.
+3. `libero_10_occluded`'s task numbering is alphabetical-by-BDDL-filename,
+   NOT stock `libero_10`'s `task_order` permutation (finding 12) -- always
+   print `task.language`/`task.bddl_file` before trusting a `--task-ids N`
+   result, don't assume index parity with plain `libero_10` runs.
+4. This whole thread's real work happened via commits `f6e536c` (script
+   added), `0e58dc1`/`c4ce69b` (the 2 bug fixes above), `837848f`
+   (fast_scan `--checkpoint` fix) on `main` -- all already merged, a fresh
+   `git pull origin main` on any environment gets everything.
