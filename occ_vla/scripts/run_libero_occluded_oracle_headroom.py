@@ -73,7 +73,24 @@ since it's LIBERO-Occ-specific, but follows the same n>=20/paired-test bar).
 Run with the openvla-oft conda env:
   python scripts/run_libero_occluded_oracle_headroom.py \
     --task-ids 0 1 2 3 4 5 6 7 8 9 --n-episodes 20 \
-    --results-dir libero_occluded_oracle_headroom
+    --results-dir libero_occluded_oracle_headroom \
+    --log-action-diff \
+    --save-oracle-features-dir libero_occluded_oracle_features
+
+--log-action-diff / --save-oracle-features-dir (occ_vla addition,
+2026-08-18, per user request -- added BEFORE any real n>=20 run, since
+this data can't be recaptured after the fact): the ||Delta-a|| log
+directly, quantitatively answers "does the correction change the ACTION,
+not just intermediate features" (Delta-a ~= 0 despite many corrections
+firing => "reaches features, not behavior"; Delta-a large but
+trajectories/outcomes still similar => "changes behavior, but the
+environment absorbs it") -- replaces indirect inference from trajectory
+similarity alone. See run_episode's own docstring for the full mechanism
+and cost (one extra forward pass per oracle-correction replan step, not
+every env step). --save-oracle-features-dir separately saves the exact
+oracle ground-truth features used at each such step, for a later trained-
+predictor-vs-oracle reconstruction-error correlation without re-running
+oracle. Both off by default (zero cost/behavior change if omitted).
 """
 
 import argparse
@@ -240,7 +257,16 @@ def _vit_prep(featurizer, x):
     return x
 
 
-def _run_vit_with_midlayer_splice(featurizer, x_corrupted_pixels, x_clean_pixels, split_layer, patch_mask_256):
+def _run_vit_with_midlayer_splice(featurizer, x_corrupted_pixels, x_clean_pixels, split_layer, patch_mask_256,
+                                   feature_store=None, feature_store_key=None):
+    """feature_store/feature_store_key (occ_vla addition, 2026-08-18): if
+    both given, stashes the oracle patch_clean tensor (detached, fp32, CPU)
+    at the split layer into feature_store[feature_store_key]. Lets a caller
+    save the exact ground-truth features actually used for this splice --
+    e.g. for a future trained-predictor-vs-oracle reconstruction-error
+    comparison, which can't be recomputed after the fact once a rollout has
+    moved past this step. Default None/None for both args -- zero effect on
+    any existing caller."""
     num_blocks = len(featurizer.blocks)
     extraction_layer = num_blocks - 2
     assert 0 <= split_layer < extraction_layer, f"split_layer={split_layer} must be in [0, {extraction_layer})"
@@ -257,6 +283,8 @@ def _run_vit_with_midlayer_splice(featurizer, x_corrupted_pixels, x_clean_pixels
             mask = patch_mask_256.to(dtype=torch.bool, device=x_corrupted.device).reshape(1, -1, 1)
             patch_corrupted = x_corrupted[:, num_prefix:]
             patch_clean = x_clean[:, num_prefix:]
+            if feature_store is not None and feature_store_key is not None:
+                feature_store[feature_store_key] = patch_clean.detach().to(torch.float32).cpu().numpy()
             spliced_patch = torch.where(mask, patch_clean, patch_corrupted)
             x_corrupted = torch.cat([x_corrupted[:, :num_prefix], spliced_patch], dim=1)
             del x_clean
@@ -278,6 +306,11 @@ def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=
         num_images = vision_backbone.num_images_in_input
         clean_pixels = getattr(vision_backbone, "_diagnostic_clean_agentview_pixel_values", None)
         patch_mask_256 = getattr(vision_backbone, "_diagnostic_agentview_patch_mask_256", None)
+        # occ_vla addition (2026-08-18): if the caller set this to a dict
+        # before invoking get_vla_action, the oracle patch_clean features
+        # actually used for the splice this call get stashed into it under
+        # "dino"/"siglip" -- see _run_vit_with_midlayer_splice's docstring.
+        feature_store = getattr(vision_backbone, "_diagnostic_feature_store", None)
 
         images = [pixel_values] if num_images == 1 else torch.split(pixel_values, [6] * num_images, dim=1)
 
@@ -290,8 +323,10 @@ def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=
                 nb_siglip = len(vision_backbone.fused_featurizer.blocks)
                 sl_dino = int(nb_dino * split_frac)
                 sl_siglip = int(nb_siglip * split_frac)
-                patches = _run_vit_with_midlayer_splice(vision_backbone.featurizer, img_regular, clean_regular, sl_dino, patch_mask_256)
-                patches_fused = _run_vit_with_midlayer_splice(vision_backbone.fused_featurizer, img_fused, clean_fused, sl_siglip, patch_mask_256)
+                patches = _run_vit_with_midlayer_splice(vision_backbone.featurizer, img_regular, clean_regular, sl_dino, patch_mask_256,
+                                                         feature_store=feature_store, feature_store_key="dino")
+                patches_fused = _run_vit_with_midlayer_splice(vision_backbone.fused_featurizer, img_fused, clean_fused, sl_siglip, patch_mask_256,
+                                                               feature_store=feature_store, feature_store_key="siglip")
             else:
                 patches = vision_backbone.featurizer(img_regular)
                 patches_fused = vision_backbone.fused_featurizer(img_fused)
@@ -314,7 +349,32 @@ def build_pixel_values(agentview_img, wrist_img, processor, prompt, device, dtyp
 # ---------------------------------------------------------------------------
 
 def run_episode(cfg, env, task_description, model, processor, action_head, proprio_projector, resize_size,
-                 init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac):
+                 init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac,
+                 original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
+                 task_id=None, episode_idx=None):
+    """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
+    user request -- these logs must be added BEFORE the real n>=20 run,
+    since the underlying data can't be recaptured after the fact):
+
+    log_action_diff -- at each oracle replan step where a real correction
+    was applied, also computes the counterfactual baseline action (same
+    observation, model.vision_backbone.forward temporarily swapped back to
+    `original_forward`, occlusion_mask=None -- i.e. "what would the
+    uncorrected model have done here") and records the L2 norm of the
+    difference from the actually-used oracle action (Delta-a) plus the
+    elapsed consecutive-occluded-step count. Directly, quantitatively
+    distinguishes "correction reaches features but not behavior"
+    (Delta-a ~= 0) from "correction changes behavior but the environment
+    absorbs it" (Delta-a large, trajectories/outcomes still similar) --
+    replaces indirect inference from trajectory similarity alone. Real
+    cost: one extra forward pass per oracle replan step under real
+    occlusion (not every env step) -- opt-in, off by default.
+
+    save_features_dir -- if given, also writes the oracle ground-truth
+    patch features (the exact tensors spliced in, via
+    _run_vit_with_midlayer_splice's feature_store hook) to a .npz per such
+    step, for a later trained-predictor-vs-oracle reconstruction-error
+    correlation without needing to re-run oracle."""
     env.reset()
     obs = env.set_init_state(init_state)
     if hasattr(model, "reset_vjepa_state"):
@@ -326,6 +386,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     success = False
     clear_target_mask = None
     n_occluded_steps = 0
+    occluded_run_length = 0  # elapsed consecutive occluded steps -- resets to 0 the moment occlusion clears
+    action_diff_log = []
 
     prompt = f"In: What action should the robot take to {task_description.lower()}?\nOut:"
 
@@ -373,6 +435,9 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
             )
             if frac_occluded_this_step > 0.05:
                 n_occluded_steps += 1
+                occluded_run_length += 1
+            else:
+                occluded_run_length = 0
 
             occlusion_mask = None
             if condition == "oracle" and occluder_geom_ids and occluded_pixel_mask.any():
@@ -398,11 +463,58 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     "wrist_image": wrist_img,
                     "state": np.concatenate((obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])),
                 }
+                real_oracle_correction_this_call = condition == "oracle" and occlusion_mask is not None
+
+                # occ_vla addition (2026-08-18): always (re)set, even to None,
+                # so a stale dict from an earlier step's call is never
+                # silently reused if save_features_dir toggles off mid-run.
+                feature_store = {} if (save_features_dir and real_oracle_correction_this_call) else None
+                model.vision_backbone._diagnostic_feature_store = feature_store
+
                 actions = get_vla_action(
                     cfg, model, processor, observation, task_description,
                     action_head=action_head, proprio_projector=proprio_projector,
                     noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
                 )
+
+                if log_action_diff and real_oracle_correction_this_call and original_forward is not None and splice_forward is not None:
+                    # Counterfactual: identical observation, forward swapped
+                    # back to uncorrected -- what would baseline have done
+                    # at this exact state? One extra forward pass.
+                    model.vision_backbone.forward = original_forward
+                    with torch.no_grad():
+                        actions_baseline_ctf = get_vla_action(
+                            cfg, model, processor, observation, task_description,
+                            action_head=action_head, proprio_projector=proprio_projector,
+                            noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=None,
+                        )
+                    model.vision_backbone.forward = splice_forward
+                    a_oracle = np.asarray(actions[0], dtype=float)
+                    a_base = np.asarray(actions_baseline_ctf[0], dtype=float)
+                    delta_a_first = float(np.linalg.norm(a_oracle - a_base))
+                    chunk_oracle = np.asarray(actions, dtype=float)
+                    chunk_base = np.asarray(actions_baseline_ctf, dtype=float)
+                    n_common = min(len(chunk_oracle), len(chunk_base))
+                    delta_a_chunk_mean = float(
+                        np.linalg.norm(chunk_oracle[:n_common] - chunk_base[:n_common], axis=-1).mean()
+                    )
+                    action_diff_log.append({
+                        "t": t, "occluded_run_length": occluded_run_length,
+                        "frac_occluded": float(frac_occluded_this_step),
+                        "delta_a_norm_first": delta_a_first, "delta_a_norm_chunk_mean": delta_a_chunk_mean,
+                    })
+                    print(f"    [action-diff] t={t} occluded_run_length={occluded_run_length} "
+                          f"delta_a_first={delta_a_first:.4f} delta_a_chunk_mean={delta_a_chunk_mean:.4f}")
+
+                if feature_store is not None:
+                    fname = f"task{task_id}_ep{episode_idx}_t{t}_features.npz"
+                    np.savez_compressed(
+                        os.path.join(save_features_dir, fname),
+                        dino=feature_store.get("dino"), siglip=feature_store.get("siglip"),
+                        occluded_pixel_mask=occluded_pixel_mask, t=t,
+                    )
+                    model.vision_backbone._diagnostic_feature_store = None
+
                 action_queue.extend(actions)
 
             action = action_queue.popleft()
@@ -418,6 +530,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     return {
         "success": success, "done_step": t,
         "n_occluded_steps": n_occluded_steps,
+        "action_diff_log": action_diff_log,
     }
 
 
@@ -441,8 +554,20 @@ def main():
     parser.add_argument("--results-dir", default="libero_occluded_oracle_headroom")
     parser.add_argument("--conditions", nargs="+", default=["baseline", "oracle"])
     parser.add_argument("--load-in-4bit", action="store_true")
+    # occ_vla additions (2026-08-18), per user request -- add before the
+    # real n>=20 run since this data can't be recaptured after the fact.
+    parser.add_argument("--log-action-diff", action="store_true",
+                         help="Extra forward pass per oracle-correction replan step: log ||Delta-a|| "
+                              "(oracle action vs same-state counterfactual uncorrected action) and "
+                              "elapsed occluded-run-length. See run_episode's docstring.")
+    parser.add_argument("--save-oracle-features-dir", default=None,
+                         help="If set, also saves the oracle ground-truth patch features (.npz) at "
+                              "each oracle-correction replan step, for a later predictor-vs-oracle "
+                              "reconstruction-error comparison without re-running oracle.")
     args = parser.parse_args()
     os.makedirs(args.results_dir, exist_ok=True)
+    if args.save_oracle_features_dir:
+        os.makedirs(args.save_oracle_features_dir, exist_ok=True)
 
     cfg = GenerateConfig(
         pretrained_checkpoint=args.checkpoint,
@@ -521,10 +646,14 @@ def main():
                 res = run_episode(
                     cfg, env, task_description, model, processor, action_head, proprio_projector, resize_size,
                     init_states[ep], max_steps, condition, occluder_geom_ids, target_seg_ids, args.midlayer_split_frac,
+                    original_forward=original_forward, splice_forward=splice_forward,
+                    log_action_diff=args.log_action_diff, save_features_dir=args.save_oracle_features_dir,
+                    task_id=task_id, episode_idx=ep,
                 )
                 res["episode"] = ep
                 results.append(res)
-                print(f"  [{condition}] ep{ep}: success={res['success']} done_step={res['done_step']} n_occluded_steps={res['n_occluded_steps']}")
+                print(f"  [{condition}] ep{ep}: success={res['success']} done_step={res['done_step']} "
+                      f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
@@ -541,6 +670,26 @@ def main():
                 "n": len(base_s), "mcnemar_chi2": chi2, "baseline_only_success": b, "oracle_only_success": c,
                 "n_occluder_bodies": len(occluder_names),
             }
+            # occ_vla addition (2026-08-18): aggregate ||Delta-a|| across every
+            # oracle-correction replan step logged this task, if enabled --
+            # answers "does the correction change the ACTION, not just
+            # features" directly and quantitatively, per user request.
+            if args.log_action_diff:
+                all_deltas_first = [
+                    d["delta_a_norm_first"] for r in task_results.get("oracle", []) for d in r["action_diff_log"]
+                ]
+                if all_deltas_first:
+                    arr = np.array(all_deltas_first)
+                    summary["action_diff_n"] = int(len(arr))
+                    summary["action_diff_mean_first"] = float(arr.mean())
+                    summary["action_diff_median_first"] = float(np.median(arr))
+                    summary["action_diff_frac_near_zero_lt_0p01"] = float((arr < 0.01).mean())
+                    print(f"  task{task_id} action-diff (n={len(arr)} oracle-correction replan steps): "
+                          f"mean||Delta-a||={arr.mean():.4f} median={np.median(arr):.4f} "
+                          f"frac(||Delta-a||<0.01)={(arr < 0.01).mean()*100:.1f}%")
+                else:
+                    print(f"  task{task_id} action-diff: 0 oracle-correction replan steps logged "
+                          f"(occluder/target identification likely failed for this task -- see WARNING lines above)")
             all_summary[task_id] = summary
             print(f"  task{task_id} SUMMARY: baseline={summary['baseline_sr']*100:.1f}% oracle={summary['oracle_sr']*100:.1f}% "
                   f"chi2={chi2:.2f} (n={summary['n']}, sig if >3.84)")

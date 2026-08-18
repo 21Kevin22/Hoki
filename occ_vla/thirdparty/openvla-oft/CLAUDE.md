@@ -516,3 +516,44 @@ the sequence above, before touching the oracle script again.
    added), `0e58dc1`/`c4ce69b` (the 2 bug fixes above), `837848f`
    (fast_scan `--checkpoint` fix) on `main` -- all already merged, a fresh
    `git pull origin main` on any environment gets everything.
+
+**Added before Step 2 launches, per user request (2026-08-18, same day):
+`--log-action-diff` / `--save-oracle-features-dir` on
+`run_libero_occluded_oracle_headroom.py`.** Both off by default, zero
+behavior change if omitted. Rationale: once the real n>=20 oracle run
+starts, this specific data can't be recaptured after the fact, so it had
+to be added before launch, not after.
+- `--log-action-diff`: at each oracle-correction replan step, runs ONE
+  extra forward pass with `model.vision_backbone.forward` temporarily
+  swapped back to the uncorrected `original_forward` (same observation,
+  `occlusion_mask=None`) and logs `||Delta-a||` -- the L2 norm between the
+  actually-used oracle action and this same-state uncorrected
+  counterfactual -- plus the elapsed consecutive-occluded-step count.
+  Answers directly, quantitatively: does the mid-layer correction change
+  the ACTION (not just intermediate features)? `Delta-a ~= 0` despite
+  many corrections firing => "reaches features, not behavior";
+  `Delta-a` large but trajectories/outcomes still similar => "changes
+  behavior, but the environment absorbs the difference" -- a materially
+  different, and more informative, finding than either. Replaces
+  indirect inference from trajectory similarity alone.
+- `--save-oracle-features-dir <dir>`: also saves the exact oracle
+  ground-truth patch features (DINO + SigLIP, at the split layer) used
+  for each such correction to a `.npz`, so a later trained-predictor-vs-
+  oracle reconstruction-error correlation doesn't need oracle re-run.
+- **Not implemented, and deliberately out of scope for this gate check**
+  (per this script's own docstring -- "This is a GATE, not a full
+  pipeline"): a predicted-vs-oracle reconstruction-error metric itself
+  (needs the trained VJEPA predictor actually invoked, a separate later
+  step this script doesn't run at all); an occlusion-strength sweep
+  across baseline/prevframe/Ours/oracle (needs the trained predictor +
+  a "prevframe" baseline, neither present here); porting to another VLA;
+  robustness to viewpoint perturbation. Also noted but not (yet) acted
+  on: before any future k/S_occ threshold gets tuned, hold out a
+  separate validation-task set from the evaluation-task set used for the
+  final numbers, to avoid threshold-selection contamination on the test
+  set -- no threshold exists to tune yet in this specific script, so
+  nothing to change here, just a discipline to keep in mind later.
+- Commit: added directly to `run_libero_occluded_oracle_headroom.py` on
+  `main` same day, no separate commit hash recorded yet at the time this
+  note was written -- `git log -p -- scripts/run_libero_occluded_oracle_headroom.py`
+  on any environment will show it once pushed.
