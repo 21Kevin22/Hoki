@@ -582,6 +582,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task-ids", type=int, nargs="+", default=list(range(10)))
     parser.add_argument("--n-episodes", type=int, default=20)
+    # occ_vla addition (2026-08-18, per user request): lets a genuine
+    # independent replication reuse a DIFFERENT slice of this task's
+    # init_states (e.g. --episode-offset 20 after an initial --n-episodes 20
+    # run already consumed init_states[0:20]) instead of accidentally
+    # re-running the exact same 20 seeds and calling it a replication.
+    parser.add_argument("--episode-offset", type=int, default=0)
     parser.add_argument("--checkpoint", default=os.path.expanduser("~/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa"))
     parser.add_argument("--midlayer-split-frac", type=float, default=0.67)
     parser.add_argument("--results-dir", default="libero_occluded_oracle_headroom")
@@ -669,7 +675,7 @@ def main():
                 print(f"  [target-id] WARNING: could not resolve segmentation ids for {target_body_substrings} -- oracle will be a no-op")
 
         init_states = occluded_suite.get_task_init_states(task_id)
-        n = min(args.n_episodes, len(init_states))
+        n = min(args.n_episodes, len(init_states) - args.episode_offset)
 
         task_results = {}
         for condition in args.conditions:
@@ -678,14 +684,20 @@ def main():
             for ep in range(n):
                 res = run_episode(
                     cfg, env, task_description, model, processor, action_head, proprio_projector, resize_size,
-                    init_states[ep], max_steps, condition, occluder_geom_ids, target_seg_ids, args.midlayer_split_frac,
+                    init_states[args.episode_offset + ep], max_steps, condition, occluder_geom_ids, target_seg_ids, args.midlayer_split_frac,
                     original_forward=original_forward, splice_forward=splice_forward,
                     log_action_diff=args.log_action_diff, save_features_dir=args.save_oracle_features_dir,
-                    task_id=task_id, episode_idx=ep,
+                    task_id=task_id, episode_idx=args.episode_offset + ep,
                 )
-                res["episode"] = ep
+                # occ_vla addition (2026-08-18): report the TRUE global
+                # init_states index, not the loop-local `ep` -- otherwise a
+                # --episode-offset 20 replication's "episode":0 would look
+                # identical to the original run's "episode":0 despite using
+                # a completely different init_state, defeating the point of
+                # recording which seeds were actually used.
+                res["episode"] = args.episode_offset + ep
                 results.append(res)
-                print(f"  [{condition}] ep{ep}: success={res['success']} done_step={res['done_step']} "
+                print(f"  [{condition}] ep{args.episode_offset + ep}: success={res['success']} done_step={res['done_step']} "
                       f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])} "
                       f"n_correction_applied={res['n_correction_applied']}")
             task_results[condition] = results
