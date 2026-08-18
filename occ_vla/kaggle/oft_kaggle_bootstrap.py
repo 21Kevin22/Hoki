@@ -578,3 +578,63 @@ with open(log_path) as f:
     rows = [json.loads(line) for line in f]
 for row in rows[:15]:
     print(row)
+
+# %% [markdown]
+# ## 9. Phase A1: real LIBERO-Occ asset install + oracle-headroom smoke test
+#
+# `register_libero_occ_suites.py` (merged into main 2026-08-18, resolving
+# PR #2's conflicts) needs the REAL LIBERO-Occ benchmark's bddl/init files
+# copied into this session's LIBERO checkout before `libero_10_occluded`
+# etc. can be loaded at all -- one-time per LIBERO checkout, safe to re-run
+# (idempotent). `run_libero_occluded_oracle_headroom.py` itself has never
+# been executed (built without GPU/LIBERO access) -- this smoke test
+# (n=2, one task) is the first real run. Treat ANY output, including a
+# crash, as real signal to report back, not something to route around.
+
+# %%
+LIBERO_OCC_REPO_DIR = os.path.join(WORK_ROOT, "Libero-Occ")
+if not os.path.isdir(LIBERO_OCC_REPO_DIR):
+    run(["git", "clone", "https://github.com/litsh/Libero-Occ.git", LIBERO_OCC_REPO_DIR])
+else:
+    print(f"Libero-Occ clone already exists at {LIBERO_OCC_REPO_DIR}, skipping clone")
+
+# %%
+_env = os.environ.copy()
+_env["LIBERO_ROOT"] = LIBERO_DIR
+_env["MPLBACKEND"] = "Agg"
+_result = subprocess.run(
+    ["bash", "scripts/setup/install_libero_occ_assets.sh"],
+    cwd=LIBERO_OCC_REPO_DIR, env=_env, capture_output=True, text=True,
+)
+print(_result.stdout)
+if _result.returncode != 0:
+    print("STDERR:", _result.stderr)
+    raise RuntimeError(f"install_libero_occ_assets.sh failed (exit {_result.returncode})")
+
+for _suite in ["libero_spatial_occluded", "libero_goal_occluded", "libero_object_occluded", "libero_10_occluded"]:
+    _p = os.path.join(LIBERO_DIR, "libero/libero/bddl_files", _suite)
+    print(f"  {_suite}: {'OK' if os.path.isdir(_p) else 'MISSING'} ({_p})")
+
+# %%
+# task_id=3 in libero_10_occluded's own alphabetical numbering == "put both
+# moka pots on the stove" -- occluder already confirmed = wooden_cabinet_1
+# via a direct bddl diff earlier this session, so occluder identification
+# should be unambiguous here, the safest first pick.
+cmd = [
+    VENV_PY, "scripts/run_libero_occluded_oracle_headroom.py",
+    "--task-ids", "3",
+    "--n-episodes", "2",
+    "--checkpoint", CHECKPOINT_DIR,
+    "--load-in-4bit",
+    "--results-dir", os.path.join(WORK_ROOT, "libero_occluded_oracle_headroom_smoketest"),
+]
+env = os.environ.copy()
+env["MPLBACKEND"] = "Agg"
+env["PYTHONUNBUFFERED"] = "1"
+
+print("$ " + " ".join(cmd))
+proc = subprocess.Popen(cmd, cwd=OCC_VLA_DIR, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+for line in proc.stdout:
+    print(line, end="")
+proc.wait()
+print("\nExit code:", proc.returncode)
