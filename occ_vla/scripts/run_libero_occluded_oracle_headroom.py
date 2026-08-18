@@ -342,7 +342,29 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 # Captured ONCE: agentview is a static camera (CLAUDE.md
                 # finding 10(b)) -- a start-of-episode baseline stays valid
                 # for the whole episode, unlike the moving wrist camera.
-                clear_target_mask = np.isin(agentview_seg, target_seg_ids)
+                # BUG FIXED (2026-08-18, real smoke-test run): the occluder
+                # here is a STATIC, ALWAYS-PRESENT fixture -- it's already
+                # blocking the target in the very first live frame, so a
+                # baseline taken from that raw frame is already-occluded
+                # and self-consistent with every later frame (occlusion
+                # never shows up as a CHANGE). Must alpha-zero the occluder
+                # itself (same technique used for the oracle content splice
+                # below) to get the TRUE, occluder-free target footprint --
+                # confirmed necessary: the raw-frame version produced
+                # n_occluded_steps=0 across all 4 smoke-test episodes,
+                # despite a confirmed 2-object occluder for this task.
+                if occluder_geom_ids:
+                    orig_alpha_baseline = sim.model.geom_rgba[occluder_geom_ids, 3].copy()
+                    sim.model.geom_rgba[occluder_geom_ids, 3] = 0.0
+                    sim.forward()
+                    _, clear_seg = get_agentview_frames(env, resize_size)
+                    sim.model.geom_rgba[occluder_geom_ids, 3] = orig_alpha_baseline
+                    sim.forward()
+                    clear_target_mask = np.isin(clear_seg, target_seg_ids)
+                else:
+                    clear_target_mask = np.isin(agentview_seg, target_seg_ids)
+                print(f"    [debug] clear_target_mask px={int(clear_target_mask.sum())} "
+                      f"(target_seg_ids={target_seg_ids}, occluder_geom_ids={len(occluder_geom_ids)})")
 
             live_target_mask = np.isin(agentview_seg, target_seg_ids)
             occluded_pixel_mask = clear_target_mask & ~live_target_mask
