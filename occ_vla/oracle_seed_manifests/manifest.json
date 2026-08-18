@@ -1,0 +1,32 @@
+{
+  "suite": "libero_10_occluded",
+  "cfg_seed": 7,
+  "n_episodes": 20,
+  "hoki_git_commit": "0e7dfdde73ec90922f1e6322c5038451fc980c19",
+  "tasks": {
+    "1": {
+      "task_description": "put the black bowl in the bottom drawer of the cabinet and close it",
+      "bddl_file": "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it.bddl",
+      "n_init_states_total_in_suite": 50,
+      "n_saved": 20,
+      "init_states_npy": "/home/ubuntu/slocal1/Hoki/occ_vla/oracle_seed_manifests/task1_init_states_n20.npy",
+      "init_states_sha256": "ad7e4b77a6fb72c224d638721cdde5b4c71baab9816caae86b994b33a26de47e"
+    },
+    "6": {
+      "task_description": "put both the cream cheese box and the butter in the basket",
+      "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket.bddl",
+      "n_init_states_total_in_suite": 50,
+      "n_saved": 20,
+      "init_states_npy": "/home/ubuntu/slocal1/Hoki/occ_vla/oracle_seed_manifests/task6_init_states_n20.npy",
+      "init_states_sha256": "baaec198e4a8e4bef745af0313fc20527caa7442ee74a8c753950b8928eda93e"
+    },
+    "8": {
+      "task_description": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+      "bddl_file": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate.bddl",
+      "n_init_states_total_in_suite": 50,
+      "n_saved": 20,
+      "init_states_npy": "/home/ubuntu/slocal1/Hoki/occ_vla/oracle_seed_manifests/task8_init_states_n20.npy",
+      "init_states_sha256": "a2fec3914ccc4d02ef982ee7e4920c292a47c527650885b32b1492a0869d12a5"
+    }
+  }
+}
