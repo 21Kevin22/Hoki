@@ -448,6 +448,7 @@ def main():
     parser.add_argument("--seed", type=int, default=None, help="value to log in the seed column; defaults to cfg.seed (the single global seed GenerateConfig/set_seed_everywhere already use) if not given")
     parser.add_argument("--load-in-4bit", action="store_true", help="4-bit-quantize the base VLA (bitsandbytes nf4). The 7B model needs ~14GB in bf16 alone -- confirmed OOM on a 16GB Kaggle T4 (get_action_head's own tiny module failed to allocate 32MiB with the base model already using the entire card). 4-bit cuts the base model to ~4GB, leaving real headroom for the action head/proprio projector/LIBERO rendering. Mutually exclusive with --load-in-8bit.")
     parser.add_argument("--load-in-8bit", action="store_true", help="8-bit-quantize the base VLA instead of 4-bit -- a milder memory reduction (~7GB base model), only meaningful on a GPU with more headroom than a 16GB card provides. Mutually exclusive with --load-in-4bit.")
+    parser.add_argument("--start-episode", type=int, default=0, help="skip episodes [0, start_episode) -- for resuming an n-trial run across separate invocations (e.g. across Kaggle GPU-quota-limited sessions) without re-running already-completed episodes. Existing --results-path content for episodes below this index is preserved/merged, not overwritten -- see the results-saving code below.")
     args = parser.parse_args()
     if args.load_in_4bit and args.load_in_8bit:
         raise ValueError("--load-in-4bit and --load-in-8bit are mutually exclusive")
@@ -525,7 +526,23 @@ def main():
         latch=not args.gate_no_latch,
     )
 
+    # --start-episode resumability: load any prior run's results at this
+    # exact --results-path (if present) and seed `results` with them, so a
+    # second invocation with --start-episode N only runs episodes
+    # [N, num_trials) and MERGES them into the existing per-condition
+    # lists rather than overwriting completed work. Computed here (not at
+    # the end, as before) specifically so it can be loaded before the loop
+    # starts -- matters for a real use case (Kaggle GPU-quota-limited
+    # sessions splitting one n=10 run across several invocations), not
+    # exercised by the single-invocation smoke test this session.
+    out_path = args.results_path or f"oft_camera_dropout_results_{args.task_suite}_task{args.task_id}_n{args.num_trials}.json"
     results = {}
+    if args.start_episode > 0 and os.path.exists(out_path):
+        with open(out_path) as f:
+            prior = json.load(f)
+        results = prior.get("results", {})
+        print(f"  Resuming from {out_path}: loaded {sum(len(v) for v in results.values())} prior episode results")
+
     for condition in args.conditions:
         occlude = condition  # condition names double as prepare_observation's `occlude` values
 
@@ -548,8 +565,11 @@ def main():
             model.vision_backbone.forward = original_vision_backbone_forward
 
         print(f"\n=== Condition: {condition} ===")
-        cond_results = []
-        for ep in range(args.num_trials):
+        # Preserve any already-completed episodes for this condition from
+        # a prior invocation (loaded above); only [start_episode,
+        # num_trials) actually gets (re-)run below.
+        cond_results = [r for r in results.get(condition, []) if r["episode"] < args.start_episode]
+        for ep in range(args.start_episode, args.num_trials):
             init_state = initial_states[ep]
 
             step_log_writer = None
@@ -576,7 +596,8 @@ def main():
         unwrap_forward(model.vision_backbone.vjepa_predictor_dino, _orig_dino_forward)
         unwrap_forward(model.vision_backbone.vjepa_predictor_siglip, _orig_siglip_forward)
 
-    out_path = args.results_path or f"oft_camera_dropout_results_{args.task_suite}_task{args.task_id}_n{args.num_trials}.json"
+    # out_path computed earlier (before the condition loop) so --start-episode
+    # resumability can load prior results from it up front -- reused here.
     with open(out_path, "w") as f:
         json.dump(
             {
