@@ -151,3 +151,41 @@ data/
 # Rollout videos and wandb logs
 rollouts/
 wandb/
+
+
+# occ_vla additions (2026-08-12): experiment output/data, reproducible via
+# the committed scripts -- findings are recorded in CLAUDE.md prose instead
+# of keeping every raw dump. Final trained predictor checkpoints
+# (vjepa_predictor_*.pt, no .stepNNNN suffix) ARE committed (small, ~5.3MB
+# each) -- only the intermediate step snapshots are excluded here.
+*.pt.step*
+experiments/logs/
+*_data/
+*_rollout_data/
+failure_probe_data_*/
+trajectory_data_*/
+trajectory_logs_*/
+libero_occ_benchmark_*/
+libero_occluded_*/
+demo_videos/
+task8_failure_videos/
+vjepa_correction_qual_*/
+logs_*.log
+MUJOCO_LOG.TXT
+attn_calib_*.json
+dynamic_gating_*.json
+eager_diag_*.json
+gated_oracle_*.json
+libero_occ_*.json
+natural_occ_*.json
+natural_occ_generalization_*.png
+oft_*.json
+oft_camera_dropout_results_*.json
+peek_eval_*.json
+smoke_test_*.json
+task*_verification.json
+task8_wrist_partial_*.json
+wrist_occlusion_scan_*.json
+covariate_shift.png
+vjepa_correction_qual_goal_task0.mp4
+vjepa_correction_qual_goal_task0.png

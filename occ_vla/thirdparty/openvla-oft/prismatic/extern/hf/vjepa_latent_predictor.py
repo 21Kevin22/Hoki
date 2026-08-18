@@ -120,6 +120,21 @@ class VJEPA_LatentDynamicsPredictor(nn.Module):
         f_current: torch.Tensor,  # [B, N, feature_dim] -- current (possibly-occluded) raw vision tokens
         past_latents: torch.Tensor,  # [B, N, feature_dim] -- previous timestep's resolved token set
         proprio: torch.Tensor,  # [B, proprio_dim]
+        cross_view_context: torch.Tensor = None,  # [B, M, feature_dim] or None -- SAME-TIMESTEP tokens
+        # from the OTHER camera (e.g. wrist's predictor receives agentview's
+        # own current patch tokens at this same split layer, and vice versa).
+        # Added 2026-08-10: the temporal-only design above never lets a
+        # camera's own occlusion-recovery look at the *other, live* camera,
+        # even though OpenVLA-OFT already receives both every step -- it can
+        # only extrapolate from its own stale history + proprio. This is a
+        # deliberately small, StereoPolicy-inspired (arXiv:2605.09989)
+        # addition: fuse the other view's CURRENT tokens into the same
+        # cross-attention key/value set (concatenated alongside f_current),
+        # not a separate calibrated-stereo/geometric reconstruction -- no
+        # camera pose/calibration is assumed or needed, matching that paper's
+        # own claim of resolving partial occlusion via implicit cross-view
+        # attention rather than explicit 3D reconstruction. `None` (default)
+        # reproduces the exact prior behavior byte-for-byte.
     ) -> torch.Tensor:
         """Returns a residual correction of shape [B, N, feature_dim] -- ADD
         this (scaled by occlusion_mask) to `f_current`, don't replace it."""
@@ -129,6 +144,9 @@ class VJEPA_LatentDynamicsPredictor(nn.Module):
 
         query = self.in_proj(modulated_past)  # [B, N, hidden_dim]
         context = self.in_proj(f_current)  # [B, N, hidden_dim]
+        if cross_view_context is not None:
+            other = self.in_proj(cross_view_context)  # [B, M, hidden_dim]
+            context = torch.cat([context, other], dim=1)  # [B, N+M, hidden_dim]
         attn_out, _ = self.cross_attn(query=query, key=context, value=context, need_weights=False)  # [B, N, hidden_dim]
         attn_out = self.norm(attn_out)
 

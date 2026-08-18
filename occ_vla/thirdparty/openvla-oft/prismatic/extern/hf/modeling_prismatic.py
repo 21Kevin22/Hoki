@@ -7,6 +7,7 @@ but exactly replicate the logic in `prismatic.models.vlms.prismatic.py`.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple, Union
@@ -243,23 +244,53 @@ class PrismaticVisionBackbone(nn.Module):
             setattr(self, attr_name, current)
         return current
 
-    def _run_featurizer_with_optional_predictor(self, featurizer, predictor, pixel_values, occlusion_mask_256, past_latents, proprio):
-        """Runs one ViT featurizer (DINOv2 or SigLIP) up to its existing
-        (num_blocks - 2) extraction layer. If `occlusion_mask_256` has any
-        True values and both `past_latents`/`proprio` are available, splices
-        a residual correction from `predictor` at `self.midlayer_split_frac`
-        depth -- see this class's __init__ docstring for why mid-layer
-        (not final-layer) splicing is what actually works. Returns
+    def _featurizer_layers(self, featurizer):
+        """Shared layer-index bookkeeping for the two-phase split below --
+        kept as a helper so phase 1/2 can't silently disagree on where the
+        split/extraction layers are."""
+        num_blocks = len(featurizer.blocks)
+        extraction_layer = num_blocks - 2  # matches _create_featurizer's existing monkeypatch
+        split_layer = int(num_blocks * self.midlayer_split_frac)
+        return split_layer, extraction_layer
+
+    def _featurize_to_split(self, featurizer, pixel_values, split_layer):
+        """Phase 1 of 2: patch_embed + blocks[0..split_layer] only. Returns
+        the PRE-correction token sequence (prefix tokens still included) at
+        the split layer. Split out from the old single-pass
+        `_run_featurizer_with_optional_predictor` (2026-08-10) so that BOTH
+        images' split-layer tokens can be computed before either image's
+        predictor runs -- required for cross-view context (a camera's
+        predictor needs the OTHER camera's current tokens at this same
+        layer, which doesn't exist yet on a single-pass-per-image loop)."""
+        x = featurizer.patch_embed(pixel_values)
+        x = featurizer._pos_embed(x)
+        x = featurizer.patch_drop(x)
+        x = featurizer.norm_pre(x)
+        for i, blk in enumerate(featurizer.blocks):
+            x = blk(x)
+            if i == split_layer:
+                return x
+        return x  # only reached if split_layer >= num_blocks - 1
+
+    def _featurize_from_split(
+        self, featurizer, predictor, x_at_split, occlusion_mask_256, past_latents, proprio,
+        split_layer, extraction_layer, cross_view_context=None,
+    ):
+        """Phase 2 of 2: optionally splice `predictor`'s residual correction
+        at `x_at_split` (see this class's __init__ docstring for why
+        mid-layer, not final-layer, splicing is what actually works), then
+        run blocks[split_layer+1 .. extraction_layer]. Returns
         (patch_features, new_past_latents); `new_past_latents` is captured
         AT the split layer (post-correction if engaged) so the next call has
         real temporal history to condition on, updated unconditionally
         (even on non-occluded steps) so it never goes stale.
-        """
-        num_blocks = len(featurizer.blocks)
-        extraction_layer = num_blocks - 2  # matches _create_featurizer's existing monkeypatch
-        split_layer = int(num_blocks * self.midlayer_split_frac)
-        num_prefix = featurizer.num_prefix_tokens
 
+        `cross_view_context`: None, or (B, 256, D) -- the OTHER camera's own
+        current patch tokens at this same split layer (same featurizer type,
+        prefix-stripped), passed through to the predictor's cross-attention.
+        See `VJEPA_LatentDynamicsPredictor.forward`'s docstring.
+        """
+        num_prefix = featurizer.num_prefix_tokens
         engage = (
             occlusion_mask_256 is not None
             and bool(occlusion_mask_256.any())
@@ -267,24 +298,24 @@ class PrismaticVisionBackbone(nn.Module):
             and proprio is not None
         )
 
-        x = featurizer.patch_embed(pixel_values)
-        x = featurizer._pos_embed(x)
-        x = featurizer.patch_drop(x)
-        x = featurizer.norm_pre(x)
+        x = x_at_split
+        if engage:
+            mask = occlusion_mask_256.to(dtype=torch.bool, device=x.device).reshape(1, -1, 1)
+            patch_part = x[:, num_prefix:]
+            residual = predictor(
+                patch_part, past_latents, proprio, cross_view_context=cross_view_context
+            )  # (B, 256, D); == 0 until trained regardless of cross_view_context (out_proj is zero-init)
+            spliced = patch_part + mask.to(dtype=patch_part.dtype) * residual
+            x = torch.cat([x[:, :num_prefix], spliced], dim=1)
+        new_past_latents = x[:, num_prefix:].detach()
 
-        new_past_latents = None
-        for i, blk in enumerate(featurizer.blocks):
-            x = blk(x)
-            if i == split_layer:
-                if engage:
-                    mask = occlusion_mask_256.to(dtype=torch.bool, device=x.device).reshape(1, -1, 1)
-                    patch_part = x[:, num_prefix:]
-                    residual = predictor(patch_part, past_latents, proprio)  # (B, 256, D); == 0 until trained
-                    spliced = patch_part + mask.to(dtype=patch_part.dtype) * residual
-                    x = torch.cat([x[:, :num_prefix], spliced], dim=1)
-                new_past_latents = x[:, num_prefix:].detach()
-            if i == extraction_layer:
-                break
+        if split_layer < extraction_layer:
+            for i, blk in enumerate(featurizer.blocks):
+                if i <= split_layer:
+                    continue
+                x = blk(x)
+                if i == extraction_layer:
+                    break
 
         patch_features = x[:, num_prefix:]
         return patch_features, new_past_latents
@@ -321,20 +352,63 @@ class PrismaticVisionBackbone(nn.Module):
         past_dino_list = self._get_past_latents_list("_vjepa_past_latents_dino", num_images)
         past_siglip_list = self._get_past_latents_list("_vjepa_past_latents_siglip", num_images)
 
-        all_patches = []
+        dino_split_layer, dino_extraction_layer = self._featurizer_layers(self.featurizer)
+        siglip_split_layer, siglip_extraction_layer = self._featurizer_layers(self.fused_featurizer)
+        dino_prefix = self.featurizer.num_prefix_tokens
+        siglip_prefix = self.fused_featurizer.num_prefix_tokens
+
+        # --- Phase 1: run every image up to its split layer BEFORE any
+        # correction is applied, so each image's predictor can see the
+        # OTHER image's own current (pre-correction) tokens as cross-view
+        # context below -- a single per-image pass can't do this, since the
+        # other image's split-layer tokens don't exist yet on its own turn.
+        mask_256_list = []
+        dino_split_list, siglip_split_list = [], []
         for img_idx, img in enumerate(images):
-            # Split each image further into two stacks of channels (each with 3 channels)
             img_regular, img_fused = torch.split(img, [3, 3], dim=1)
 
             mask_256 = None
             if occlusion_mask is not None:
                 mask_256 = occlusion_mask[:, img_idx * num_patches : (img_idx + 1) * num_patches, :]
+            mask_256_list.append(mask_256)
 
-            patches, past_dino_list[img_idx] = self._run_featurizer_with_optional_predictor(
-                self.featurizer, self.vjepa_predictor_dino, img_regular, mask_256, past_dino_list[img_idx], proprio_for_dynamics
+            dino_split_list.append(self._featurize_to_split(self.featurizer, img_regular, dino_split_layer))
+            siglip_split_list.append(self._featurize_to_split(self.fused_featurizer, img_fused, siglip_split_layer))
+
+        # --- Phase 2: apply each image's correction (if engaged), using its
+        # own temporal past_latents (per-image, as before) PLUS the other
+        # image's phase-1 tokens as cross-view context (only meaningful when
+        # num_images == 2; with 1 image or >2 images, cross_view_context
+        # stays None / uses only the first other image found -- this project
+        # always runs with exactly 2 images (agentview + wrist), so this is
+        # not exercised beyond that case).
+        all_patches = []
+        for img_idx in range(num_images):
+            other_idx = 1 - img_idx if num_images == 2 else None
+
+            dino_cross = None
+            siglip_cross = None
+            # VJEPA_DISABLE_CROSS_VIEW=1: ablation toggle (occ_vla, 2026-08-10)
+            # so a mask-diversity-only training run (P2) can be launched
+            # cleanly separated from the cross-view architecture change --
+            # without this, every run since the cross-view addition trains
+            # both effects conflated together, since they share the same
+            # predictor weights (cross-view context just extends what the
+            # existing cross-attention's key/value set contains).
+            cross_view_disabled = os.environ.get("VJEPA_DISABLE_CROSS_VIEW", "0") == "1"
+            if other_idx is not None and not cross_view_disabled:
+                dino_cross = dino_split_list[other_idx][:, dino_prefix:]
+                siglip_cross = siglip_split_list[other_idx][:, siglip_prefix:]
+
+            patches, past_dino_list[img_idx] = self._featurize_from_split(
+                self.featurizer, self.vjepa_predictor_dino, dino_split_list[img_idx], mask_256_list[img_idx],
+                past_dino_list[img_idx], proprio_for_dynamics, dino_split_layer, dino_extraction_layer,
+                cross_view_context=dino_cross,
             )
-            patches_fused, past_siglip_list[img_idx] = self._run_featurizer_with_optional_predictor(
-                self.fused_featurizer, self.vjepa_predictor_siglip, img_fused, mask_256, past_siglip_list[img_idx], proprio_for_dynamics
+            patches_fused, past_siglip_list[img_idx] = self._featurize_from_split(
+                self.fused_featurizer, self.vjepa_predictor_siglip, siglip_split_list[img_idx], mask_256_list[img_idx],
+                past_siglip_list[img_idx], proprio_for_dynamics, siglip_split_layer, siglip_extraction_layer,
+                cross_view_context=siglip_cross,
             )
 
             # Concatenate SigLIP and DINOv2 patches along the hidden dimension
@@ -1044,6 +1118,32 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         # Return final actions
         return curr_noisy_actions.float().cpu().detach().numpy(), actions_hidden_states
 
+    @staticmethod
+    def _compute_action_patch_attn_entropy(attentions, NUM_PATCHES, NUM_PROMPT_TOKENS):
+        """attentions: tuple of (B, num_heads, seq_len, seq_len) per-layer tensors from
+        self.language_model(output_attentions=True). Sequence layout is
+        [BOS(1)][vision patches(NUM_PATCHES)][rest] (see _build_multimodal_attention), so vision
+        patch KEY positions are the 0-indexed slice [1 : 1+NUM_PATCHES] regardless of chunk length.
+        Uses only the LAST layer (closest to the action head). For each action-token QUERY position,
+        renormalizes that row's attention restricted to the patch columns to sum to 1, computes
+        Shannon entropy, and normalizes by log(NUM_PATCHES) so the result is a distribution-
+        assumption-free scalar in [0, 1] -- 0 = fully concentrated on one patch (confident),
+        1 = uniform over all patches (the model has no idea which patch matters, structurally
+        the same "attention entropy collapse" signature documented in arXiv:2303.06296, read here
+        as evidence FOR uncertainty rather than a training pathology to prevent)."""
+        last_layer_attn = attentions[-1]  # (B, H, S, S)
+        action_start = NUM_PATCHES + NUM_PROMPT_TOKENS
+        action_end = action_start + ACTION_DIM * NUM_ACTIONS_CHUNK
+        patch_start, patch_end = 1, 1 + NUM_PATCHES
+        action_to_patch = last_layer_attn[:, :, action_start:action_end, patch_start:patch_end]  # (B,H,A,P)
+        action_to_patch = action_to_patch.float()
+        row_sums = action_to_patch.sum(dim=-1, keepdim=True).clamp_min(1e-8)
+        probs = action_to_patch / row_sums
+        entropy = -(probs * (probs.clamp_min(1e-12)).log()).sum(dim=-1)  # (B, H, A)
+        max_entropy = torch.log(torch.tensor(float(NUM_PATCHES), device=entropy.device))
+        normalized_entropy = (entropy / max_entropy.clamp_min(1e-8)).mean()
+        return float(normalized_entropy.item())
+
     def _regression_or_discrete_prediction(
         self,
         input_embeddings,
@@ -1054,8 +1154,21 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         NUM_PATCHES,
         NUM_PROMPT_TOKENS,
         action_head=None,
+        output_attentions=False,
     ):
-        """Run L1 regression-based continuous action prediction or discrete action tokens prediction."""
+        """Run L1 regression-based continuous action prediction or discrete action tokens prediction.
+
+        output_attentions: if True, also computes and stashes on `self._last_action_attn_entropy`
+            (float, normalized to [0,1]) the mean entropy of the action tokens' own self-attention
+            distribution restricted to the vision-patch key positions -- a cheap, distribution-
+            assumption-free (unlike Mahalanobis/SMD) confidence signal computed from the model's
+            OWN last-layer attention, no extra forward/backward pass (see
+            scripts/run_natural_occlusion_success_rate.py's shape_confidence_gate for the earlier,
+            rejected mask-geometry-only gate this replaces; verified real via arXiv:2303.06296's
+            attention-entropy-collapse phenomenon, WebSearch-checked 2026-08-09 -- no VLA-specific
+            prior work found using it as an OOD gate, so this is a novel application, not a cited
+            established technique). Default False is fully backward-compatible (return value
+            unchanged; language_model() call unchanged)."""
         # Zero out action token embeddings
         all_actions_mask = all_actions_mask.unsqueeze(-1)  # (B, seq_len, 1)
         input_embeddings = input_embeddings * ~all_actions_mask
@@ -1074,10 +1187,16 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
             inputs_embeds=multimodal_embeddings,
             labels=None,
             use_cache=None,
-            output_attentions=False,
+            output_attentions=output_attentions,
             output_hidden_states=True,
             return_dict=True,
         )
+
+        self._last_action_attn_entropy = None
+        if output_attentions and language_model_output.attentions is not None:
+            self._last_action_attn_entropy = self._compute_action_patch_attn_entropy(
+                language_model_output.attentions, NUM_PATCHES, NUM_PROMPT_TOKENS
+            )
 
         # Extract hidden states for action tokens
         last_hidden_states = language_model_output.hidden_states[-1]  # (B, seq_len, D)
@@ -1121,6 +1240,7 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         noisy_action_projector=None,
         use_film: bool = False,
         occlusion_mask=None,
+        output_attentions: bool = False,
         **kwargs: str,
     ) -> np.ndarray:
         """Predict actions from input sequence, with options for different prediction methods.
@@ -1139,6 +1259,13 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
                 before this argument existed. When provided, also reuses
                 `proprio` (already a normal argument here) as the dynamics
                 predictors' conditioning signal -- no separate input needed.
+            output_attentions: If True (regression/discrete path only, not diffusion), requests
+                attention weights from the underlying language_model() call and stashes a computed
+                action-token-to-vision-patch attention-entropy scalar on
+                `self._last_action_attn_entropy` (see `_compute_action_patch_attn_entropy`).
+                Return value/shape is unchanged either way -- read the stashed attribute right
+                after this call returns. Default False is fully backward-compatible (identical to
+                omitting the argument, zero extra compute).
             **kwargs: Additional arguments including pixel_values and attention_mask
 
         Returns:
@@ -1242,6 +1369,7 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
                 NUM_PATCHES,
                 NUM_PROMPT_TOKENS,
                 action_head,
+                output_attentions=output_attentions,
             )
 
         # Unnormalize predicted actions
