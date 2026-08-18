@@ -106,13 +106,22 @@ def main():
     parser.add_argument("--task-ids", type=int, nargs="+", default=list(range(10)))
     parser.add_argument("--n-episodes", type=int, default=10)
     parser.add_argument("--results-dir", type=str, default="libero_occluded_fast_scan")
+    # occ_vla local patch (2026-08-18): this script previously had no
+    # --checkpoint flag at all -- CHECKPOINT was a fixed module-level
+    # constant hardcoded to the original project server's path
+    # ("/home/ubuntu/slocal/occ_vla/checkpoints/..."), broke on any other
+    # machine (e.g. this Kaggle clone). Matches every other eval script's
+    # own --checkpoint/--load-in-4bit convention now.
+    parser.add_argument("--checkpoint", default=CHECKPOINT)
+    parser.add_argument("--load-in-4bit", action="store_true")
     args = parser.parse_args()
     os.makedirs(args.results_dir, exist_ok=True)
 
     cfg = GenerateConfig(
-        pretrained_checkpoint=CHECKPOINT,
+        pretrained_checkpoint=args.checkpoint,
         use_l1_regression=True, use_diffusion=False, use_film=False,
-        num_images_in_input=2, use_proprio=True, load_in_8bit=False, load_in_4bit=False,
+        num_images_in_input=2, use_proprio=True,
+        load_in_8bit=False, load_in_4bit=args.load_in_4bit,
         center_crop=True, num_open_loop_steps=8, task_suite_name="libero_10", seed=7,
     )
     set_seed_everywhere(cfg.seed)
