@@ -137,6 +137,77 @@ def run(cmd, cwd=None, check=True):
 
 
 # %% [markdown]
+# ## 0b. Recovery cell -- run this after ANY kernel restart within the
+# same Kaggle session (2026-08-18)
+#
+# A kernel restart wipes every Python-level variable/function (`run()`,
+# `WORK_ROOT`, `VENV_PY`, ...) but NOT the filesystem (`/root/oft_work`'s
+# venv, cloned repo, downloaded checkpoint all survive -- they're on
+# disk, not in kernel memory). This cell redefines everything Python-side
+# AND verifies the disk-side state actually still exists, so a bare
+# `NameError` after a restart doesn't turn into re-running the whole
+# multi-hour setup by mistake. If every check below prints `True`, skip
+# straight to the smoke test / experiment cells -- do NOT re-run cells
+# 1-6. If something prints `False`, that specific piece needs rebuilding
+# (worst case: the whole Kaggle container itself was recycled, not just
+# the kernel -- then yes, start over from cell 1).
+
+# %%
+import os
+import subprocess
+
+
+def run(cmd, cwd=None, check=True):
+    env = os.environ.copy()
+    env["MPLBACKEND"] = "Agg"
+    print("$ " + " ".join(cmd) + (f"   (cwd={cwd})" if cwd else ""))
+    result = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
+    if result.stdout:
+        print(result.stdout[-4000:])
+    if result.stderr:
+        print(result.stderr[-4000:])
+    if check and result.returncode != 0:
+        raise RuntimeError(f"Command exited {result.returncode}: {' '.join(cmd)}")
+    return result
+
+
+WORK_ROOT = "/root/oft_work"
+VENV_DIR = os.path.join(WORK_ROOT, "venv_oft")
+VENV_PY = os.path.join(VENV_DIR, "bin", "python")
+REPO_DIR = os.path.join(WORK_ROOT, "Hoki")
+OCC_VLA_DIR = os.path.join(REPO_DIR, "occ_vla")
+OFT_DIR = os.path.join(OCC_VLA_DIR, "thirdparty", "openvla-oft")
+LIBERO_DIR = os.path.join(WORK_ROOT, "LIBERO")
+CHECKPOINT_DIR = os.path.join(WORK_ROOT, "checkpoints", "openvla-7b-oft-libero10-vjepa")
+STEPLOGS_DIR = os.path.join(WORK_ROOT, "steplogs_smoketest")
+RESULTS_PATH = os.path.join(WORK_ROOT, "smoketest_results.json")
+EXPERIMENT_OUT_DIR = os.path.join(WORK_ROOT, "experiment_results")
+
+print("venv exists:            ", os.path.isfile(VENV_PY))
+print("Hoki repo exists:       ", os.path.isdir(REPO_DIR))
+print("LIBERO clone exists:    ", os.path.isdir(LIBERO_DIR))
+print("checkpoint exists:      ", os.path.isdir(CHECKPOINT_DIR), (f"({len(os.listdir(CHECKPOINT_DIR))} files)" if os.path.isdir(CHECKPOINT_DIR) else ""))
+
+if os.path.isdir(REPO_DIR):
+    r = run(["git", "-C", REPO_DIR, "log", "--oneline", "-1"], check=False)
+    print("Hoki repo HEAD:          ", r.stdout.strip())
+    r2 = run(["git", "-C", REPO_DIR, "status", "--short"], check=False)
+    print("Hoki repo dirty files:   ", r2.stdout.strip() or "(clean)")
+
+if os.path.isfile(VENV_PY):
+    r3 = run([VENV_PY, "-c", "import torch, numpy, mujoco; print('torch', torch.__version__, '/ numpy', numpy.__version__, '/ mujoco', mujoco.__version__)"], check=False)
+    print("Key package versions:    ", r3.stdout.strip() or f"IMPORT FAILED: {r3.stderr[-500:]}")
+
+print(
+    "\nIf every line above looks right (venv/repo/LIBERO/checkpoint all "
+    "True, HEAD matches the latest commit on GitHub, torch==2.2.0 / "
+    "numpy==1.26.4 / mujoco==3.0.0), you're fully recovered -- go straight "
+    "to `git -C REPO_DIR pull origin main` (harmless no-op if already "
+    "current) and then the smoke test / experiment cells. Do NOT re-run "
+    "cells 1-6."
+)
+
+# %% [markdown]
 # ## 1. Environment check
 # Confirms a real GPU + EGL headless rendering are actually available
 # BEFORE spending time on the (slow) dependency install below. If EGL
