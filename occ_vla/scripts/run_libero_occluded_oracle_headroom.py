@@ -478,11 +478,28 @@ def main():
         env.reset()  # obj_of_interest is only populated on the env AFTER reset (not on the Task
                       # benchmark object -- confirmed via src/occ_vla/eval/libero_occ_env.py's own
                       # established convention: self._env.obj_of_interest[0], not task.obj_of_interest)
-        sim = env.env.sim
-        occluder_names = find_occluder_body_names(task, stock_suite)
-        occluder_geom_ids = geom_ids_for_bodies(sim, set(occluder_names)) if occluder_names else []
-
         target_names = list(getattr(env, "obj_of_interest", []) or [])
+        occluder_names = find_occluder_body_names(task, stock_suite)
+        # BUG FIXED (2026-08-18, real smoke-test run): find_occluder_body_names
+        # opens and closes 2 SEPARATE OffScreenRenderEnv instances internally
+        # (env_occ/env_stock). Confirmed via an isolated diagnostic script that
+        # the alpha=0 hide-and-reveal segmentation technique itself works
+        # correctly on a freshly-created env with no other envs opened/closed
+        # first -- but the real run's target_seg_ids came back empty despite
+        # identical logic, on the SAME `env` used here, right after
+        # find_occluder_body_names's temp envs were closed. Most likely cause:
+        # MuJoCo/robosuite's offscreen EGL rendering shares process-global
+        # context state, and closing those temp envs left this `env`'s own
+        # render state stale -- same category of bug as the already-documented
+        # "re-fetch sim after reset" issue elsewhere in this project, just
+        # triggered by a DIFFERENT env's lifecycle instead of this env's own
+        # reset(). Fix: reset + re-fetch sim again here, AFTER
+        # find_occluder_body_names's temp envs have already been opened and
+        # closed, so everything render-dependent below uses a guaranteed-fresh
+        # context.
+        env.reset()
+        sim = env.env.sim
+        occluder_geom_ids = geom_ids_for_bodies(sim, set(occluder_names)) if occluder_names else []
         target_body_substrings = [n.lower() for n in target_names] or None
         if target_body_substrings is None:
             print("  [target-id] WARNING: env has no obj_of_interest -- cannot compute occlusion mask, oracle will be a no-op")
