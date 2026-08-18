@@ -444,6 +444,66 @@ print(
 )
 
 # %% [markdown]
+# ## 6b. Pinned-version health check -- run this before EVERY experiment
+# launch, not just once (2026-08-18)
+#
+# Observed repeatedly on real Kaggle infra this session: `numpy`,
+# `bitsandbytes`, and `accelerate` all independently drifted back to their
+# latest (unpinned, incompatible) versions at various points, even though
+# venv_oft/the Hoki repo/the checkpoint all otherwise persisted correctly
+# across whatever caused it (a Kaggle storage reattachment hiccup, or an
+# earlier setup cell getting re-run out of order -- exact cause not fully
+# pinned down, but the SYMPTOM is now well-established: don't assume
+# these versions are still correct just because the rest of the
+# environment looks intact). Re-checking/re-pinning all of them in one
+# shot is cheap (a few seconds if nothing drifted) and avoids the
+# one-at-a-time whack-a-mole diagnosis loop this took the first several
+# times it happened.
+
+# %%
+EXPECTED_VERSIONS = {
+    "numpy": "1.26.4",
+    "mujoco": "3.0.0",
+    "bitsandbytes": "0.43.1",
+    "accelerate": "0.30.1",
+}
+
+
+def check_pinned_versions():
+    # try/except per package so one missing package doesn't blank out the rest
+    check_code = "import importlib.metadata as m\n"
+    for pkg in EXPECTED_VERSIONS:
+        check_code += (
+            f'try:\n    print("{pkg}", m.version("{pkg}"))\n'
+            f'except Exception as e:\n    print("{pkg}", "MISSING:", e)\n'
+        )
+    result = run([VENV_PY, "-c", check_code], check=False)
+    found = {}
+    for line in result.stdout.strip().splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            found[parts[0]] = parts[1]
+    return found
+
+
+found = check_pinned_versions()
+print("Found:", found)
+mismatched = {pkg: found.get(pkg) for pkg, expected in EXPECTED_VERSIONS.items() if found.get(pkg) != expected}
+if mismatched:
+    print(f"\nMismatched/missing: {mismatched} -- re-pinning all of them now.")
+    run([VENV_PY, "-m", "pip", "install", "-q", "numpy==1.26.4", "mujoco==3.0.0"])
+    run([VENV_PY, "-m", "pip", "install", "-q", "--no-deps", "bitsandbytes==0.43.1"])
+    run([VENV_PY, "-m", "pip", "install", "-q", "accelerate==0.30.1"])
+    found_after = check_pinned_versions()
+    print("\nAfter re-pinning:", found_after)
+    still_wrong = {pkg: found_after.get(pkg) for pkg, expected in EXPECTED_VERSIONS.items() if found_after.get(pkg) != expected}
+    if still_wrong:
+        raise RuntimeError(f"Still mismatched after re-pinning -- investigate manually: {still_wrong}")
+    print("\nAll pinned versions correct now.")
+else:
+    print("\nAll pinned versions already correct -- no action needed.")
+
+# %% [markdown]
 # ## 7. Smoke test: the extended logging + debounce-gate pipeline (2026-08-17/18)
 #
 # Small on purpose (num-trials=1, 4 conditions incl. the two new ones --
