@@ -318,6 +318,17 @@ def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=
         for idx, img in enumerate(images):
             img_regular, img_fused = torch.split(img, [3, 3], dim=1)
             if idx == img_idx and clean_pixels is not None and patch_mask_256 is not None and bool(patch_mask_256.any()):
+                # occ_vla addition (2026-08-18, per user request): independent
+                # runtime evidence that the splice was ACTUALLY applied this
+                # call -- not inferred from code reading a second time. This
+                # is the one and only place the correction branch fires, so
+                # incrementing here (not from the caller's separately-tracked,
+                # and previously found to be always-None, `occlusion_mask`
+                # local) is the ground truth. Reset per-episode by the caller
+                # via `vision_backbone._diagnostic_correction_applied_count = 0`.
+                vision_backbone._diagnostic_correction_applied_count = (
+                    getattr(vision_backbone, "_diagnostic_correction_applied_count", 0) + 1
+                )
                 clean_regular, clean_fused = torch.split(clean_pixels, [3, 3], dim=1)
                 nb_dino = len(vision_backbone.featurizer.blocks)
                 nb_siglip = len(vision_backbone.fused_featurizer.blocks)
@@ -388,6 +399,11 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     n_occluded_steps = 0
     occluded_run_length = 0  # elapsed consecutive occluded steps -- resets to 0 the moment occlusion clears
     action_diff_log = []
+    # occ_vla addition (2026-08-18): reset the ground-truth splice-applied
+    # counter (incremented inside patched_forward itself, see
+    # make_agentview_midlayer_splice_forward) so each episode's result
+    # reports its own count, not a running total across episodes.
+    model.vision_backbone._diagnostic_correction_applied_count = 0
 
     prompt = f"In: What action should the robot take to {task_description.lower()}?\nOut:"
 
@@ -463,7 +479,17 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     "wrist_image": wrist_img,
                     "state": np.concatenate((obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])),
                 }
-                real_oracle_correction_this_call = condition == "oracle" and occlusion_mask is not None
+                # occ_vla bug fix (2026-08-18, found while auditing per user
+                # request): this used to read `occlusion_mask is not None`,
+                # but `occlusion_mask` is a local set to `None` once above
+                # and NEVER reassigned anywhere in this file -- always False,
+                # so --log-action-diff/--save-oracle-features-dir silently
+                # never fired. The actual condition that determines whether
+                # patched_forward will apply the splice this call is the same
+                # one that gates setting the diagnostic attributes above.
+                real_oracle_correction_this_call = (
+                    condition == "oracle" and bool(occluder_geom_ids) and bool(occluded_pixel_mask.any())
+                )
 
                 # occ_vla addition (2026-08-18): always (re)set, even to None,
                 # so a stale dict from an earlier step's call is never
@@ -531,6 +557,13 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "success": success, "done_step": t,
         "n_occluded_steps": n_occluded_steps,
         "action_diff_log": action_diff_log,
+        # occ_vla addition (2026-08-18): independent runtime ground truth
+        # that the splice was actually applied (incremented inside
+        # patched_forward itself, not inferred) -- see
+        # make_agentview_midlayer_splice_forward. Expect > 0 for "oracle"
+        # under real occlusion, == 0 for "baseline" (which never installs
+        # patched_forward as vision_backbone.forward at all).
+        "n_correction_applied": getattr(model.vision_backbone, "_diagnostic_correction_applied_count", 0),
     }
 
 
@@ -653,7 +686,8 @@ def main():
                 res["episode"] = ep
                 results.append(res)
                 print(f"  [{condition}] ep{ep}: success={res['success']} done_step={res['done_step']} "
-                      f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])}")
+                      f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])} "
+                      f"n_correction_applied={res['n_correction_applied']}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
