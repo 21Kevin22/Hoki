@@ -268,8 +268,20 @@ def _run_vit_with_midlayer_splice(featurizer, x_corrupted_pixels, x_clean_pixels
     moved past this step. Default None/None for both args -- zero effect on
     any existing caller."""
     num_blocks = len(featurizer.blocks)
+    # occ_vla note (2026-08-18, depth-sweep design): num_blocks - 2 is NOT
+    # an arbitrary cap chosen by this file -- it matches the vendored
+    # backbone's OWN convention (prismatic/models/backbones/vision/*.py,
+    # modeling_prismatic.py all do
+    # featurizer.forward = ...get_intermediate_layers(n=num_blocks-2)):
+    # this checkpoint's last 2 blocks of each tower are never invoked by
+    # the real inference path at all. This is therefore the TRUE effective
+    # depth ("L=N" in the depth-sweep's terms), not an approximation.
     extraction_layer = num_blocks - 2
-    assert 0 <= split_layer < extraction_layer, f"split_layer={split_layer} must be in [0, {extraction_layer})"
+    # occ_vla change (2026-08-18, depth-sweep design): relaxed from `<` to
+    # `<=` so split_layer == extraction_layer (the true final used block,
+    # "L=N_effective") is a valid, includable sweep endpoint -- previously
+    # excluded for no stated architectural reason.
+    assert 0 <= split_layer <= extraction_layer, f"split_layer={split_layer} must be in [0, {extraction_layer}]"
     num_prefix = featurizer.num_prefix_tokens
 
     x_corrupted = _vit_prep(featurizer, x_corrupted_pixels)
@@ -341,14 +353,49 @@ def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=
                     getattr(vision_backbone, "_diagnostic_correction_applied_count", 0) + 1
                 )
                 clean_regular, clean_fused = torch.split(clean_pixels, [3, 3], dim=1)
-                nb_dino = len(vision_backbone.featurizer.blocks)
-                nb_siglip = len(vision_backbone.fused_featurizer.blocks)
-                sl_dino = int(nb_dino * split_frac)
-                sl_siglip = int(nb_siglip * split_frac)
-                patches = _run_vit_with_midlayer_splice(vision_backbone.featurizer, img_regular, clean_regular, sl_dino, patch_mask_256,
-                                                         feature_store=feature_store, feature_store_key="dino")
-                patches_fused = _run_vit_with_midlayer_splice(vision_backbone.fused_featurizer, img_fused, clean_fused, sl_siglip, patch_mask_256,
-                                                               feature_store=feature_store, feature_store_key="siglip")
+                # occ_vla change (2026-08-18, depth-sweep design, per user
+                # decision): fractions are now relative to EFFECTIVE N
+                # (num_blocks - 2, the true depth this checkpoint's inference
+                # path actually uses -- see _run_vit_with_midlayer_splice's
+                # extraction_layer comment), not nominal N, and use round()
+                # instead of int()-truncation. IMPORTANT: this changes which
+                # absolute layer a given FRACTION maps to. The already-run
+                # "current" setting (dino layer=16, siglip layer=18, what
+                # every task1/6/8 n=20 result so far used) is reproduced
+                # exactly by split_frac = 16/22 (~=0.7273), NOT the old
+                # 0.67 -- verified directly: round(22*0.67)=15,
+                # round(25*0.67)=17, a DIFFERENT (not-yet-tested) layer pair,
+                # not (16, 18). Never assume a frac reproduces a prior
+                # result without checking; the depth-sweep script computes
+                # and prints the resulting (dino, siglip) layer pair for
+                # every level before running, specifically to catch this.
+                nb_dino_eff = len(vision_backbone.featurizer.blocks) - 2
+                nb_siglip_eff = len(vision_backbone.fused_featurizer.blocks) - 2
+                if split_frac <= 0.0:
+                    # occ_vla addition (2026-08-18, depth-sweep L=0 endpoint):
+                    # splicing "before block 0" is architecturally equivalent
+                    # to just running the STOCK featurizer on the fully clean
+                    # image -- outside the occluded region the clean and
+                    # corrupted pixels are already identical (alpha-zeroing
+                    # the occluder only changes pixels it actually covered),
+                    # so a pixel-level mask-and-splice at this point reduces
+                    # exactly to "use the clean image everywhere." No block
+                    # loop, no mask needed -- see user's own derivation.
+                    vision_backbone._diagnostic_correction_applied_count = (
+                        getattr(vision_backbone, "_diagnostic_correction_applied_count", 0) + 1
+                    )
+                    patches = vision_backbone.featurizer(clean_regular)
+                    patches_fused = vision_backbone.fused_featurizer(clean_fused)
+                    if feature_store is not None:
+                        feature_store["dino"] = feature_store["dino_final"] = patches.detach().to(torch.float32).cpu().numpy()
+                        feature_store["siglip"] = feature_store["siglip_final"] = patches_fused.detach().to(torch.float32).cpu().numpy()
+                else:
+                    sl_dino = min(int(round(nb_dino_eff * split_frac)), nb_dino_eff)
+                    sl_siglip = min(int(round(nb_siglip_eff * split_frac)), nb_siglip_eff)
+                    patches = _run_vit_with_midlayer_splice(vision_backbone.featurizer, img_regular, clean_regular, sl_dino, patch_mask_256,
+                                                             feature_store=feature_store, feature_store_key="dino")
+                    patches_fused = _run_vit_with_midlayer_splice(vision_backbone.fused_featurizer, img_fused, clean_fused, sl_siglip, patch_mask_256,
+                                                                   feature_store=feature_store, feature_store_key="siglip")
             else:
                 patches = vision_backbone.featurizer(img_regular)
                 patches_fused = vision_backbone.fused_featurizer(img_fused)
