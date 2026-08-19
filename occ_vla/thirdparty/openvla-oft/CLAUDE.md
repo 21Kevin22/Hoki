@@ -685,3 +685,55 @@ content at all) -- closer in spirit to this project's own `spatial_text`/
 `occlusion_gating` precedents in the sibling pi0.5 project, worth
 checking whether an equivalent exists or is easy to add here before
 building anything new.
+
+## Correction: the CORRECT (16,18) mid-layer depth shows a real positive trend at n=50 -- the "mid-layer correction has no benefit" conclusion that motivated the pixel-level pivot was itself built on the buggy (15,17) depth
+
+`current_correct_1618_all50/` -- true oracle (privileged alpha-zero
+clean re-render, NOT prevframe), task1, n=50, run at the CORRECTED
+`--midlayer-split-frac 0.7272727272727273` (resolves to dino=16/22,
+siglip=18/25, confirmed via its own `run_config.json`) -- completed
+2026-08-20:
+
+**baseline 27/50 (54%) vs oracle(16,18) 34/50 (68%), +14pt. McNemar
+b=6 (baseline-only success) / c=13 (oracle-only success), chi2=2.58
+(p~=0.108) -- a real, ~2:1-favoring-oracle directional trend that does
+NOT reach conventional significance at n=50, but is materially
+different from the flat/null result the earlier (15,17)-depth data
+showed.**
+
+This matters because the decision to abandon mid-layer correction and
+pivot to pixel-level `pixel_prevframe` (see the entry above) was made
+on the premise that "mid-layer correction never showed a validated
+success-rate benefit at any depth tested" -- but per the config-drift
+incident this session already found and fixed, essentially all of
+that "current depth" data was silently using the WRONG (15,17) layers,
+not the intended (16,18). This n=50 run is the first CORRECTLY-
+CONFIGURED, full-n mid-layer oracle result on record for task1, and it
+points the opposite direction from the conclusion that motivated
+dropping mid-layer correction in the first place.
+
+**This does not (yet) mean mid-layer correction is validated** --
+chi2=2.58 is short of the conventional 3.84 bar, exactly the kind of
+"promising but not yet significant" result this project has
+repeatedly warned itself not to over-read (see the many single-task
+n=10/n=20 "promising" results elsewhere in this file that evaporated
+on replication). But it DOES mean the prior blanket "no benefit at any
+depth" framing was not actually established by trustworthy data, and
+the correct next step is to check whether this trend replicates on
+task6/task8 at the corrected depth, not to treat mid-layer correction
+as closed. `oracle_correct1618_task6_n20/` (n=20, paired against the
+existing `libero_occluded_oracle_task6_n20/`'s baseline condition,
+which is depth-independent and therefore still valid regardless of
+what depth ITS oracle condition used) launched 2026-08-20 to check
+this. task8's equivalent still queued behind GPU availability at the
+time of this note.
+
+**Practical implication for the pixel-level pivot**: the pivot itself
+was reasonable process (stop guessing, test the cheap thing first) and
+`pixel_prevframe`'s own NO-GO result on task1 stands regardless of this
+correction -- but the STATED REASON for deprioritizing mid-layer
+correction ("it's already been shown not to work") should be treated
+as unconfirmed, not settled, until the task6/task8 replication comes
+back. Both threads (pixel-level Stage A, corrected-depth mid-layer)
+are being run in parallel rather than treating this as a reason to stop
+the pixel-level work already in flight.
