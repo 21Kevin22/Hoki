@@ -639,6 +639,32 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 condition == "oracle" and bool(occluder_geom_ids) and bool(occluded_pixel_mask.any())
                 and not gate_will_skip_this_step
             )
+            # occ_vla bug fix (2026-08-20, found via a real, reproduced
+            # catastrophic result: gated prevframe scored 1/20 vs baseline's
+            # 10/20, chi2=7.36 -- WORSE than even the unconditional 6/20).
+            # `patched_forward` (line ~355 above) reads these two attributes
+            # via getattr(..., None) and applies a splice whenever they're
+            # non-None with a non-empty mask -- they were NEVER explicitly
+            # reset to None on a step where correction is not applied this
+            # time, only ever SET (see the block below). Before the gate
+            # existed, every task tested this session has occlusion that,
+            # once present, never clears mid-episode (verified via
+            # action_diff_log's occluded_run_length never dipping across
+            # all 60 already-collected task1/6/8 oracle episodes) -- so
+            # `occluded_pixel_mask.any()` and `will_apply_correction_this_
+            # step` happened to always agree in every run before this one,
+            # and the staleness path was latent but never triggered. The
+            # gate deliberately creates exactly the case where occlusion IS
+            # present but correction should NOT apply -- triggering
+            # `patched_forward` to silently keep splicing in STALE clean
+            # pixels/mask from whenever correction last really fired
+            # (potentially many steps and a very different arm pose ago),
+            # actively corrupting the frame instead of leaving it alone.
+            # Must explicitly clear both attributes whenever correction is
+            # not applied this step, not just when it IS.
+            if not will_apply_correction_this_step:
+                model.vision_backbone._diagnostic_clean_agentview_pixel_values = None
+                model.vision_backbone._diagnostic_agentview_patch_mask_256 = None
             if will_apply_correction_this_step:
                 token_mask_256 = pixel_mask_to_token_mask_256(occluded_pixel_mask)
                 if pixel_fill_mode == "prevframe":
