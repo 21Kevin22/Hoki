@@ -297,6 +297,21 @@ def _run_vit_with_midlayer_splice(featurizer, x_corrupted_pixels, x_clean_pixels
             patch_clean = x_clean[:, num_prefix:]
             if feature_store is not None and feature_store_key is not None:
                 feature_store[feature_store_key] = patch_clean.detach().to(torch.float32).cpu().numpy()
+                # occ_vla addition (2026-08-19, per user request -- correction-
+                # magnitude gate signal candidate, saved once now instead of
+                # requiring a second rerun): the ORIGINAL (occluded) features
+                # this call would have used if not corrected, and the per-
+                # masked-patch L2 distance between clean and occluded at this
+                # exact layer -- ||patch_clean - patch_corrupted|| restricted
+                # to the masked region only (unmasked patches are identical
+                # by construction, including them would just dilute this).
+                feature_store[f"{feature_store_key}_occ"] = patch_corrupted.detach().to(torch.float32).cpu().numpy()
+                mask_flat = mask.reshape(1, -1, 1).float()
+                n_masked = mask_flat.sum().clamp(min=1)
+                delta_feat = ((patch_clean.detach() - patch_corrupted.detach()) * mask_flat)
+                feature_store[f"{feature_store_key}_delta_norm"] = float(
+                    (delta_feat.norm(dim=-1).sum() / n_masked).item()
+                )
             spliced_patch = torch.where(mask, patch_clean, patch_corrupted)
             x_corrupted = torch.cat([x_corrupted[:, :num_prefix], spliced_patch], dim=1)
             del x_clean
@@ -656,10 +671,28 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     delta_a_chunk_mean = float(
                         np.linalg.norm(chunk_oracle[:n_common] - chunk_base[:n_common], axis=-1).mean()
                     )
+                    # occ_vla addition (2026-08-19, per user request -- save
+                    # everything this rerun could need so a second rerun for
+                    # "one more field" is never necessary again): full 8-step
+                    # chunks for BOTH conditions (not just the first action),
+                    # and the feature-space delta-norm computed inside
+                    # _run_vit_with_midlayer_splice (dino/siglip averaged for
+                    # a single scalar, since that's what a real gate would
+                    # threshold on -- per-tower values remain in the saved
+                    # .npz for anyone who wants them separately).
+                    feat_delta = None
+                    if feature_store is not None:
+                        d_dino = feature_store.get("dino_delta_norm")
+                        d_siglip = feature_store.get("siglip_delta_norm")
+                        if d_dino is not None and d_siglip is not None:
+                            feat_delta = (d_dino + d_siglip) / 2.0
                     action_diff_log.append({
                         "t": t, "occluded_run_length": occluded_run_length,
                         "frac_occluded": float(frac_occluded_this_step),
                         "delta_a_norm_first": delta_a_first, "delta_a_norm_chunk_mean": delta_a_chunk_mean,
+                        "action_chunk_with_correction": chunk_oracle.tolist(),
+                        "action_chunk_without_correction": chunk_base.tolist(),
+                        "feature_delta_norm": feat_delta,
                     })
                     print(f"    [action-diff] t={t} occluded_run_length={occluded_run_length} "
                           f"delta_a_first={delta_a_first:.4f} delta_a_chunk_mean={delta_a_chunk_mean:.4f}")
@@ -702,6 +735,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     np.savez_compressed(
                         os.path.join(save_features_dir, fname),
                         occluded_pixel_mask=occluded_pixel_mask, t=t,
+                        occluded_run_length=occluded_run_length,  # occ_vla addition 2026-08-19
                         **{k: v for k, v in feature_store.items() if v is not None},
                     )
                     model.vision_backbone._diagnostic_feature_store = None
@@ -713,7 +747,13 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 # the EXACT step divergence first appears at, distinguishing
                 # "different code path from step 1" from "numerical drift
                 # compounding over time."
-                action_trace.append({"t": t, "action_first": np.asarray(actions[0], dtype=float).tolist()})
+                # occ_vla change (2026-08-19, per user request): save the
+                # FULL chunk (was action_first only) so within-chunk
+                # variance can be analyzed later without a further rerun.
+                action_trace.append({
+                    "t": t, "action_first": np.asarray(actions[0], dtype=float).tolist(),
+                    "action_chunk": np.asarray(actions, dtype=float).tolist(),
+                })
 
                 action_queue.extend(actions)
 
