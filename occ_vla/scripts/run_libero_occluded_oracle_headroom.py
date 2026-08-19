@@ -453,7 +453,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac,
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
-                 pixel_fill_mode="none"):
+                 pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -535,6 +535,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     prevframe_buffer = None
     prevframe_step_buffer = None
     prevframe_fill_log = []
+    prevframe_gate_skip_log = []
     # occ_vla addition (2026-08-19): explicit termination reason (success /
     # timeout / error) -- distinct from `success` alone, per user request.
     termination_reason = "timeout"
@@ -611,7 +612,34 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 prevframe_step_buffer[not_occluded_now] = t
 
             occlusion_mask = None
-            if condition == "oracle" and occluder_geom_ids and occluded_pixel_mask.any():
+            # occ_vla addition (2026-08-19/20, per task1 NO-GO result):
+            # optional gate on prevframe's own no-valid-history fraction --
+            # when most of the occluded region was never once seen clean
+            # THIS episode, the fill degenerates into a patchwork of stale
+            # content + raw corrupted pixels that empirically hurt (task1
+            # n=20: 30% vs 50% baseline, wrong direction). Real-robot-
+            # computable (frac_no_reference needs only the buffer already
+            # maintained above, no privileged info) -- skip the fill and
+            # fall back to the UNMODIFIED frame (same as baseline) whenever
+            # too little real history exists to fill with. Default 1.0 =
+            # gate never trips (old, already-tested unconditional behavior).
+            gate_will_skip_this_step = False
+            if pixel_fill_mode == "prevframe" and prevframe_gate_max_frac_no_ref < 1.0 and occluded_pixel_mask.any():
+                n_occ_px_gate = int(occluded_pixel_mask.sum())
+                no_ref_px_gate = int((occluded_pixel_mask & (prevframe_step_buffer < 0)).sum())
+                frac_no_ref_gate = no_ref_px_gate / max(n_occ_px_gate, 1)
+                if frac_no_ref_gate > prevframe_gate_max_frac_no_ref:
+                    gate_will_skip_this_step = True
+                    prevframe_gate_skip_log.append({
+                        "t": t, "occluded_run_length": occluded_run_length,
+                        "frac_no_reference": frac_no_ref_gate,
+                    })
+
+            will_apply_correction_this_step = (
+                condition == "oracle" and bool(occluder_geom_ids) and bool(occluded_pixel_mask.any())
+                and not gate_will_skip_this_step
+            )
+            if will_apply_correction_this_step:
                 token_mask_256 = pixel_mask_to_token_mask_256(occluded_pixel_mask)
                 if pixel_fill_mode == "prevframe":
                     # Stage A (mask/content decomposition): WHERE still comes
@@ -692,9 +720,14 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 # never fired. The actual condition that determines whether
                 # patched_forward will apply the splice this call is the same
                 # one that gates setting the diagnostic attributes above.
-                real_oracle_correction_this_call = (
-                    condition == "oracle" and bool(occluder_geom_ids) and bool(occluded_pixel_mask.any())
-                )
+                # occ_vla change (2026-08-20): reuse `will_apply_correction_
+                # this_step` (computed once above, now also accounting for
+                # the prevframe no-reference gate) instead of independently
+                # recomputing an equivalent-looking condition -- two
+                # separate computations of "the same" condition is exactly
+                # the class of bug that caused the config-drift incident
+                # earlier this project.
+                real_oracle_correction_this_call = will_apply_correction_this_step
 
                 # occ_vla addition (2026-08-18): always (re)set, even to None,
                 # so a stale dict from an earlier step's call is never
@@ -851,6 +884,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "n_occluded_steps": n_occluded_steps,
         "action_diff_log": action_diff_log,
         "prevframe_fill_log": prevframe_fill_log,
+        "prevframe_gate_skip_log": prevframe_gate_skip_log,
         # occ_vla addition (2026-08-18): independent runtime ground truth
         # that the splice was actually applied (incremented inside
         # patched_forward itself, not inferred) -- see
@@ -920,6 +954,14 @@ def main():
                               "privileged alpha-zero re-render -- zero training, zero learned "
                               "parameters, real-robot-deployable. 'none' (default) keeps the existing "
                               "true-oracle-render behavior, unchanged.")
+    parser.add_argument("--prevframe-gate-max-frac-no-ref", type=float, default=1.0,
+                         help="Only meaningful with --pixel-fill-mode prevframe. Skip the fill (fall "
+                              "back to the unmodified frame, same as baseline) on any step where the "
+                              "fraction of currently-occluded target pixels with NO valid unoccluded "
+                              "history this episode exceeds this threshold. Default 1.0 = gate never "
+                              "trips (original unconditional behavior). Added 2026-08-20 after task1's "
+                              "unconditional pixel_prevframe n=20 result (30% vs 50% baseline, wrong "
+                              "direction) -- see CLAUDE.md.")
     parser.add_argument("--attn-implementation", default=None,
                          help="Force a specific attention implementation (e.g. 'eager') for the "
                               "WHOLE rollout, consistently. Diagnostic for whether "
@@ -993,6 +1035,7 @@ def main():
         "log_ensemble_disagreement": args.log_ensemble_disagreement,
         "attn_implementation": args.attn_implementation, "load_in_4bit": args.load_in_4bit,
         "pixel_fill_mode": args.pixel_fill_mode,
+        "prevframe_gate_max_frac_no_ref": args.prevframe_gate_max_frac_no_ref,
     }
     print(f"[run-config] midlayer_split_frac={args.midlayer_split_frac} -> resolved: {resolved_layers}")
     os.makedirs(args.results_dir, exist_ok=True)
@@ -1059,6 +1102,7 @@ def main():
                     log_attn_entropy=args.log_attn_entropy,
                     log_ensemble_disagreement=args.log_ensemble_disagreement,
                     pixel_fill_mode=args.pixel_fill_mode,
+                    prevframe_gate_max_frac_no_ref=args.prevframe_gate_max_frac_no_ref,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
@@ -1074,7 +1118,8 @@ def main():
                       f"n_correction_applied={res['n_correction_applied']} n_forward_calls={res['n_forward_calls']} "
                       f"n_attn_entropy_logged={len(res['attn_entropy_log'])} "
                       f"n_ensemble_logged={len(res['ensemble_disagreement_log'])} "
-                      f"n_prevframe_fill_logged={len(res['prevframe_fill_log'])}")
+                      f"n_prevframe_fill_logged={len(res['prevframe_fill_log'])} "
+                      f"n_prevframe_gate_skipped={len(res['prevframe_gate_skip_log'])}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
