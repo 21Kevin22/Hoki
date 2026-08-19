@@ -877,6 +877,40 @@ def main():
     original_forward = model.vision_backbone.forward
     splice_forward = make_agentview_midlayer_splice_forward(model.vision_backbone, args.midlayer_split_frac, img_idx=0)
 
+    # occ_vla addition (2026-08-19, per user request -- systematic fix after
+    # a real incident: today's "current"-depth runs silently used a
+    # DIFFERENT resolved layer (dino=15, siglip=17) than every prior run
+    # calling itself "current" (dino=16, siglip=18), because the frac->layer
+    # formula changed (effective-N + round(), not nominal-N + int()) but the
+    # CLI's --midlayer-split-frac default (0.67) was never updated to
+    # compensate, and nothing printed/saved the RESOLVED layer to catch
+    # this before trusting the comparison. Mirrors patched_forward's own
+    # split_frac<=0.0 / else branching exactly -- keep these two in sync by
+    # hand if either changes.
+    def resolve_split_layers(vision_backbone, split_frac):
+        if split_frac <= 0.0:
+            return {"mode": "pixel_replace_L0", "dino_layer": None, "siglip_layer": None}
+        nb_dino_eff = len(vision_backbone.featurizer.blocks) - 2
+        nb_siglip_eff = len(vision_backbone.fused_featurizer.blocks) - 2
+        sl_dino = min(int(round(nb_dino_eff * split_frac)), nb_dino_eff)
+        sl_siglip = min(int(round(nb_siglip_eff * split_frac)), nb_siglip_eff)
+        return {"mode": "midlayer_splice", "dino_layer": sl_dino, "dino_n_effective": nb_dino_eff,
+                "siglip_layer": sl_siglip, "siglip_n_effective": nb_siglip_eff}
+
+    resolved_layers = resolve_split_layers(model.vision_backbone, args.midlayer_split_frac)
+    run_config = {
+        "midlayer_split_frac_arg": args.midlayer_split_frac, "resolved_layers": resolved_layers,
+        "task_ids": args.task_ids, "n_episodes": args.n_episodes, "episode_offset": args.episode_offset,
+        "conditions": args.conditions, "checkpoint": args.checkpoint,
+        "log_action_diff": args.log_action_diff, "log_attn_entropy": args.log_attn_entropy,
+        "log_ensemble_disagreement": args.log_ensemble_disagreement,
+        "attn_implementation": args.attn_implementation, "load_in_4bit": args.load_in_4bit,
+    }
+    print(f"[run-config] midlayer_split_frac={args.midlayer_split_frac} -> resolved: {resolved_layers}")
+    os.makedirs(args.results_dir, exist_ok=True)
+    with open(os.path.join(args.results_dir, "run_config.json"), "w") as f:
+        json.dump(run_config, f, indent=2)
+
     all_summary = {}
     for task_id in args.task_ids:
         task = occluded_suite.get_task(task_id)
