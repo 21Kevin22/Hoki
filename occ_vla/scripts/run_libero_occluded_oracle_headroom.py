@@ -482,6 +482,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # eventual episode success/failure, as a candidate signal for gating
     # whether to engage correction at all.
     attn_entropy_log = []
+    action_trace = []  # occ_vla addition (2026-08-19): see append site below
     # occ_vla addition (2026-08-18): reset the ground-truth splice-applied
     # counter (incremented inside patched_forward itself, see
     # make_agentview_midlayer_splice_forward) so each episode's result
@@ -650,6 +651,15 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     )
                     model.vision_backbone._diagnostic_feature_store = None
 
+                # occ_vla addition (2026-08-19, per user request -- determinism
+                # diagnosis): always record the first action of every replan
+                # chunk (cheap: one 7-dim vector per ~8 env steps). Lets a
+                # post-hoc diff between two runs of the "same" episode find
+                # the EXACT step divergence first appears at, distinguishing
+                # "different code path from step 1" from "numerical drift
+                # compounding over time."
+                action_trace.append({"t": t, "action_first": np.asarray(actions[0], dtype=float).tolist()})
+
                 action_queue.extend(actions)
 
             action = action_queue.popleft()
@@ -675,6 +685,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "n_correction_applied": getattr(model.vision_backbone, "_diagnostic_correction_applied_count", 0),
         "n_forward_calls": getattr(model.vision_backbone, "_diagnostic_forward_call_count", 0),  # temp diagnostic
         "attn_entropy_log": attn_entropy_log,
+        "action_trace": action_trace,
     }
 
 
@@ -719,6 +730,15 @@ def main():
                               "step (any condition, occluded or not) -- candidate gate signal: does "
                               "baseline's own attention entropy predict eventual episode "
                               "success/failure, per user request 2026-08-19.")
+    parser.add_argument("--attn-implementation", default=None,
+                         help="Force a specific attention implementation (e.g. 'eager') for the "
+                              "WHOLE rollout, consistently. Diagnostic for whether "
+                              "--log-attn-entropy's output_attentions=True request silently "
+                              "switches the model off its default (SDPA) path, introducing "
+                              "numerical differences that compound over a long closed-loop "
+                              "rollout -- found 2026-08-19: an entropy-enabled rerun of the same "
+                              "20 seeds flipped 8/20 episode outcomes vs a non-entropy run, "
+                              "contradicting smoke_test_attn_entropy.py's single-step check.")
     args = parser.parse_args()
     os.makedirs(args.results_dir, exist_ok=True)
     if args.save_oracle_features_dir:
@@ -731,6 +751,13 @@ def main():
         load_in_8bit=False, load_in_4bit=args.load_in_4bit,
         center_crop=True, num_open_loop_steps=8, task_suite_name=STOCK_SUITE, seed=7,
     )
+    if args.attn_implementation:
+        # occ_vla addition (2026-08-19, per user request -- determinism
+        # diagnosis): getattr-guarded in openvla_utils.get_model(), safe to
+        # set unconditionally for the WHOLE rollout here (this project's own
+        # documented caution is specifically about MIXING True/False within
+        # one episode, not about setting this consistently for an entire run).
+        cfg.attn_implementation = args.attn_implementation
     set_seed_everywhere(cfg.seed)
     print(f"Loading model from {cfg.pretrained_checkpoint} ...")
     model = get_model(cfg)
