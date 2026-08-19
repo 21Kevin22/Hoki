@@ -437,7 +437,7 @@ def build_pixel_values(agentview_img, wrist_img, processor, prompt, device, dtyp
 def run_episode(cfg, env, task_description, model, processor, action_head, proprio_projector, resize_size,
                  init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac,
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
-                 task_id=None, episode_idx=None):
+                 task_id=None, episode_idx=None, log_attn_entropy=False):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -474,6 +474,14 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     n_occluded_steps = 0
     occluded_run_length = 0  # elapsed consecutive occluded steps -- resets to 0 the moment occlusion clears
     action_diff_log = []
+    # occ_vla addition (2026-08-19, per user request -- attention-entropy
+    # gate signal validation): logged at EVERY replan step regardless of
+    # occlusion or condition (unlike action_diff_log, which only fires
+    # under real oracle correction) -- the whole point is to check whether
+    # a baseline-condition rollout's own attention entropy predicts
+    # eventual episode success/failure, as a candidate signal for gating
+    # whether to engage correction at all.
+    attn_entropy_log = []
     # occ_vla addition (2026-08-18): reset the ground-truth splice-applied
     # counter (incremented inside patched_forward itself, see
     # make_agentview_midlayer_splice_forward) so each episode's result
@@ -573,11 +581,27 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 feature_store = {} if (save_features_dir and real_oracle_correction_this_call) else None
                 model.vision_backbone._diagnostic_feature_store = feature_store
 
-                actions = get_vla_action(
-                    cfg, model, processor, observation, task_description,
-                    action_head=action_head, proprio_projector=proprio_projector,
-                    noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
-                )
+                if log_attn_entropy:
+                    # occ_vla addition (2026-08-19): get_vla_action's return
+                    # shape changes when return_attn_entropy=True (tuple,
+                    # not a bare action list) -- see its own tail dispatch.
+                    actions, step_attn_entropy = get_vla_action(
+                        cfg, model, processor, observation, task_description,
+                        action_head=action_head, proprio_projector=proprio_projector,
+                        noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
+                        return_attn_entropy=True,
+                    )
+                    attn_entropy_log.append({
+                        "t": t, "occluded_run_length": occluded_run_length,
+                        "frac_occluded": float(frac_occluded_this_step),
+                        "attn_entropy": float(step_attn_entropy) if step_attn_entropy is not None else None,
+                    })
+                else:
+                    actions = get_vla_action(
+                        cfg, model, processor, observation, task_description,
+                        action_head=action_head, proprio_projector=proprio_projector,
+                        noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
+                    )
 
                 if log_action_diff and real_oracle_correction_this_call and original_forward is not None and splice_forward is not None:
                     # Counterfactual: identical observation, forward swapped
@@ -650,6 +674,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         # patched_forward as vision_backbone.forward at all).
         "n_correction_applied": getattr(model.vision_backbone, "_diagnostic_correction_applied_count", 0),
         "n_forward_calls": getattr(model.vision_backbone, "_diagnostic_forward_call_count", 0),  # temp diagnostic
+        "attn_entropy_log": attn_entropy_log,
     }
 
 
@@ -689,6 +714,11 @@ def main():
                          help="If set, also saves the oracle ground-truth patch features (.npz) at "
                               "each oracle-correction replan step, for a later predictor-vs-oracle "
                               "reconstruction-error comparison without re-running oracle.")
+    parser.add_argument("--log-attn-entropy", action="store_true",
+                         help="Log action-token-to-vision-patch attention entropy at EVERY replan "
+                              "step (any condition, occluded or not) -- candidate gate signal: does "
+                              "baseline's own attention entropy predict eventual episode "
+                              "success/failure, per user request 2026-08-19.")
     args = parser.parse_args()
     os.makedirs(args.results_dir, exist_ok=True)
     if args.save_oracle_features_dir:
@@ -774,6 +804,7 @@ def main():
                     original_forward=original_forward, splice_forward=splice_forward,
                     log_action_diff=args.log_action_diff, save_features_dir=args.save_oracle_features_dir,
                     task_id=task_id, episode_idx=args.episode_offset + ep,
+                    log_attn_entropy=args.log_attn_entropy,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
@@ -785,7 +816,8 @@ def main():
                 results.append(res)
                 print(f"  [{condition}] ep{args.episode_offset + ep}: success={res['success']} done_step={res['done_step']} "
                       f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])} "
-                      f"n_correction_applied={res['n_correction_applied']} n_forward_calls={res['n_forward_calls']}")
+                      f"n_correction_applied={res['n_correction_applied']} n_forward_calls={res['n_forward_calls']} "
+                      f"n_attn_entropy_logged={len(res['attn_entropy_log'])}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
