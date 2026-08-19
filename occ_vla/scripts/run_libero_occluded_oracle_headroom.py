@@ -437,7 +437,7 @@ def build_pixel_values(agentview_img, wrist_img, processor, prompt, device, dtyp
 def run_episode(cfg, env, task_description, model, processor, action_head, proprio_projector, resize_size,
                  init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac,
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
-                 task_id=None, episode_idx=None, log_attn_entropy=False):
+                 task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -483,6 +483,29 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # whether to engage correction at all.
     attn_entropy_log = []
     action_trace = []  # occ_vla addition (2026-08-19): see append site below
+    # occ_vla addition (2026-08-19, per user request -- real-robot-usable
+    # gate signal candidate): pure proprioception, no privileged sim info
+    # (unlike S_occ), no extra model forward pass (unlike attention
+    # entropy/ensemble disagreement) -- eef_pos/gripper_qpos are exactly
+    # what obs["robot0_eef_pos"]/obs["robot0_gripper_qpos"] already read
+    # from the real observation dict every replan step, same values a real
+    # robot's own encoders would provide. Logged unconditionally (cheap,
+    # zero extra compute) so a candidate "stagnation" signal (eef velocity
+    # near zero for several consecutive replan steps) can be checked
+    # against eventual success/failure post-hoc.
+    proprio_log = []
+    prev_eef_pos = None
+    # occ_vla addition (2026-08-19, per user request -- another real-robot-
+    # usable gate signal candidate, tried in parallel with proprioception):
+    # input-perturbation ensemble disagreement. do_sample=False means the
+    # model is greedy/deterministic given IDENTICAL input, so repeated calls
+    # on the same pixels would trivially agree -- the perturbation (small
+    # Gaussian pixel noise on the agentview frame only) is what actually
+    # creates an ensemble here. No output_attentions, no privileged sim
+    # info -- purely a second ordinary forward pass a real robot could also
+    # run. Real cost: one extra forward pass per replan step.
+    ensemble_disagreement_log = []
+    rng_ensemble = np.random.default_rng(episode_idx if episode_idx is not None else 0)
     # occ_vla addition (2026-08-18): reset the ground-truth splice-applied
     # counter (incremented inside patched_forward itself, see
     # make_agentview_midlayer_splice_forward) so each episode's result
@@ -564,6 +587,14 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     "wrist_image": wrist_img,
                     "state": np.concatenate((obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])),
                 }
+                eef_pos_now = obs["robot0_eef_pos"].copy()
+                eef_speed = float(np.linalg.norm(eef_pos_now - prev_eef_pos)) if prev_eef_pos is not None else None
+                proprio_log.append({
+                    "t": t, "occluded_run_length": occluded_run_length,
+                    "eef_pos": eef_pos_now.tolist(), "gripper_qpos": obs["robot0_gripper_qpos"].tolist(),
+                    "eef_speed_since_last_replan": eef_speed,
+                })
+                prev_eef_pos = eef_pos_now
                 # occ_vla bug fix (2026-08-18, found while auditing per user
                 # request): this used to read `occlusion_mask is not None`,
                 # but `occlusion_mask` is a local set to `None` once above
@@ -633,6 +664,30 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     print(f"    [action-diff] t={t} occluded_run_length={occluded_run_length} "
                           f"delta_a_first={delta_a_first:.4f} delta_a_chunk_mean={delta_a_chunk_mean:.4f}")
 
+                if log_ensemble_disagreement:
+                    # Second, ordinary forward pass on a lightly-perturbed
+                    # agentview frame (small Gaussian pixel noise, std=4/255
+                    # in real image scale, clipped to valid range) -- same
+                    # code path as the real call, no output_attentions, no
+                    # privileged info. do_sample=False means the two calls
+                    # would trivially agree on identical pixels; the noise
+                    # is what makes this a real (if crude) ensemble.
+                    noisy_agentview = agentview_color.astype(np.float32) + rng_ensemble.normal(0, 4.0, agentview_color.shape)
+                    noisy_agentview = np.clip(noisy_agentview, 0, 255).astype(np.uint8)
+                    observation_noisy = {
+                        "full_image": noisy_agentview, "wrist_image": wrist_img,
+                        "state": observation["state"],
+                    }
+                    actions_noisy = get_vla_action(
+                        cfg, model, processor, observation_noisy, task_description,
+                        action_head=action_head, proprio_projector=proprio_projector,
+                        noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
+                    )
+                    disagreement = float(np.linalg.norm(np.asarray(actions[0], dtype=float) - np.asarray(actions_noisy[0], dtype=float)))
+                    ensemble_disagreement_log.append({
+                        "t": t, "occluded_run_length": occluded_run_length, "disagreement": disagreement,
+                    })
+
                 if feature_store is not None:
                     fname = f"task{task_id}_ep{episode_idx}_t{t}_features.npz"
                     # occ_vla bug fix (2026-08-18): this call only ever
@@ -686,6 +741,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "n_forward_calls": getattr(model.vision_backbone, "_diagnostic_forward_call_count", 0),  # temp diagnostic
         "attn_entropy_log": attn_entropy_log,
         "action_trace": action_trace,
+        "proprio_log": proprio_log,
+        "ensemble_disagreement_log": ensemble_disagreement_log,
     }
 
 
@@ -730,6 +787,12 @@ def main():
                               "step (any condition, occluded or not) -- candidate gate signal: does "
                               "baseline's own attention entropy predict eventual episode "
                               "success/failure, per user request 2026-08-19.")
+    parser.add_argument("--log-ensemble-disagreement", action="store_true",
+                         help="At every replan step, one extra forward pass on the agentview frame "
+                              "with small Gaussian pixel noise added, logging the L2 distance from "
+                              "the real (unperturbed) action -- real-robot-usable candidate gate "
+                              "signal, no output_attentions/no privileged info, per user request "
+                              "2026-08-19.")
     parser.add_argument("--attn-implementation", default=None,
                          help="Force a specific attention implementation (e.g. 'eager') for the "
                               "WHOLE rollout, consistently. Diagnostic for whether "
@@ -832,6 +895,7 @@ def main():
                     log_action_diff=args.log_action_diff, save_features_dir=args.save_oracle_features_dir,
                     task_id=task_id, episode_idx=args.episode_offset + ep,
                     log_attn_entropy=args.log_attn_entropy,
+                    log_ensemble_disagreement=args.log_ensemble_disagreement,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
@@ -844,7 +908,8 @@ def main():
                 print(f"  [{condition}] ep{args.episode_offset + ep}: success={res['success']} done_step={res['done_step']} "
                       f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])} "
                       f"n_correction_applied={res['n_correction_applied']} n_forward_calls={res['n_forward_calls']} "
-                      f"n_attn_entropy_logged={len(res['attn_entropy_log'])}")
+                      f"n_attn_entropy_logged={len(res['attn_entropy_log'])} "
+                      f"n_ensemble_logged={len(res['ensemble_disagreement_log'])}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
