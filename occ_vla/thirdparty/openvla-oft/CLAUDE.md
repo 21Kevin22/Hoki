@@ -557,3 +557,131 @@ to be added before launch, not after.
   `main` same day, no separate commit hash recorded yet at the time this
   note was written -- `git log -p -- scripts/run_libero_occluded_oracle_headroom.py`
   on any environment will show it once pushed.
+
+## Strategic pivot (2026-08-19/20): mid-layer feature correction abandoned as a build target, pixel-level `pixel_prevframe` tried instead
+
+Extensive follow-up work happened on `run_libero_occluded_oracle_headroom.py`
+between the last note above and this one (config-drift bug + systematic
+fix via `run_config.json`/`diff_run_configs.py`, a depth sweep
+(L=0..L=N_effective) on task1/6/8, several candidate real-robot-
+deployable "gate" signals tried and rejected -- attention entropy,
+eef-speed/stagnation, ensemble disagreement -- and a permutation test
+that debunked an apparent "+70pt best-of-3" gate-oracle finding as a
+pure combinatorial artifact). None of that intermediate work is written
+up here yet in detail; this entry starts from the user's explicit
+decision point: mid-layer correction never showed a validated
+success-rate benefit at any depth tested, so **stop trying to train a
+predictor for it** ("中間層は最良でないと分かったので、そこに予測器を
+学習させる計画自体を捨ててよいはずです。画素段に振り直すのが正しい判断
+です。") and move the intervention to the pixel level instead, where a
+much cheaper, real-robot-deployable mechanism can be tested first.
+
+**Design**: decompose "where to correct" (mask) from "what to fill with"
+(content) into separately-testable stages. Stage A (this entry): oracle
+segmentation mask (unchanged mechanism, already validated throughout
+this file) + the cheapest possible content source -- `pixel_fill_mode=
+"prevframe"`, added to `run_libero_occluded_oracle_headroom.py`: fill
+each occluded pixel with the last REAL pixel value observed at that
+exact screen location before it became occluded (tracked via a
+per-episode buffer, updated every env step for every currently-
+unoccluded pixel). Zero training, zero learned parameters, needs
+nothing a real robot's own camera stream doesn't already provide.
+Orthogonal to `--midlayer-split-frac` -- combined with `--midlayer-
+split-frac 0` (the existing L=0 whole-image-substitution path) for the
+absolute cheapest test: pure pixel substitution, no ViT reprocessing
+depth question at all.
+
+**Pre-registered go/no-go (user's own bar, stated before running):**
+n=20 quick check, needs >=+20pt over baseline with a CI excluding 0 to
+justify scaling to n=50; otherwise pivot.
+
+### Result: task1 NO-GO, decisively wrong direction
+
+`pixel_prevframe_task1_n20/` vs `baseline_all50_task1/` (episodes
+0-19, same seeds): **6/20 (30%) vs baseline 10/20 (50%)** -- McNemar
+b=5 (baseline succeeded, prevframe failed) / c=1 (reverse) ->
+chi2=2.67. Not formally significant at this n, but the point estimate
+is -20pt, the OPPOSITE of the pre-registered bar, and the discordant
+pairs are 5:1 against prevframe. This is a clean, unambiguous NO-GO
+on task1 by the pre-registered criterion -- no ambiguity about which
+way it points, only about the exact magnitude.
+
+**Mechanism, read from `prevframe_fill_log` (saved per-step for every
+episode)**: task1's occluder blocks part of the target from the very
+FIRST observed frame, not partway through the episode. Per-episode
+mean `frac_no_reference` (fraction of the currently-occluded target
+footprint that has never once been seen unoccluded this episode)
+ranged 0.396-0.977 across the 20 episodes -- i.e. on average
+40-70%, and in one extreme episode (ep12) essentially the ENTIRE
+occluded region (97.6%), had zero valid history to fill from.
+Unconditional prevframe therefore produces a patchwork: some pixels
+get real (if possibly stale) historical content, the rest fall back to
+the raw, currently-corrupted live pixel (no better than doing nothing
+there) -- and the seam between "filled" and "not filled" plus stale
+content elsewhere is plausibly a MORE confusing signal to the policy
+than the occluder's natural, visually consistent appearance that
+baseline sees unmodified. External literature independently confirms
+this exact limitation for video-inpainting-based visual servoing: "if
+the target object is occluded in the first frame, even video
+inpainting may fail to reconstruct it" (arXiv:2604.13309, "Utilizing
+Inpainting for Keypoint Detection for Vision-Based Control of Robotic
+Manipulators") -- convergent with, not just consistent with, this
+project's own measured result.
+
+### Result: task6 -- weak, right-direction, not a rescue
+
+`pixel_prevframe_task6_n20/` vs `libero_occluded_oracle_task6_n20/`'s
+baseline (episodes 0-19): **7/20 (35%) vs baseline 6/20 (30%)**, +5pt.
+McNemar b=0/c=1 (chi2=1.0) -- only ONE discordant pair in either
+direction. Right sign, nowhere near the pre-registered bar, and far
+too thin (1 flipped episode) to read as anything but noise on its own.
+
+### Combined verdict and the fix attempted next
+
+Neither task clears the pre-registered bar; task1 clears it in the
+WRONG direction with real statistical weight behind it (5 discordant
+pairs, not 1). **Unconditional `pixel_prevframe` (Stage A, naive) is a
+NO-GO as tested.** Per the mechanism above, added a gate rather than
+abandoning the approach outright: `--prevframe-gate-max-frac-no-ref
+<threshold>` skips the fill on any step where `frac_no_reference`
+exceeds the threshold, falling back to the exact unmodified frame
+(matching baseline for that step) -- computed purely from the same
+buffer already maintained, no privileged info, still real-robot-
+deployable. Also fixed, while implementing this: two independent
+recomputations of "is oracle correction actually happening this step"
+(one gating the diagnostic feature-splice attributes, one gating
+action-diff logging) had silently been allowed to diverge -- unified
+into a single `will_apply_correction_this_step` flag before the gate
+could make them inconsistent (same bug category as the earlier
+config-drift incident, caught this time before it shipped, not after).
+
+Smoke-tested on task1 episode 12 specifically (the extreme
+`frac_no_reference~=0.976` case) at threshold=0.3: the gate correctly
+skipped all 520 candidate correction steps
+(`n_correction_applied=0`), reducing that episode to exactly baseline
+behavior as designed -- confirms the gate mechanism works before
+trusting any real n=20 result built on it. Real gated n=20 run
+(`pixel_prevframe_gated03_task1_n20/`, threshold=0.3) launched
+2026-08-20 -- result not yet in at the time this entry was written;
+see the next entry (if any) or `pixel_prevframe_gated03_task1_n20/task1.json`
+directly for the outcome. task8's unconditional run
+(`pixel_prevframe_task8_n20/`) also in flight as a third unconditional
+data point.
+
+**If the gated version also fails**: the natural next things to try,
+not yet attempted -- (a) a lower/higher threshold sweep (0.3 was a
+first guess, not tuned); (b) test on a task whose occlusion is
+genuinely intermittent rather than present from frame 1 (task1 and
+apparently also this project's own historical "hardest" pick may
+simply never give prevframe enough history to work with, independent
+of gating); (c) per the same external literature thread, a real video-
+inpainting/optical-flow-propagation model instead of a raw last-value
+buffer (strictly more expensive, no longer "cheapest first" but a
+real, published category of method if the cheap version is confirmed
+dead); (d) abandon pixel-level content-filling entirely and pursue a
+pure detection-and-flag signal (tell the policy occlusion is present,
+via text or a masked/attenuated region, without trying to fill
+content at all) -- closer in spirit to this project's own `spatial_text`/
+`occlusion_gating` precedents in the sibling pi0.5 project, worth
+checking whether an equivalent exists or is easy to add here before
+building anything new.
