@@ -325,6 +325,16 @@ def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=
     original diagnostic."""
 
     def patched_forward(pixel_values, occlusion_mask=None, proprio_for_dynamics=None):
+        # occ_vla temp diagnostic (2026-08-19): unconditional call counter,
+        # to directly measure how many times patched_forward itself is
+        # invoked per replan step -- L=0 showed n_correction_applied=60 vs
+        # L=N_eff's 30 for the identical n_action_diff_logged=30, and code
+        # reading (predict_action calls _process_vision_features exactly
+        # once, which calls vision_backbone(...) exactly once) found no
+        # explanation. Remove once resolved.
+        vision_backbone._diagnostic_forward_call_count = (
+            getattr(vision_backbone, "_diagnostic_forward_call_count", 0) + 1
+        )
         assert vision_backbone.use_fused_vision_backbone
         num_images = vision_backbone.num_images_in_input
         clean_pixels = getattr(vision_backbone, "_diagnostic_clean_agentview_pixel_values", None)
@@ -381,9 +391,16 @@ def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=
                     # so a pixel-level mask-and-splice at this point reduces
                     # exactly to "use the clean image everywhere." No block
                     # loop, no mask needed -- see user's own derivation.
-                    vision_backbone._diagnostic_correction_applied_count = (
-                        getattr(vision_backbone, "_diagnostic_correction_applied_count", 0) + 1
-                    )
+                    # occ_vla bug fix (2026-08-19): this branch used to
+                    # increment _diagnostic_correction_applied_count AGAIN
+                    # here, on top of the unconditional increment already
+                    # done right after entering the outer `if idx==img_idx`
+                    # block above -- double-counting every L=0 call (found
+                    # empirically: n_forward_calls=30 but
+                    # n_correction_applied=60 for the same episode; the
+                    # L>0 branch, which has no such duplicate, correctly
+                    # showed 30==30). Removed; the outer increment alone is
+                    # correct for every split_frac value.
                     patches = vision_backbone.featurizer(clean_regular)
                     patches_fused = vision_backbone.fused_featurizer(clean_fused)
                     if feature_store is not None:
@@ -462,6 +479,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # make_agentview_midlayer_splice_forward) so each episode's result
     # reports its own count, not a running total across episodes.
     model.vision_backbone._diagnostic_correction_applied_count = 0
+    model.vision_backbone._diagnostic_forward_call_count = 0  # temp diagnostic
 
     prompt = f"In: What action should the robot take to {task_description.lower()}?\nOut:"
 
@@ -631,6 +649,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         # under real occlusion, == 0 for "baseline" (which never installs
         # patched_forward as vision_backbone.forward at all).
         "n_correction_applied": getattr(model.vision_backbone, "_diagnostic_correction_applied_count", 0),
+        "n_forward_calls": getattr(model.vision_backbone, "_diagnostic_forward_call_count", 0),  # temp diagnostic
     }
 
 
@@ -766,7 +785,7 @@ def main():
                 results.append(res)
                 print(f"  [{condition}] ep{args.episode_offset + ep}: success={res['success']} done_step={res['done_step']} "
                       f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])} "
-                      f"n_correction_applied={res['n_correction_applied']}")
+                      f"n_correction_applied={res['n_correction_applied']} n_forward_calls={res['n_forward_calls']}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
