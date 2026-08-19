@@ -452,7 +452,8 @@ def build_pixel_values(agentview_img, wrist_img, processor, prompt, device, dtyp
 def run_episode(cfg, env, task_description, model, processor, action_head, proprio_projector, resize_size,
                  init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac,
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
-                 task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False):
+                 task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
+                 pixel_fill_mode="none"):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -521,6 +522,22 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # run. Real cost: one extra forward pass per replan step.
     ensemble_disagreement_log = []
     rng_ensemble = np.random.default_rng(episode_idx if episode_idx is not None else 0)
+    # occ_vla addition (2026-08-19, per user's strategic pivot -- Stage A of
+    # the mask/content decomposition, "pixel_prevframe"): last-known-clean-
+    # pixel buffer, real-robot-deployable (no privileged sim re-render, no
+    # learned model -- just "remember what this pixel looked like the last
+    # time it wasn't covered"). `prevframe_buffer` holds the most recent
+    # UNOCCLUDED color at each pixel; `prevframe_step_buffer` holds the env
+    # step `t` that value was captured at (-1 = never seen unoccluded yet),
+    # used to compute per-step staleness and the no-valid-reference fraction
+    # requested by the user. Initialized lazily on the first loop iteration
+    # (needs occluded_pixel_mask's shape, computed inside the loop below).
+    prevframe_buffer = None
+    prevframe_step_buffer = None
+    prevframe_fill_log = []
+    # occ_vla addition (2026-08-19): explicit termination reason (success /
+    # timeout / error) -- distinct from `success` alone, per user request.
+    termination_reason = "timeout"
     # occ_vla addition (2026-08-18): reset the ground-truth splice-applied
     # counter (incremented inside patched_forward itself, see
     # make_agentview_midlayer_splice_forward) so each episode's result
@@ -578,15 +595,55 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
             else:
                 occluded_run_length = 0
 
+            # occ_vla addition (2026-08-19): update the last-known-clean-pixel
+            # buffer EVERY env step (not just replan steps), regardless of
+            # condition -- a real robot's camera stream would give this for
+            # free every frame. Only pixels currently occluded (within the
+            # target's own clear footprint) are withheld from the update;
+            # everything else (background, arm, unoccluded target pixels)
+            # refreshes to the live frame every step.
+            not_occluded_now = ~occluded_pixel_mask
+            if prevframe_buffer is None:
+                prevframe_buffer = agentview_color.copy()
+                prevframe_step_buffer = np.where(occluded_pixel_mask, -1, t)
+            else:
+                prevframe_buffer[not_occluded_now] = agentview_color[not_occluded_now]
+                prevframe_step_buffer[not_occluded_now] = t
+
             occlusion_mask = None
             if condition == "oracle" and occluder_geom_ids and occluded_pixel_mask.any():
                 token_mask_256 = pixel_mask_to_token_mask_256(occluded_pixel_mask)
-                orig_alpha = sim.model.geom_rgba[occluder_geom_ids, 3].copy()
-                sim.model.geom_rgba[occluder_geom_ids, 3] = 0.0
-                sim.forward()
-                clean_agentview_color, _ = get_agentview_frames(env, resize_size)
-                sim.model.geom_rgba[occluder_geom_ids, 3] = orig_alpha
-                sim.forward()
+                if pixel_fill_mode == "prevframe":
+                    # Stage A (mask/content decomposition): WHERE still comes
+                    # from the oracle segmentation mask (occluded_pixel_mask,
+                    # identical to every other condition here) -- only WHAT
+                    # fills that region changes. No privileged re-render, no
+                    # learned model: just the last real pixel value observed
+                    # at that exact screen location before it got occluded.
+                    fill_mask = occluded_pixel_mask & (prevframe_step_buffer >= 0)
+                    no_ref_mask = occluded_pixel_mask & (prevframe_step_buffer < 0)
+                    clean_agentview_color = agentview_color.copy()
+                    clean_agentview_color[fill_mask] = prevframe_buffer[fill_mask]
+                    n_occ_px = int(occluded_pixel_mask.sum())
+                    n_no_ref_px = int(no_ref_mask.sum())
+                    if fill_mask.any():
+                        staleness = (t - prevframe_step_buffer[fill_mask]).astype(float)
+                        mean_staleness, max_staleness = float(staleness.mean()), float(staleness.max())
+                    else:
+                        mean_staleness, max_staleness = None, None
+                    prevframe_fill_log.append({
+                        "t": t, "occluded_run_length": occluded_run_length,
+                        "n_occluded_px": n_occ_px, "n_no_reference_px": n_no_ref_px,
+                        "frac_no_reference": n_no_ref_px / max(n_occ_px, 1),
+                        "mean_staleness_steps": mean_staleness, "max_staleness_steps": max_staleness,
+                    })
+                else:
+                    orig_alpha = sim.model.geom_rgba[occluder_geom_ids, 3].copy()
+                    sim.model.geom_rgba[occluder_geom_ids, 3] = 0.0
+                    sim.forward()
+                    clean_agentview_color, _ = get_agentview_frames(env, resize_size)
+                    sim.model.geom_rgba[occluder_geom_ids, 3] = orig_alpha
+                    sim.forward()
 
                 with torch.no_grad():
                     clean_pixel_values = build_pixel_values(
@@ -604,10 +661,27 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 }
                 eef_pos_now = obs["robot0_eef_pos"].copy()
                 eef_speed = float(np.linalg.norm(eef_pos_now - prev_eef_pos)) if prev_eef_pos is not None else None
+                # occ_vla addition (2026-08-19, per user request): eef-to-
+                # occluder proximity/contact -- real MuJoCo geometry, not a
+                # privileged "does the model see it" signal, but useful for
+                # diagnosing WHY a prevframe fill might fail (e.g. the arm
+                # itself displacing/contacting the occluder mid-episode).
+                if occluder_geom_ids:
+                    occ_xpos = sim.data.geom_xpos[occluder_geom_ids]
+                    eef_to_occluder_dist = float(np.min(np.linalg.norm(occ_xpos - eef_pos_now, axis=1)))
+                    occluder_geom_id_set = set(occluder_geom_ids)
+                    occluder_contact = any(
+                        (sim.data.contact[ci].geom1 in occluder_geom_id_set
+                         or sim.data.contact[ci].geom2 in occluder_geom_id_set)
+                        for ci in range(sim.data.ncon)
+                    )
+                else:
+                    eef_to_occluder_dist, occluder_contact = None, False
                 proprio_log.append({
                     "t": t, "occluded_run_length": occluded_run_length,
                     "eef_pos": eef_pos_now.tolist(), "gripper_qpos": obs["robot0_gripper_qpos"].tolist(),
                     "eef_speed_since_last_replan": eef_speed,
+                    "eef_to_occluder_dist": eef_to_occluder_dist, "occluder_contact": occluder_contact,
                 })
                 prev_eef_pos = eef_pos_now
                 # occ_vla bug fix (2026-08-18, found while auditing per user
@@ -762,15 +836,21 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
             obs, reward, done, info = env.step(action.tolist())
             if done:
                 success = True
+                termination_reason = "success"
                 break
             t += 1
+        else:
+            termination_reason = "timeout"
     except Exception as e:
         print(f"  Episode error: {e}")
+        termination_reason = "error"
 
     return {
         "success": success, "done_step": t,
+        "termination_reason": termination_reason,
         "n_occluded_steps": n_occluded_steps,
         "action_diff_log": action_diff_log,
+        "prevframe_fill_log": prevframe_fill_log,
         # occ_vla addition (2026-08-18): independent runtime ground truth
         # that the splice was actually applied (incremented inside
         # patched_forward itself, not inferred) -- see
@@ -833,6 +913,13 @@ def main():
                               "the real (unperturbed) action -- real-robot-usable candidate gate "
                               "signal, no output_attentions/no privileged info, per user request "
                               "2026-08-19.")
+    parser.add_argument("--pixel-fill-mode", default="none", choices=["none", "prevframe"],
+                         help="Stage A of the mask/content decomposition (user's 2026-08-19 strategic "
+                              "pivot): 'prevframe' fills the oracle-masked occluded region with the "
+                              "last real (unoccluded) pixel value seen at each pixel, instead of a "
+                              "privileged alpha-zero re-render -- zero training, zero learned "
+                              "parameters, real-robot-deployable. 'none' (default) keeps the existing "
+                              "true-oracle-render behavior, unchanged.")
     parser.add_argument("--attn-implementation", default=None,
                          help="Force a specific attention implementation (e.g. 'eager') for the "
                               "WHOLE rollout, consistently. Diagnostic for whether "
@@ -905,6 +992,7 @@ def main():
         "log_action_diff": args.log_action_diff, "log_attn_entropy": args.log_attn_entropy,
         "log_ensemble_disagreement": args.log_ensemble_disagreement,
         "attn_implementation": args.attn_implementation, "load_in_4bit": args.load_in_4bit,
+        "pixel_fill_mode": args.pixel_fill_mode,
     }
     print(f"[run-config] midlayer_split_frac={args.midlayer_split_frac} -> resolved: {resolved_layers}")
     os.makedirs(args.results_dir, exist_ok=True)
@@ -970,6 +1058,7 @@ def main():
                     task_id=task_id, episode_idx=args.episode_offset + ep,
                     log_attn_entropy=args.log_attn_entropy,
                     log_ensemble_disagreement=args.log_ensemble_disagreement,
+                    pixel_fill_mode=args.pixel_fill_mode,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
@@ -980,10 +1069,12 @@ def main():
                 res["episode"] = args.episode_offset + ep
                 results.append(res)
                 print(f"  [{condition}] ep{args.episode_offset + ep}: success={res['success']} done_step={res['done_step']} "
+                      f"termination_reason={res['termination_reason']} "
                       f"n_occluded_steps={res['n_occluded_steps']} n_action_diff_logged={len(res['action_diff_log'])} "
                       f"n_correction_applied={res['n_correction_applied']} n_forward_calls={res['n_forward_calls']} "
                       f"n_attn_entropy_logged={len(res['attn_entropy_log'])} "
-                      f"n_ensemble_logged={len(res['ensemble_disagreement_log'])}")
+                      f"n_ensemble_logged={len(res['ensemble_disagreement_log'])} "
+                      f"n_prevframe_fill_logged={len(res['prevframe_fill_log'])}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
