@@ -1627,3 +1627,42 @@ screen. This is now the clearest, best-supported contrast in the
 whole investigation: physical-interference remediation generalizes
 across tested tasks; visual-completion (as tested via mid-layer
 splice/L=0 oracle) does not.
+
+## Decisive diagnostic: the reactive-monitoring loop is NOT buggy -- the ep0/4/11/13 "flip without trigger" is confirmed genuine cross-launch non-determinism
+
+Per user's explicit request before trusting either reactive-recovery
+headline number: ran `--reactive-dry-run` (monitoring check runs every
+env step exactly as in the real conditions, logs when it WOULD have
+fired, but takes zero action -- no collision-disable, no scripted
+actions, mechanically identical to plain baseline in every way except
+a read-only list-append) on the 4 specific episodes (0, 4, 11, 13)
+that flipped from baseline-failure to reactive-success WITHOUT ever
+triggering, identically in BOTH `no_collision_after_contact` and
+`scripted_recovery_after_contact`.
+
+**Result: 2/4 mixed** -- ep0 and ep4 reproduced the original baseline
+outcome (failure) in dry-run; ep11 and ep13 STILL flipped to success
+in dry-run, with reactive_triggered=False (zero intervention) exactly
+as in the two prior reactive runs.
+
+**This is decisive, not ambiguous**: since dry-run's ep11/ep13 flip to
+success with a code path that is PROVABLY read-only (the only
+difference from plain baseline is `dry_run_would_have_fired.append(t)`
+-- no write to sim state, no action-queue modification), the flip
+cannot be caused by the monitoring loop itself. It is therefore
+confirmed to be genuine cross-launch VLA inference non-determinism
+(already well-documented elsewhere in this file, e.g. task1 baseline
+reading 30%/30%/35% across 3 separate launches on identical
+init_states) -- **not** a bug in the reactive-recovery code, i.e. NOT
+a 7th instance of this project's own "impossible result = check for a
+bug" pattern.
+
+**Practical conclusion**: the earlier mechanism-attributable analysis
+stands as the correct way to read both reactive-recovery experiments
+-- 3/4 (idealized no_collision_after_contact proxy) and 2/4 (real
+scripted retreat+lift motion), both counting only episodes where the
+trigger genuinely fired on what would have been a failure. The naive
+aggregate headlines (35%->60%, 35%->65%) remain confounded by this
+now-confirmed-real non-determinism and should NOT be cited as the
+reactive-recovery result -- report the small-n (denominator=4) raw
+counts, not percentages, per the user's own explicit instruction.
