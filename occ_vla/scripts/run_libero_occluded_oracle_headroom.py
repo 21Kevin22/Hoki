@@ -106,6 +106,7 @@ sys.path.insert(0, OFT_ROOT)
 os.chdir(OFT_ROOT)
 os.environ.setdefault("LIBERO_CONFIG_PATH", os.path.expanduser("~/.libero_oft"))
 
+import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 import register_libero_occ_suites  # noqa: E402
@@ -453,7 +454,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac,
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
-                 pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0):
+                 pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -676,8 +677,36 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     # at that exact screen location before it got occluded.
                     fill_mask = occluded_pixel_mask & (prevframe_step_buffer >= 0)
                     no_ref_mask = occluded_pixel_mask & (prevframe_step_buffer < 0)
-                    clean_agentview_color = agentview_color.copy()
-                    clean_agentview_color[fill_mask] = prevframe_buffer[fill_mask]
+                    # occ_vla addition (2026-08-20, per user request -- search
+                    # related literature and fix the root cause, not just
+                    # gate around it): the original hard-mask compositing
+                    # (`clean[fill_mask] = prevframe_buffer[fill_mask]`) is
+                    # exactly the naive copy-paste pattern the image-
+                    # compositing literature already documents as producing
+                    # a visible seam a downstream model reads as "pasted" --
+                    # the standard, well-established fix is feathering (a
+                    # blurred alpha mask) rather than a binary cut, e.g.
+                    # Poisson/gradient-domain blending and matting-based
+                    # compositing pipelines. `--prevframe-feather-px 0`
+                    # (default) preserves the exact original hard-cut
+                    # behavior already tested; a positive value blurs
+                    # `fill_mask` into a soft alpha and alpha-blends instead
+                    # of a hard index assignment, directly targeting the
+                    # seam/domain-gap mechanism rather than just avoiding
+                    # the fill entirely (which is what the no-reference gate
+                    # does).
+                    if prevframe_feather_px > 0:
+                        alpha = cv2.GaussianBlur(
+                            fill_mask.astype(np.float32), (0, 0), sigmaX=prevframe_feather_px
+                        )
+                        alpha = np.clip(alpha, 0.0, 1.0)[..., None]
+                        clean_agentview_color = (
+                            alpha * prevframe_buffer.astype(np.float32)
+                            + (1.0 - alpha) * agentview_color.astype(np.float32)
+                        ).astype(np.uint8)
+                    else:
+                        clean_agentview_color = agentview_color.copy()
+                        clean_agentview_color[fill_mask] = prevframe_buffer[fill_mask]
                     n_occ_px = int(occluded_pixel_mask.sum())
                     n_no_ref_px = int(no_ref_mask.sum())
                     if fill_mask.any():
@@ -988,6 +1017,15 @@ def main():
                               "trips (original unconditional behavior). Added 2026-08-20 after task1's "
                               "unconditional pixel_prevframe n=20 result (30% vs 50% baseline, wrong "
                               "direction) -- see CLAUDE.md.")
+    parser.add_argument("--prevframe-feather-px", type=float, default=0.0,
+                         help="Only meaningful with --pixel-fill-mode prevframe. 0 (default) = original "
+                              "hard-cut compositing (clean[fill_mask] = prevframe_buffer[fill_mask]), "
+                              "already tested. >0 = Gaussian-blur sigma (pixels, in the 256x256 "
+                              "agentview frame) applied to the fill mask before alpha-blending instead "
+                              "of a hard index assignment -- targets the seam/domain-gap mechanism the "
+                              "image-compositing literature documents for naive copy-paste (e.g. "
+                              "arXiv:2011.02146, seamless-cloning/Poisson-blending survey work), added "
+                              "2026-08-20 after the gate alone failed to rescue task1's negative result.")
     parser.add_argument("--attn-implementation", default=None,
                          help="Force a specific attention implementation (e.g. 'eager') for the "
                               "WHOLE rollout, consistently. Diagnostic for whether "
@@ -1062,6 +1100,7 @@ def main():
         "attn_implementation": args.attn_implementation, "load_in_4bit": args.load_in_4bit,
         "pixel_fill_mode": args.pixel_fill_mode,
         "prevframe_gate_max_frac_no_ref": args.prevframe_gate_max_frac_no_ref,
+        "prevframe_feather_px": args.prevframe_feather_px,
     }
     print(f"[run-config] midlayer_split_frac={args.midlayer_split_frac} -> resolved: {resolved_layers}")
     os.makedirs(args.results_dir, exist_ok=True)
@@ -1129,6 +1168,7 @@ def main():
                     log_ensemble_disagreement=args.log_ensemble_disagreement,
                     pixel_fill_mode=args.pixel_fill_mode,
                     prevframe_gate_max_frac_no_ref=args.prevframe_gate_max_frac_no_ref,
+                    prevframe_feather_px=args.prevframe_feather_px,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
