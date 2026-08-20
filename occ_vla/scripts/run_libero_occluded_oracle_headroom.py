@@ -457,7 +457,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
                  pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
                  disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False,
-                 scripted_recovery=False, low_mobility_geom_ids=None):
+                 scripted_recovery=False, low_mobility_geom_ids=None, reactive_dry_run=False):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -613,6 +613,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     }
     reactive_triggered = False
     reactive_trigger_t = None
+    dry_run_would_have_fired = []
 
     if disable_collision_geom_ids and not reactive_collision_disable:
         _apply_collision_disable()
@@ -765,7 +766,21 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     or (sim.data.contact[ci].geom2 in occluder_geom_id_set_reactive and sim.data.contact[ci].geom1 in arm_only_geom_ids_set)
                     for ci in range(sim.data.ncon)
                 )
-                if anomalous_contact:
+                if anomalous_contact and reactive_dry_run:
+                    # occ_vla addition (2026-08-20, per user request -- a
+                    # decisive diagnostic before trusting either reactive
+                    # result: does the MONITORING code itself (reading
+                    # sim.data.contact every env step) perturb the
+                    # simulation, or is it genuinely read-only as intended?
+                    # Logs that the check WOULD have fired but takes no
+                    # action at all (reactive_triggered stays False,
+                    # nothing else in the step differs from plain
+                    # baseline) -- if a dry-run episode's outcome still
+                    # differs from a true baseline run on the same
+                    # init_state, the monitoring loop itself is buggy, not
+                    # just the intervention.
+                    dry_run_would_have_fired.append(t)
+                elif anomalous_contact:
                     reactive_triggered = True
                     reactive_trigger_t = t
                     if scripted_recovery:
@@ -1204,6 +1219,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "prevframe_fill_log": prevframe_fill_log,
         "prevframe_gate_skip_log": prevframe_gate_skip_log,
         "reactive_triggered": reactive_triggered, "reactive_trigger_t": reactive_trigger_t,
+        "dry_run_would_have_fired": dry_run_would_have_fired,
         # occ_vla addition (2026-08-18): independent runtime ground truth
         # that the splice was actually applied (incremented inside
         # patched_forward itself, not inferred) -- see
@@ -1245,6 +1261,13 @@ def main():
     parser.add_argument("--results-dir", default="libero_occluded_oracle_headroom")
     parser.add_argument("--conditions", nargs="+", default=["baseline", "oracle"])
     parser.add_argument("--load-in-4bit", action="store_true")
+    parser.add_argument("--reactive-dry-run", action="store_true",
+                         help="Diagnostic only: with --conditions no_collision_after_contact or "
+                              "scripted_recovery_after_contact, the per-step contact-monitoring check "
+                              "still runs and logs when it WOULD have fired, but takes no action at "
+                              "all (no collision-disable, no scripted actions) -- tests whether the "
+                              "monitoring code itself perturbs the rollout vs. a true baseline run on "
+                              "the same init_states.")
     parser.add_argument("--record-video-dir", default=None,
                          help="If set, saves every env-step's real agentview frame as a PNG under "
                               "<dir>/<condition>_ep<N>/frame_NNNNN.png -- for real rendered qualitative "
@@ -1539,6 +1562,7 @@ def main():
                     reactive_collision_disable=reactive_collision_disable,
                     scripted_recovery=scripted_recovery,
                     low_mobility_geom_ids=low_mobility_geom_ids,
+                    reactive_dry_run=args.reactive_dry_run,
                     record_video_dir=(
                         os.path.join(args.record_video_dir, f"{condition}_ep{args.episode_offset + ep}")
                         if args.record_video_dir else None
