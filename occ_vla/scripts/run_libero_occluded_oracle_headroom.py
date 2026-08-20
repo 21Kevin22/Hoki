@@ -504,43 +504,53 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # reset, every single episode, not once before the whole condition's
     # loop.
     orig_occluder_contype = orig_occluder_conaffinity = None
-    disable_collision_table_geom_ids = None
-    orig_table_contype = orig_table_conaffinity = None
+    disable_collision_support_geom_ids = None
+    orig_support_contype = orig_support_conaffinity = None
     if disable_collision_geom_ids:
         # occ_vla bug fix (2026-08-20, caught by the user BEFORE trusting
         # the first factorial_task1_n20 result -- real validity check, not
         # a hypothetical): the original fix (contype/conaffinity=0 for the
         # occluder) removes ALL physics interaction, including its
-        # support contact with the table -- confirmed via a standalone
-        # check that the occluder free-falls under gravity once collision
-        # is off (z: 0.90 -> -175 over 400 steps, no floor to stop it).
-        # The 30%->100% result from that version is THEREFORE INVALID
-        # (occluder vanished from view almost immediately, degenerating
-        # into "removed both visually and physically") and was retracted.
-        # A body_gravcomp=1.0 hack was tried next and technically worked
-        # (z stays flat) but keeps the object floating with ZERO real
-        # contact of any kind, not physically grounded. Per user's
-        # explicit request for a more realistic version ("table contact
-        # kept, only other contact removed"): use MuJoCo's
+        # support contact with whatever it rests on -- confirmed via a
+        # standalone check that the occluder free-falls under gravity once
+        # collision is off (z: 0.90 -> -175 over 400 steps, no floor to
+        # stop it). The 30%->100% result from that version is THEREFORE
+        # INVALID (occluder vanished from view almost immediately,
+        # degenerating into "removed both visually and physically") and
+        # was retracted. A body_gravcomp=1.0 hack was tried next and
+        # technically worked (z stays flat) but keeps the object floating
+        # with ZERO real contact of any kind, not physically grounded.
+        # Per user's explicit request for a more realistic version ("table
+        # contact kept, only other contact removed"): use MuJoCo's
         # contype/conaffinity bitmask to selectively exclude JUST
-        # robot-occluder collision while keeping real occluder-table
-        # support contact. Both currently default to bit0 (value 1,
-        # shared by robot/table/most everything) -- give the table's
-        # geoms an EXTRA bit1 (value 2, OR'd in, so it still matches
-        # robot via the unchanged bit0) and move the occluder's REAL
-        # (non-purely-visual) collision geoms to bit1-ONLY. Occluder then
-        # still matches table (shares bit1) but no longer matches robot
-        # or anything else still on bit0-only. Verified via a standalone
-        # 300-step check: z-position stays exactly flat via genuine
+        # robot-occluder collision while keeping real occluder-support
+        # contact. Both currently default to bit0 (value 1, shared by
+        # robot/everything-else) -- move the occluder's REAL (non-purely-
+        # visual) collision geoms to bit1-ONLY, and give bit1 to
+        # EVERY OTHER non-robot geom in the scene (not just a specific
+        # named "table" body -- occ_vla bug fix 2026-08-20 #2: task8's
+        # scene has no body literally named "table" (its support surface
+        # is "floor"/"living_room_table"), which silently made the ORIGINAL
+        # table-name-based version a no-op for that task, caught by the
+        # printed warning firing during a real run rather than silently
+        # producing a baseline-identical "no_collision" result). This way
+        # the occluder collides normally with whatever it actually rests
+        # on (floor, table, shelf, counter -- scene-agnostic) while still
+        # excluding only the robot. Verified via a standalone 300-step
+        # check on task1: z-position stays exactly flat via genuine
         # support contact (not gravity cancellation), occluder visually
         # confirmed still present in a saved frame.
-        table_geom_ids = geom_ids_for_bodies(sim, {"table"})
-        if table_geom_ids:
-            disable_collision_table_geom_ids = table_geom_ids
-            orig_table_contype = sim.model.geom_contype[table_geom_ids].copy()
-            orig_table_conaffinity = sim.model.geom_conaffinity[table_geom_ids].copy()
-            sim.model.geom_contype[table_geom_ids] |= 2
-            sim.model.geom_conaffinity[table_geom_ids] |= 2
+        all_geom_ids = list(range(sim.model.ngeom))
+        support_geom_ids = [
+            gi for gi in all_geom_ids
+            if gi not in robot_geom_ids_set and gi not in set(disable_collision_geom_ids)
+        ]
+        if support_geom_ids:
+            disable_collision_support_geom_ids = support_geom_ids
+            orig_support_contype = sim.model.geom_contype[support_geom_ids].copy()
+            orig_support_conaffinity = sim.model.geom_conaffinity[support_geom_ids].copy()
+            sim.model.geom_contype[support_geom_ids] |= 2
+            sim.model.geom_conaffinity[support_geom_ids] |= 2
             orig_occluder_contype = sim.model.geom_contype[disable_collision_geom_ids].copy()
             orig_occluder_conaffinity = sim.model.geom_conaffinity[disable_collision_geom_ids].copy()
             for gi in disable_collision_geom_ids:
@@ -550,16 +560,6 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 if sim.model.geom_contype[gi] != 0 or sim.model.geom_conaffinity[gi] != 0:
                     sim.model.geom_contype[gi] = 2
                     sim.model.geom_conaffinity[gi] = 2
-        else:
-            # No "table" body found for this task/scene -- moving the
-            # occluder to bit1-only without a bit1-tagged support surface
-            # would make it fall through (same failure this fix exists to
-            # avoid). Loudly skip rather than silently risk repeating the
-            # exact bug just fixed.
-            print("  [no_collision] WARNING: no 'table' body found -- "
-                  "collision NOT disabled for this task (would otherwise "
-                  "risk the occluder falling through the floor, per the "
-                  "2026-08-20 incident).")
 
     action_queue = deque(maxlen=cfg.num_open_loop_steps)
     t = 0
@@ -1052,9 +1052,9 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     if disable_collision_geom_ids and orig_occluder_contype is not None:
         sim.model.geom_contype[disable_collision_geom_ids] = orig_occluder_contype
         sim.model.geom_conaffinity[disable_collision_geom_ids] = orig_occluder_conaffinity
-        if disable_collision_table_geom_ids is not None:
-            sim.model.geom_contype[disable_collision_table_geom_ids] = orig_table_contype
-            sim.model.geom_conaffinity[disable_collision_table_geom_ids] = orig_table_conaffinity
+        if disable_collision_support_geom_ids is not None:
+            sim.model.geom_contype[disable_collision_support_geom_ids] = orig_support_contype
+            sim.model.geom_conaffinity[disable_collision_support_geom_ids] = orig_support_conaffinity
 
     return {
         "success": success, "done_step": t,
