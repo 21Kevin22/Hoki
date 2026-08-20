@@ -785,3 +785,78 @@ oracle-vs-baseline comparison further. Until that lands, read every
 task6/task8 number in this file from today's session as provisional,
 not confirmed -- exactly the same caution already applied to task1's
 pre-correction numbers.
+
+## Literature check on both open failure modes, per user request (find related work that hit the same wall, use it to fix root causes not just symptoms)
+
+### pixel_prevframe: the seam/domain-gap mechanism is a known, well-studied problem with a known cheap fix
+
+The gate (skip-fill-when-no-history) did not rescue task1 (still -25pt
+after the stale-splice bugfix -- see above), which means the failure
+isn't purely explained by "too little history to fill with." The
+remaining, still-untested mechanism: even where the fill DOES have
+real history to use, `pixel_prevframe`'s original compositing
+(`clean[fill_mask] = prevframe_buffer[fill_mask]`, a hard binary-mask
+index assignment) is exactly the naive copy-paste pattern the image-
+compositing literature already treats as a solved-but-real problem --
+a crisp binary edge creates a visible seam a downstream model reads as
+"pasted, not real" (deep image compositing survey work, e.g.
+arXiv:2011.02146; the standard fix across that whole literature,
+matting/feathering/Poisson-gradient-domain blending, is to soften the
+mask into an alpha gradient rather than cut it cleanly).
+
+**Fix implemented (not yet GPU-tested)**: `--prevframe-feather-px
+<sigma>` -- Gaussian-blurs `fill_mask` into a soft alpha and
+alpha-blends `prevframe_buffer` against the live frame instead of a
+hard index assignment. `sigma=0` (default) is byte-for-byte the
+already-tested hard-cut behavior. Verified with a synthetic
+numpy/cv2 sanity check (mask interior matches the buffer, far corners
+match the live frame exactly, correct alpha range/dtype/shape) --
+no GPU needed for that check, but the real question (does it change
+task1's success rate) still needs a real rollout, queued behind the
+3 priority-1/2/3 jobs currently occupying all 3 GPUs.
+
+### Mid-layer correction's task1-vs-task6 inconsistency: two real, relevant 2026 papers, pointing at a concrete next design if single-depth splicing keeps being unreliable
+
+1. **"From Attenuation to Attention: Variational Information Flow
+   Manipulation for Fine-Grained Visual Perception"** (arXiv:2604.12508)
+   -- reports visual-token attention dropping >60% by roughly layer 20
+   in the backbones it studies. This is directly relevant to why a
+   1-2-layer difference ((15,17) vs (16,18), out of 22/25 effective
+   layers) could plausibly flip an effect's sign or magnitude: if the
+   splice depth sits near a genuine "attention cliff" for how much
+   visual-token influence remains, small depth changes near that cliff
+   could matter far more than the same size step elsewhere in the
+   network -- and different TASKS could plausibly have their own
+   task-specific critical depth (where the policy's attention to
+   vision peaks or drops), which would directly explain why one fixed
+   depth helps on task1 and hurts on task6 rather than a uniform
+   effect either way.
+2. **"PVI: Plug-in Visual Injection for Vision-Language-Action Models"**
+   (arXiv:2603.12772) -- a materially different, more robust design
+   than this project's single-depth splice: zero-initialized injection
+   layers add corrected visual information residually at MULTIPLE
+   depths simultaneously (not one committed layer), explicitly framed
+   to let auxiliary visual information "influence [downstream
+   processing] across the full depth" rather than betting on one
+   extraction/injection point. Separately, general findings surfaced
+   in the same search ("using middle extraction layers and injecting
+   into deeper layers performs more favorably... injecting middle-layer
+   visual features directly is less effective than modeling attention
+   flow") suggest decoupling WHERE clean features are extracted from
+   WHERE they're injected (this project's current splice does both at
+   the SAME layer L) is itself an under-explored lever, independent of
+   the multi-layer idea.
+
+**Not implemented tonight** -- a real PVI-style multi-depth residual
+injection (zero-init adapter layers at several depths, or even just
+decoupling extraction-depth from injection-depth at a single splice
+point) is a materially larger architecture change than anything else
+tried this session, and the current evidence (task1 +14pt promising,
+task6 -10pt on an as-yet-unverified n=20 baseline) doesn't yet justify
+that investment -- task6's baseline needs its own n=50 check (already
+queued, see the entry above) before concluding the single-depth
+approach is really task-inconsistent rather than just measured on an
+unreliable comparison. **If task6's n=50-verified result still
+contradicts task1's after that check, PVI-style multi-depth injection
+is the concrete, literature-grounded next architectural direction --
+not a vague "try something else."**
