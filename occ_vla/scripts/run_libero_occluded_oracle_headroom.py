@@ -1252,7 +1252,16 @@ def main():
 
         task_results = {}
         for condition in args.conditions:
-            model.vision_backbone.forward = splice_forward if condition == "oracle" else original_forward
+            # occ_vla addition (2026-08-20, per user's 2x2-factorial 4th-
+            # cell request): "oracle_no_collision" combines the oracle
+            # visual splice (e.g. L=0 with --midlayer-split-frac 0 for the
+            # privileged clean-render ceiling) WITH collision disabled --
+            # the "visual: clean x physical: no collision" cell, needed
+            # to fully decompose the two factors' contributions/
+            # interaction alongside the already-measured baseline
+            # (occluded+collision), L=0 (clean+collision), and
+            # no_collision (occluded+no-collision) cells.
+            model.vision_backbone.forward = splice_forward if condition in ("oracle", "oracle_no_collision") else original_forward
             # occ_vla addition (2026-08-20, per user's 2x2 factorial design
             # request -- decouple VISUAL occlusion from PHYSICAL collision,
             # since removing the occluder entirely (visual+physical at
@@ -1282,8 +1291,15 @@ def main():
             # condition string so run_episode's oracle-only branches never
             # fire, while still recording results under the real
             # "no_collision" key below.
-            run_episode_condition = "baseline" if condition == "no_collision" else condition
-            disable_collision_geom_ids = occluder_geom_ids if (condition == "no_collision" and occluder_geom_ids) else None
+            if condition == "no_collision":
+                run_episode_condition = "baseline"
+            elif condition == "oracle_no_collision":
+                run_episode_condition = "oracle"
+            else:
+                run_episode_condition = condition
+            disable_collision_geom_ids = (
+                occluder_geom_ids if (condition in ("no_collision", "oracle_no_collision") and occluder_geom_ids) else None
+            )
             results = []
             for ep in range(n):
                 res = run_episode(
