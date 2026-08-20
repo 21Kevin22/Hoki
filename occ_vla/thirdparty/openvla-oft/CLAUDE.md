@@ -737,3 +737,51 @@ as unconfirmed, not settled, until the task6/task8 replication comes
 back. Both threads (pixel-level Stage A, corrected-depth mid-layer)
 are being run in parallel rather than treating this as a reason to stop
 the pixel-level work already in flight.
+
+## Baseline-subset reliability: task1's seeds[0:20]=30% is reproducible (not policy noise), but that just means it's a genuinely unrepresentative SUBSET -- and task6/task8's n=20 baselines have never been checked the same way
+
+Found while responding to a user question ("baselineが高すぎるのではありませんか?
+seed:20-40では結果も違ってきたので") about whether ANY of today's n=20
+oracle-vs-baseline comparisons (task6, task8) can be trusted, given
+task1's own seeds[0:20] baseline (30%) turned out to be a wildly
+unrepresentative subset of the true ~54% (n=50) rate.
+
+**`baseline_reproducibility_check_seeds0_20/` (already collected,
+predates this note) directly answers a narrower but important
+sub-question: is task1's 30% on seeds[0:20] itself just POLICY
+SAMPLING NOISE (rerun the same 20 seeds, get a different number), or a
+real, reproducible property of that specific 20-state subset?** Result:
+6/20 (30%), IDENTICAL to `libero_occluded_oracle_task1_n20`'s baseline
+on the same seeds. **Reproducible, not noise** -- seeds[0:20] really is
+a harder-than-average subset of task1's 50 init states (the other 30,
+seeds 20-49, must average meaningfully higher for the full n=50 rate to
+land at 54%). This rules out "just rerun it and the number will
+change" as an explanation, but does NOT rule out the user's actual
+concern.
+
+**The user's real concern, unresolved**: every oracle-vs-baseline
+comparison run TODAY on task6 and task8 (the unconditional
+`pixel_prevframe`, the gated version, and the `oracle(16,18)`
+replication) was paired against an n=20 baseline on seeds[0:20]
+(`libero_occluded_oracle_task6_n20`/`_task8_n20`'s own baseline
+condition) -- and NEITHER task has ever had its full n=50 (or even a
+seeds[20:40]-style second slice) baseline measured. Given task1's own
+seeds[0:20] turned out to be a real, non-representative low-outlier
+subset, there is no basis yet for assuming task6's 30%/task8's 35%
+n=20 baselines are representative of those tasks' true full-distribution
+rates either -- they could just as easily be similarly-skewed subsets,
+in either direction. **This means today's task6 "-10pt, doesn't
+replicate" result and task8's "+10pt" unconditional result are BOTH
+currently resting on the same kind of unverified small-subset baseline
+that task1's own numbers were already shown to be unreliable on.**
+Neither should be treated as more reliable than task1's original
+(now-corrected) seeds[0:20] numbers were.
+
+**Action, queued behind the 3 currently-running n=50/n=20 jobs
+(L=0 task1 n=50, LNeff task1 n=50, oracle(16,18) task8 n=20)**: launch
+task6 baseline n=50 (and ideally task8 baseline n=50 too) the same way
+`baseline_all50_task1` was built, before trusting either task's
+oracle-vs-baseline comparison further. Until that lands, read every
+task6/task8 number in this file from today's session as provisional,
+not confirmed -- exactly the same caution already applied to task1's
+pre-correction numbers.
