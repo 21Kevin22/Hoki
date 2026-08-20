@@ -483,6 +483,15 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     if hasattr(model, "reset_vjepa_state"):
         model.reset_vjepa_state()
     sim = env.env.sim  # re-fetch after reset (stale-reference bug, established this session)
+    # occ_vla addition (2026-08-20, per user request -- check for the same
+    # physical-obstacle confound already documented in the sibling pi0.5
+    # project's OccluderPlacer finding): robot geom ids, same body-name-
+    # substring convention as that project's robot_geom_ids() ("robot",
+    # "panda", "gripper", "mount"), needed to distinguish a REAL
+    # robot-occluder collision from the occluder merely resting on the
+    # table (which shows up as a permanent, uninformative contact in
+    # sim.data.contact regardless of the robot's position).
+    robot_geom_ids_set = set(geom_ids_for_body_substring(sim, ["robot", "panda", "gripper", "mount"]))
 
     action_queue = deque(maxlen=cfg.num_open_loop_steps)
     t = 0
@@ -753,9 +762,18 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     occ_xpos = sim.data.geom_xpos[occluder_geom_ids]
                     eef_to_occluder_dist = float(np.min(np.linalg.norm(occ_xpos - eef_pos_now, axis=1)))
                     occluder_geom_id_set = set(occluder_geom_ids)
+                    # occ_vla bug fix (2026-08-20, found by an implausible
+                    # 99.6-100% "occluder_contact" rate on task1/task6 --
+                    # per this project's own "impossible result = check for
+                    # a bug" discipline): the original check flagged ANY
+                    # contact involving an occluder geom, including the
+                    # occluder simply resting on the table under gravity --
+                    # a permanent, uninformative contact unrelated to the
+                    # robot. Now requires the OTHER geom in the pair to
+                    # actually be a robot geom.
                     occluder_contact = any(
-                        (sim.data.contact[ci].geom1 in occluder_geom_id_set
-                         or sim.data.contact[ci].geom2 in occluder_geom_id_set)
+                        (sim.data.contact[ci].geom1 in occluder_geom_id_set and sim.data.contact[ci].geom2 in robot_geom_ids_set)
+                        or (sim.data.contact[ci].geom2 in occluder_geom_id_set and sim.data.contact[ci].geom1 in robot_geom_ids_set)
                         for ci in range(sim.data.ncon)
                     )
                 else:

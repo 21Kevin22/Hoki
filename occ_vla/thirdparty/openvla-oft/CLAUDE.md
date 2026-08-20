@@ -860,3 +860,82 @@ unreliable comparison. **If task6's n=50-verified result still
 contradicts task1's after that check, PVI-style multi-depth injection
 is the concrete, literature-grounded next architectural direction --
 not a vague "try something else."**
+
+## Physical-obstacle confound check, per user request ("something else to try with better odds than mid-layer"): real robot-occluder contact found, correlates with failure at n=5 -- promising lead, needs scale-up
+
+Prompted directly by re-examining `proprio_log`'s `occluder_contact`
+field (added earlier tonight) across already-collected runs. Raw
+numbers looked implausible: task1/task6 showed ~100% contact on almost
+every step of almost every episode, task8 showed ~4-5.5% -- too
+saturated to be informative on its face.
+
+**Bug found and fixed**: the original check flagged ANY MuJoCo contact
+pair involving an occluder geom, including the occluder simply RESTING
+ON THE TABLE under gravity -- a permanent, uninformative contact
+unrelated to the robot. Fixed to require the OTHER geom in the pair to
+actually be a robot geom (`geom_ids_for_body_substring(sim, ["robot",
+"panda", "gripper", "mount"])`, same body-name-substring convention
+already established in this file; verified via a standalone,
+GPU-light check script that this correctly resolves 65-70 real robot
+geoms per task, not zero/garbage).
+
+**A second real observation while diagnosing this, independent of the
+bug**: the occluders themselves are structurally different across
+tasks -- task1: `black_book_1`/`white_storage_box_1` (small tabletop
+objects); task6: `desk_caddy_1` (small tabletop object); task8:
+`short_fridge_1` (a large furniture item, base+door+main). Small
+tabletop occluders sitting directly in a workspace are far more
+plausible physical-reach obstacles than a furniture-scale item
+positioned to block a camera angle from the side -- this is
+structurally the same category of confound already documented in the
+sibling pi0.5 project (`OccluderPlacer`'s physical box being a real
+collidable object the gripper was observed resting against/approaching
+instead of the true target).
+
+**Quick diagnostic, n=5, task1, baseline condition (fixed contact
+check), zero VLA correction cost -- one GPU freed from the LNeff n=50
+job briefly to run this, then LNeff relaunched from scratch
+afterward**:
+
+| ep | success | contact_frac | min eef-occluder dist (m) |
+|---|---|---|---|
+| 0 | fail (timeout) | **0.400** | 0.119 |
+| 1 | success | 0.022 | 0.099 |
+| 2 | success | 0.000 | 0.121 |
+| 3 | fail (timeout) | 0.046 | 0.094 |
+| 4 | fail (timeout) | 0.062 | 0.091 |
+
+Both successes show near-zero real robot-occluder contact (0%/2.2%);
+all three failures show more (4.6%-40%, one episode spending 40% of
+its logged steps in genuine physical contact with the occluder). n=5
+is far too small to treat as confirmed, and closest-approach distance
+alone is NOT discriminating (0.09-0.12m range regardless of outcome --
+sustained contact fraction looks like the more informative signal, not
+minimum distance). Also not yet separated from a plausible confound of
+its own: steps where the arm is near/reaching past the target are
+mechanically also the steps most likely to both occlude AND contact
+the occluder, so contact and occlusion severity may be two symptoms of
+the same spatial configuration rather than fully independent causes --
+not yet checked.
+
+**Why this is a genuinely different, real-robot-relevant lever, not
+just another vision-side idea**: unlike every gate signal tried earlier
+tonight/this session (attention entropy, ensemble disagreement,
+eef-speed), physical contact is not a vision-derived signal at all --
+a real robot could sense this directly via joint torque/F-T sensing,
+sidestepping the occlusion-detection problem entirely. If confirmed at
+scale, it also reframes part of "the occlusion problem" as a physical
+navigation/avoidance problem no amount of visual correction (mid-layer
+splice, pixel_prevframe, even privileged L=0) could ever fully fix --
+which would be a real, useful, if humbling, finding either way.
+
+**Not yet done**: scale n=5 to a real sample size (n=20+, ideally
+across baseline AND at least one correction condition, to see whether
+correction changes the contact rate at all); separate contact from
+occlusion-severity as a confound; if the pattern holds at scale, the
+literature-flagged `physical_removed` condition (teleport/disable
+collision for the occluder, already on the priority list) becomes the
+natural, well-motivated next experiment to actually test whether
+removing the PHYSICAL object (not just visually correcting for it)
+recovers performance -- a materially different and more targeted test
+than any of tonight's visual-correction attempts.
