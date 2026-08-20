@@ -1463,3 +1463,44 @@ moving, just not making progress" rather than literal stillness.
 Reactive-recovery run (contact-only trigger, as originally
 implemented) launched/relaunched with this ceiling and these bands
 fixed in place before the result is known.
+
+## task6★ complete (3rd task, generality milestone reached) + task9★: first task where ★ shows ZERO effect
+
+`factorial_task6_n20/`: baseline 6/20 (30%) vs no_collision 10/20
+(50%). McNemar b=0/c=4, chi2=4.0 (p~=0.046, marginally significant).
+**Real effect, but +20pt -- much smaller than task1 (+60pt) and task8
+(+55pt).**
+
+`factorial_task9_n20/`: baseline 16/20 (80%) vs no_collision 16/20
+(80%). **b=0/c=0 -- zero discordant pairs, the intervention changed
+NOTHING.** First task tested where ★ shows no measurable effect at
+all. Caveat: baseline is already 80%, a real ceiling-effect
+confound needs ruling out before concluding physical interference is
+genuinely absent here (vs. "not enough headroom for anything to show
+up") -- not yet distinguished.
+
+**Cross-task summary, physical-interference effect size (baseline vs
+★, all n=20)**:
+
+| task | baseline | ★ | effect | McNemar p |
+|---|---|---|---|---|
+| task1 | 35% | 95% | +60pt | <0.001 |
+| task8 | 35% | 90% | +55pt | <0.001 |
+| task6 | 30% | 50% | +20pt | ~0.046 |
+| task9 | 80% | 80% | 0pt | 1.0 (tied) |
+
+**Physical interference's contribution looks continuous/task-
+dependent, not a uniform "always dominant" effect** -- task1/task8
+(both large, unrelated occluder types -- small tabletop objects vs.
+furniture) show it as overwhelmingly dominant; task6 shows a real but
+much smaller contribution; task9 shows none measured so far. task9 is
+the first real candidate for "visual completion might be the dominant
+factor here instead" (per the user's explicit search goal), pending
+the ceiling-effect check.
+
+**Generality milestone reached**: 3 tasks now have real ★ data
+(task1, task8, task6), all with real, mechanistically-confirmed
+engagement (contact fires, collision-disable applies) -- sufficient
+for the "physical interference is a general, cross-task phenomenon"
+headline claim, not a single-task artifact. Main-results slides can be
+assembled at this point per the user's own stated checkpoint.
