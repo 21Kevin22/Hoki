@@ -456,7 +456,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
                  pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
-                 disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False):
+                 disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False,
+                 scripted_recovery=False):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -598,6 +599,13 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     clear_target_mask = None
     n_occluded_steps = 0
     occluded_run_length = 0  # elapsed consecutive occluded steps -- resets to 0 the moment occlusion clears
+    # occ_vla addition (2026-08-20, per user request -- a REAL scripted
+    # recovery motion, not the idealized collision-disable proxy): last
+    # commanded gripper value (pre-process_action, raw model output range),
+    # so the scripted recovery phase can hold the gripper steady (not
+    # accidentally open/close it) instead of guessing a value. Updated
+    # every time a real VLA action is popped from the queue.
+    last_gripper_raw = 0.0  # LIBERO/OpenVLA raw convention before process_action's flip/normalize
     action_diff_log = []
     # occ_vla addition (2026-08-19, per user request -- attention-entropy
     # gate signal validation): logged at EVERY replan step regardless of
@@ -734,10 +742,56 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     for ci in range(sim.data.ncon)
                 )
                 if anomalous_contact:
-                    _apply_collision_disable()
                     reactive_triggered = True
                     reactive_trigger_t = t
-                    print(f"    [reactive] anomalous arm-link contact detected at t={t} -- switching to no_collision from here")
+                    if scripted_recovery:
+                        # occ_vla addition (2026-08-20, per user request --
+                        # a REAL scripted recovery motion, not the
+                        # idealized collision-disable proxy tested earlier
+                        # tonight). Real physics/collision stays ON (no
+                        # _apply_collision_disable() call) -- this tests
+                        # whether an actual retreat-then-lift motion, not a
+                        # simulator privilege, can recover the episode.
+                        # Direction: away from the contacting occluder geom
+                        # (eef_pos - contact geom position, normalized) --
+                        # simpler and sign-convention-safer than reading
+                        # MuJoCo's raw contact-frame normal, and equally
+                        # principled ("move away from what you're
+                        # touching"). Gripper held at its last commanded
+                        # value throughout (no accidental release/close).
+                        contacting_occluder_geoms = []
+                        for ci in range(sim.data.ncon):
+                            c = sim.data.contact[ci]
+                            if c.geom1 in occluder_geom_id_set_reactive and c.geom2 in arm_only_geom_ids_set:
+                                contacting_occluder_geoms.append(c.geom1)
+                            elif c.geom2 in occluder_geom_id_set_reactive and c.geom1 in arm_only_geom_ids_set:
+                                contacting_occluder_geoms.append(c.geom2)
+                        contact_pos = sim.data.geom_xpos[contacting_occluder_geoms].mean(axis=0)
+                        eef_pos_now_recovery = obs["robot0_eef_pos"]
+                        away = eef_pos_now_recovery - contact_pos
+                        away_xy_norm = np.linalg.norm(away[:2])
+                        retreat_dir = away.copy()
+                        if away_xy_norm > 1e-6:
+                            retreat_dir[:2] = away[:2] / away_xy_norm
+                        else:
+                            retreat_dir[:2] = 0.0  # degenerate case (directly above/below) -- retreat via lift only
+                        retreat_dir[2] = 0.0
+                        RETREAT_STEPS, LIFT_STEPS = 4, 4
+                        RETREAT_MAG, LIFT_MAG = 0.6, 0.6  # normalized action units, conservative
+                        recovery_actions = []
+                        for _ in range(RETREAT_STEPS):
+                            recovery_actions.append(
+                                [retreat_dir[0] * RETREAT_MAG, retreat_dir[1] * RETREAT_MAG, 0.0, 0.0, 0.0, 0.0, last_gripper_raw]
+                            )
+                        for _ in range(LIFT_STEPS):
+                            recovery_actions.append([0.0, 0.0, LIFT_MAG, 0.0, 0.0, 0.0, last_gripper_raw])
+                        action_queue.clear()
+                        action_queue.extend(np.array(recovery_actions, dtype=float))
+                        print(f"    [reactive] anomalous arm-link contact detected at t={t} -- injecting scripted "
+                              f"retreat(dir={retreat_dir[:2]})+lift recovery, real physics stays ON")
+                    else:
+                        _apply_collision_disable()
+                        print(f"    [reactive] anomalous arm-link contact detected at t={t} -- switching to no_collision from here")
 
             # occ_vla addition (2026-08-19): update the last-known-clean-pixel
             # buffer EVERY env step (not just replan steps), regardless of
@@ -1088,6 +1142,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 action_queue.extend(actions)
 
             action = action_queue.popleft()
+            last_gripper_raw = float(np.asarray(action)[6])
             action = process_action(action, cfg.model_family)
             obs, reward, done, info = env.step(action.tolist())
             if done:
@@ -1407,7 +1462,16 @@ def main():
             # the episode -- tests whether reacting AFTER contact is
             # already too late, vs. the always-on no_collision condition's
             # upper bound.
-            if condition in ("no_collision", "no_collision_after_contact"):
+            # occ_vla addition (2026-08-20, per user request -- a REAL
+            # scripted recovery motion, not the idealized collision-disable
+            # proxy): "scripted_recovery_after_contact" uses the SAME
+            # trigger (first anomalous arm-link contact) but, instead of
+            # disabling physics, injects a real retreat+lift action
+            # sequence and lets real collision stay on -- tests whether an
+            # actual, deployable recovery motion (not a simulator
+            # privilege) can recover the episode.
+            REACTIVE_CONDITIONS = ("no_collision_after_contact", "scripted_recovery_after_contact")
+            if condition in ("no_collision",) + REACTIVE_CONDITIONS:
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
@@ -1415,10 +1479,11 @@ def main():
                 run_episode_condition = condition
             disable_collision_geom_ids = (
                 occluder_geom_ids
-                if (condition in ("no_collision", "oracle_no_collision", "no_collision_after_contact") and occluder_geom_ids)
+                if (condition in ("no_collision", "oracle_no_collision") + REACTIVE_CONDITIONS and occluder_geom_ids)
                 else None
             )
-            reactive_collision_disable = condition == "no_collision_after_contact"
+            reactive_collision_disable = condition in REACTIVE_CONDITIONS
+            scripted_recovery = condition == "scripted_recovery_after_contact"
             results = []
             for ep in range(n):
                 res = run_episode(
@@ -1434,6 +1499,7 @@ def main():
                     prevframe_feather_px=args.prevframe_feather_px,
                     disable_collision_geom_ids=disable_collision_geom_ids,
                     reactive_collision_disable=reactive_collision_disable,
+                    scripted_recovery=scripted_recovery,
                     record_video_dir=(
                         os.path.join(args.record_video_dir, f"{condition}_ep{args.episode_offset + ep}")
                         if args.record_video_dir else None
