@@ -1504,3 +1504,71 @@ engagement (contact fires, collision-disable applies) -- sufficient
 for the "physical interference is a general, cross-task phenomenon"
 headline claim, not a single-task artifact. Main-results slides can be
 assembled at this point per the user's own stated checkpoint.
+
+## Reactive recovery result: naive 35%->65% headline is CONFOUNDED by non-determinism -- true mechanism-attributable recovery is 3/4 (75%), not the aggregate number
+
+`reactive_recovery_task1_n20/` (contact-only trigger, baseline
+bundled in the same run for pairing): naive McNemar shows baseline
+35% (7/20) vs no_collision_after_contact 65% (13/20), b=1/c=7,
+chi2=4.5 (p~=0.034). **This headline number is misleading and should
+NOT be cited as-is.**
+
+**What actually happened, per-episode**: only 5/20 episodes triggered
+the reactive mechanism at all (`reactive_triggered=True`) -- far
+fewer than the 16/20 expected from the pre-registered ceiling
+calculation's reference data (`factorial_task1_n20_v2`). This is real
+run-to-run non-determinism (same init_states, different actual
+trajectories/outcomes across separate process invocations -- already
+documented elsewhere in this file, e.g. task1's baseline reading
+30%/30%/35% across 3 separate runs on the identical 20 episodes) --
+THIS run's own baseline condition independently confirmed 16/20
+contact-firing episodes (matching the reference exactly), but the
+SEPARATE no_collision_after_contact rollout (same init_states, but a
+new, independently-sampled trajectory) only reached the contact
+condition in 5 of them.
+
+Of the 5 triggered episodes: 3 flipped from baseline-failure to
+reactive-success (ep9 t=216, ep10 t=207, ep17 t=220), 1 stayed a
+failure despite triggering (ep3 t=265), 1 was already a success
+(ep16, uninformative). **Mechanism-attributable recovery rate: 3/4
+(75%)** among episodes that were real intervention opportunities
+(contact fired on what would have been a failure).
+
+Separately, 4 MORE episodes flipped from baseline-failure to reactive-
+success with the trigger NEVER firing at all (ep0, ep4, ep11, ep13) --
+these are pure non-determinism, unrelated to the reactive mechanism,
+and inflate the naive 65% headline by roughly half of its apparent
+improvement.
+
+**Correct interpretation**: the pre-registered "50-85%=partial
+recovery" band technically contains the raw 65% number, but that
+placement is not trustworthy given the confound -- **the cleaner,
+mechanism-specific statistic (75% conditional recovery rate, n=4) is
+the more honest answer to "is reacting after contact already too
+late."** 75% is close to the pre-registered ceiling's implied
+per-episode recovery rate (16/16 assumed in the ceiling calculation)
+and suggests reacting after contact is NOT obviously too late, but n=4
+is very small -- this needs a larger n (with the SAME trigger firing
+in enough episodes) to say anything with real confidence, and larger n
+here specifically requires MORE episodes to have real contact, not just
+more total episodes (given non-determinism makes the trigger rate
+itself variable run to run).
+
+## task9 ceiling-effect check: NOT a ceiling artifact -- a real, physical-interference-independent gap exists
+
+`stock_libero10_baseline_task9equiv_n20/` (plain LIBERO-10, stock
+task_id=5, matching occluded task9 by bddl_file): **90% (18/20)**.
+
+Combined with task9's earlier results: baseline (occluded) 80%, ★
+(occluded, no collision) 80% -- exactly tied, zero effect -- vs. plain
+(no occlusion at all) 90%. **Removing physical interference did NOT
+close this ~10pt gap (★ stayed at 80%, identical to baseline)** --
+ruling out "not enough headroom to show an effect" as the explanation
+for ★'s null result here. This ~10pt gap between occluded conditions
+and the fully clean task is NOT attributable to physical interference
+(directly tested and ruled out) and is the first genuine candidate in
+this project for a gap that visual occlusion itself (or some other
+non-physical factor) might explain. **task9 is now the strongest
+candidate task for testing whether visual completion (mid-layer
+splice, L=0, etc.) shows a real, uncontested benefit** -- not yet
+tested there.
