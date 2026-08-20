@@ -1572,3 +1572,58 @@ non-physical factor) might explain. **task9 is now the strongest
 candidate task for testing whether visual completion (mid-layer
 splice, L=0, etc.) shows a real, uncontested benefit** -- not yet
 tested there.
+
+## 8-task mid-layer screening COMPLETE: sign test decisively fails (1/8 positive), and task9's L=0 result shows even the oracle ceiling can't close its gap
+
+`oracle_correct1618_task3_n20/`: baseline 35% (7/20) vs oracle(16,18)
+30% (6/20). b=3/c=2, chi2=0.2 -- null/slightly negative.
+
+`oracle_correct1618_task9_n20/`: baseline 80% (16/20) vs oracle(16,18)
+80% (16/20). **b=0/c=0 -- completely tied, zero effect.**
+
+`depth_sweep_task9_L0/`: **80% (16/20) -- identical to baseline, even
+at the privileged L=0 ceiling.** This is a real, important negative
+result: task9 was flagged as the strongest candidate for "visual
+occlusion, not physical interference, explains the gap" (its ~10pt
+gap vs. plain LIBERO-10 survived the ★ physical-interference test
+unchanged) -- but even the MAXIMALLY privileged visual correction
+(whole-frame clean substitution) shows ZERO improvement here either.
+This rules out "the model just can't see the target" as task9's
+explanation too. The ~10pt occluded-vs-plain gap on task9 remains
+unexplained by either factor tested so far -- candidates not yet
+ruled out: pure n=20 sampling noise (80% vs 90% is only a 2-episode
+difference), or a scene-level confound between the occluded and stock
+BDDL variants beyond the occluder itself (e.g. different init_state
+distributions).
+
+**8-task mid-layer screening is now COMPLETE** (task1, task6, task8,
+task2, task0, task4, task3, task9 -- all 8 planned tasks tested at
+the corrected 16,18 depth):
+
+| task | baseline | oracle(16,18) | effect |
+|---|---|---|---|
+| task1 | 54%(n=50) | 68%(n=50) | +14pt |
+| task0 | 95% | 100% | +5pt (ceiling-limited) |
+| task9 | 80% | 80% | 0pt |
+| task2 | 70% | 65% | -5pt |
+| task4 | 95% | 90% | -5pt (ceiling-limited) |
+| task3 | 35% | 30% | -5pt |
+| task8 | 35% | 30% | -5pt |
+| task6 | 30% | 20% | -10pt |
+
+**Sign test decisively fails: 1/8 tasks show a real positive effect
+(task1), 2 more are ceiling-limited near-nulls, 5 are flat-to-negative.
+Nowhere close to the pre-registered 6-7/8 threshold for a general
+positive-direction claim.** Mid-layer visual correction does NOT show
+a consistent cross-task benefit -- task1's own +14pt (itself not
+individually significant, p=0.108) looks like the outlier it was
+already suspected to be, not a signal any other task replicates.
+
+**Contrast with the physical-interference (★) results, which DO show
+a consistent direction across all 3 tasks tested**: task1 +60pt
+(p<0.001), task8 +55pt (p<0.001), task6 +20pt (p~=0.046) -- all
+positive, all real effect sizes, unlike mid-layer correction's 8-task
+screen. This is now the clearest, best-supported contrast in the
+whole investigation: physical-interference remediation generalizes
+across tested tasks; visual-completion (as tested via mid-layer
+splice/L=0 oracle) does not.
