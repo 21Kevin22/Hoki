@@ -454,7 +454,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  init_state, max_steps, condition, occluder_geom_ids, target_seg_ids, midlayer_split_frac,
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
-                 pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0):
+                 pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
+                 disable_collision_geom_ids=None):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -492,6 +493,21 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # table (which shows up as a permanent, uninformative contact in
     # sim.data.contact regardless of the robot's position).
     robot_geom_ids_set = set(geom_ids_for_body_substring(sim, ["robot", "panda", "gripper", "mount"]))
+    # occ_vla bug fix (2026-08-20, real anomaly caught by the smoke test:
+    # no_collision still showed 26/65 contact steps): disabling collision
+    # in main() BEFORE calling run_episode() was silently undone by THIS
+    # `env.reset()` call above -- the same "stale reference" behavior
+    # already documented for `sim` itself suggests env.reset() reloads a
+    # fresh mjModel from the XML, wiping any contype/conaffinity change
+    # made before this point. Must (re-)disable AFTER this episode's own
+    # reset, every single episode, not once before the whole condition's
+    # loop.
+    orig_occluder_contype = orig_occluder_conaffinity = None
+    if disable_collision_geom_ids:
+        orig_occluder_contype = sim.model.geom_contype[disable_collision_geom_ids].copy()
+        orig_occluder_conaffinity = sim.model.geom_conaffinity[disable_collision_geom_ids].copy()
+        sim.model.geom_contype[disable_collision_geom_ids] = 0
+        sim.model.geom_conaffinity[disable_collision_geom_ids] = 0
 
     action_queue = deque(maxlen=cfg.num_open_loop_steps)
     t = 0
@@ -951,6 +967,15 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         print(f"  Episode error: {e}")
         termination_reason = "error"
 
+    # occ_vla addition (2026-08-20): restore collision settings before
+    # returning, defensively, even though this episode's `env` instance
+    # will likely be reset (and its model presumably reloaded) again
+    # before the next episode anyway -- belt-and-suspenders given the
+    # reset-behavior uncertainty that caused the bug this fix addresses.
+    if disable_collision_geom_ids and orig_occluder_contype is not None:
+        sim.model.geom_contype[disable_collision_geom_ids] = orig_occluder_contype
+        sim.model.geom_conaffinity[disable_collision_geom_ids] = orig_occluder_conaffinity
+
     return {
         "success": success, "done_step": t,
         "termination_reason": termination_reason,
@@ -1174,11 +1199,42 @@ def main():
         task_results = {}
         for condition in args.conditions:
             model.vision_backbone.forward = splice_forward if condition == "oracle" else original_forward
+            # occ_vla addition (2026-08-20, per user's 2x2 factorial design
+            # request -- decouple VISUAL occlusion from PHYSICAL collision,
+            # since removing the occluder entirely (visual+physical at
+            # once) can't distinguish which one actually causes any
+            # performance drop): condition "no_collision" keeps the
+            # occluder fully visible (real occlusion, no VLA-side
+            # correction -- same as baseline otherwise) but disables its
+            # collision via geom_contype/geom_conaffinity=0, so the arm
+            # can pass through it as if physically absent while the camera
+            # still renders it normally. contype/conaffinity live on
+            # mjModel (static), NOT mjData, so env.reset() does NOT
+            # restore them -- must save/restore explicitly around this
+            # condition's episode loop or the change would leak into
+            # whatever condition runs next on this same `env` instance.
+            # occ_vla bug fix (2026-08-20, real anomaly caught by the smoke
+            # test: no_collision still showed 26/65 contact steps despite
+            # "disabling" collision here): disabling contype/conaffinity at
+            # THIS point (once per condition, before the episode loop) is
+            # silently undone by each episode's OWN `env.reset()` call
+            # inside run_episode() -- same "stale sim reference" behavior
+            # already documented elsewhere in this file. Moved the actual
+            # disable/restore into run_episode() itself (right after ITS
+            # `sim = env.env.sim` re-fetch), done fresh every episode.
+            # "no_collision" reuses run_episode's plain pass-through path
+            # (condition != "oracle" -> original_forward, no VLA-side
+            # correction at all) -- pass "baseline" as the internal
+            # condition string so run_episode's oracle-only branches never
+            # fire, while still recording results under the real
+            # "no_collision" key below.
+            run_episode_condition = "baseline" if condition == "no_collision" else condition
+            disable_collision_geom_ids = occluder_geom_ids if (condition == "no_collision" and occluder_geom_ids) else None
             results = []
             for ep in range(n):
                 res = run_episode(
                     cfg, env, task_description, model, processor, action_head, proprio_projector, resize_size,
-                    init_states[args.episode_offset + ep], max_steps, condition, occluder_geom_ids, target_seg_ids, args.midlayer_split_frac,
+                    init_states[args.episode_offset + ep], max_steps, run_episode_condition, occluder_geom_ids, target_seg_ids, args.midlayer_split_frac,
                     original_forward=original_forward, splice_forward=splice_forward,
                     log_action_diff=args.log_action_diff, save_features_dir=args.save_oracle_features_dir,
                     task_id=task_id, episode_idx=args.episode_offset + ep,
@@ -1187,6 +1243,7 @@ def main():
                     pixel_fill_mode=args.pixel_fill_mode,
                     prevframe_gate_max_frac_no_ref=args.prevframe_gate_max_frac_no_ref,
                     prevframe_feather_px=args.prevframe_feather_px,
+                    disable_collision_geom_ids=disable_collision_geom_ids,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
