@@ -1181,3 +1181,47 @@ visual result is not yet known. Do not treat the earlier 30%->100%,
 chi2=14.0 number as established; it is retracted pending the corrected
 re-run. Check 3 (comparison against plain non-occluded LIBERO-10
 baseline) will run once the corrected ★ result is available.
+
+## L=0 (task1, n=50) result: DEPTH COMPARISON RESTORED, first significant positive result of the night
+
+`depth_sweep_task1_L0_all50/` (privileged clean-render pixel
+substitution, whole agentview frame replaced with the true occluder-
+removed re-render -- top GPU priority per the user's explicit order,
+since the earlier L=0/current/LNeff comparison was invalidated by the
+config-drift bug affecting seeds[0:20]) completed:
+
+**baseline 27/50 (54%) vs L=0 38/50 (76%), +22pt. McNemar b=7 (baseline-
+only success) / c=18 (L=0-only success), chi2=4.840 -- SIGNIFICANT
+(p~=0.028, exceeds the 3.84 threshold).**
+
+Restored depth comparison, all at n=50, task1:
+
+| condition | SR | effect vs baseline | significance |
+|---|---|---|---|
+| baseline | 54% (27/50) | -- | -- |
+| current (16,18 mid-layer splice) | 68% (34/50) | +14pt | chi2=2.58, p~=0.108, not significant |
+| **L=0 (privileged full-frame clean render)** | **76% (38/50)** | **+22pt** | **chi2=4.84, p~=0.028, significant** |
+
+Sensible monotonic ordering (more privileged visual information ->
+larger effect), and L=0 is the first result all night to cross
+conventional significance at proper n=50, not a small-n artifact.
+LNeff (L=N_effective, full independent ViT processing then late
+substitution) was deprioritized this session per explicit instruction
+and has not been re-measured at n=50 yet -- the 3-way depth-ordering
+claim (L0 > current > LNeff) from before compaction remains
+unconfirmed pending that run.
+
+**Caveat, stated plainly**: L=0 uses PRIVILEGED information (the true
+occluder-free render, via alpha-zero rendering -- not available on a
+real robot). This establishes an upper-bound ceiling for what ANY
+pixel/mid-layer visual-correction method could hope to achieve on this
+task, not a deployable result itself. Given the same-night factorial
+finding (physical interference, provisionally, pending the corrected
+re-run after the free-fall bug) may account for a large share of
+task1's baseline failures independent of visual information at all,
+the relationship between "L=0's +22pt visual ceiling" and "the
+factorial's physical-interference finding" is not yet reconciled --
+both could be true simultaneously (visual correction recovers some
+failures, physical interference explains others) but this has not
+been analyzed jointly. Worth doing once the corrected factorial result
+is in.
