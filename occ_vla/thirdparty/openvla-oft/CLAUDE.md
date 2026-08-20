@@ -1281,3 +1281,37 @@ already flagged as structurally different from task1's small tabletop
 objects; task8's furniture-scale occluder in particular may show a
 much smaller physical-interference effect, which would itself be an
 interesting, informative contrast rather than a failure to replicate).
+
+## Link-level contact histogram + real video: the forearm (robot0_link6), not the end-effector, is what contacts the occluder -- explains why eef-distance missed it
+
+`video_task1_ep0/` (task1 episode 0, baseline vs no_collision, real
+agentview frames saved every env step): baseline fails (timeout),
+no_collision succeeds (247 steps). Per-step `contact_robot_body_names`
+(new field, real MuJoCo contact pairs) aggregated over baseline's 65
+sampled replan steps: **`robot0_link6` (forearm) in contact 25 times,
+`gripper0_right_gripper` (end-effector) only 2 times.** The contact is
+overwhelmingly at the forearm, not the gripper -- this directly
+explains why `eef_to_occluder_dist` (end-effector-centered) never
+dropped below ~0.12m despite real, sustained physical interference:
+it was tracking the wrong link. A saved frame (baseline, t=300) shows
+the forearm resting directly on top of the book/storage-box stack;
+the equivalent no_collision frame (t=150) shows the arm already past
+the same still-visible occluder, working at the drawer. Two MP4s
+assembled (`video_baseline_stuck.mp4`, `video_star_success.mp4`) and
+a histogram chart (`contact_link_histogram.png`) -- all real rendered
+data, no diagram/trajectory-plot ambiguity (the earlier XY-trajectory
+overlay attempt was inconclusive and was not used, per the same
+"don't force a clean story onto ambiguous data" discipline already
+established this session).
+
+Also fixed a second, real instance of the "table"-name-specific
+collision bug during this same window: task6's occluder
+(`desk_caddy_1`) sits on a scene with no body literally named "table"
+either (same category as task8's `short_fridge_1`/"floor") -- the
+printed warning fired for a real in-progress `factorial_task6_n20`
+run, meaning ITS no_collision condition was also silently a no-op
+until killed and relaunched with the generalized (scene-agnostic,
+"every non-robot non-occluder geom" instead of a hardcoded name) fix.
+Confirms the generalization was necessary, not just theoretically
+possible -- 2 of 3 tasks tested so far (task6, task8) would have
+silently produced invalid results without it.
