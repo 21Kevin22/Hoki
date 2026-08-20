@@ -1417,3 +1417,49 @@ Three limitations to state plainly, not to be smoothed over:
 not "the proposed [visual-completion] method is effective," but
 **"we quantified the remaining headroom for visual completion, and
 showed that addressing physical interference exceeds it."**
+
+## Reactive-recovery pre-registration: ceiling=95%, interpretation bands fixed before running; stagnation-refined trigger tested and rejected (info, not adopted)
+
+Before running `no_collision_after_contact` (task1, n=20, contact-only
+trigger, baseline bundled): computed the theoretical ceiling from
+existing `factorial_task1_n20_v2` baseline data. 4/20 episodes (ep2,
+12, 16, 18) never show ANY occluder_contact -- these are behaviorally
+identical to baseline under the reactive condition (nothing to react
+to) and cannot improve; 3 of those 4 were already successes, 1 (ep12)
+a failure that stays a failure regardless. Of the remaining 16
+episodes that DO fire the trigger, best-case (all succeed under
+reactive intervention) gives **ceiling = 16 + 3 = 19/20 = 95%**,
+matching ★'s own level almost exactly.
+
+**Pre-registered interpretation bands (fixed before seeing the real
+result, per user's explicit anti-post-hoc-rationalization request)**:
+- **>=85% (near the 95% ceiling)**: contact-time intervention is
+  sufficient; prevention (always-on no_collision) is not necessary.
+- **50-85%**: partially in time; the (idealized, not-yet-implemented)
+  recovery motion's quality/speed becomes the limiting factor.
+- **~35% or below**: reacting at contact time is already too late (or
+  false-positive interventions are net harmful); prevention is
+  required instead.
+
+**Stagnation-refined trigger tested and REJECTED, kept as a negative
+finding**: tried "contact AND eef_speed_since_last_replan < ~p25
+threshold (0.004)" instead of contact-alone, hoping to cut L=0's high
+false-positive rate (16/16 successes fire the contact-only trigger).
+Result: sensitivity on baseline failures collapsed from 12/13 (92%) to
+2/13 (15%) -- most real baseline failures do NOT show near-zero eef
+speed, i.e. the robot keeps producing small residual motion while
+stuck rather than going fully static -- while L=0's false-positive
+rate only dropped from 16/16 to 10/16 (62.5%), a modest improvement
+purchased at a large sensitivity cost. **Not adopted** -- per explicit
+user decision, tuning the trigger definition further risks becoming a
+metric-optimization exercise on the same data used to evaluate it (a
+test-set-tuning problem), and end-to-end SR is the higher-priority
+metric per this project's own repeated discipline this session.
+One-line note for later, not pursued now: a "distance-to-target not
+decreasing" signal is probably a more principled stagnation measure
+than raw eef speed, since baseline's failure mode looks like "still
+moving, just not making progress" rather than literal stillness.
+
+Reactive-recovery run (contact-only trigger, as originally
+implemented) launched/relaunched with this ceiling and these bands
+fixed in place before the result is known.
