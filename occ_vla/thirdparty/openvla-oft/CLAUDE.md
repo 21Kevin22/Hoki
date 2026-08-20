@@ -1131,3 +1131,53 @@ entire measured performance gap." This is a real, general, benchmark-
 level contribution independent of whether any specific visual-
 correction method (this project's own mid-layer/pixel-level attempts,
 or external work like VIM) succeeds or fails.
+
+## CORRECTION: the factorial ★ result above (baseline 30% -> no_collision 100%) is INVALID -- occluder free-falls through the floor once collision is disabled, degenerating into "occluder removed entirely," not "visual occlusion kept, physical removed"
+
+Per the user's 3 pre-registered validity checks, run BEFORE trusting
+the headline result:
+
+**Check 1 (occluder falling through the floor) -- CONFIRMED, real bug**.
+`geom_contype`/`geom_conaffinity`=0 removes ALL physics interaction for
+the occluder, including its support contact against the table. A
+standalone check (`/tmp/check_factorial_validity.py`, no VLA model
+needed) confirmed the occluder body free-falls under gravity once
+collision is disabled: z-position 0.886 (step 0) -> -0.474 (step 10)
+-> -175.3 (step 449) -- accelerating, no floor to stop it. This means
+the original `no_collision` condition did NOT keep visual occlusion
+intact as intended; the occluder vanished from camera view almost
+immediately, degenerating into "occluder removed both visually AND
+physically" -- functionally close to a clean-scene condition, not the
+intended 2x2 factorial cell. **The 30%->100% result is therefore
+invalid and must not be cited or presented.**
+
+**Check 2 (are the 7 disabled geoms purely the occluder) -- PASSED**.
+Printed body names for all 7 geom ids: 5 belong to
+`white_storage_box_1_main`, 2 to `black_book_1_main` -- no table,
+floor, or target-object geoms mixed in. This part of the mechanism was
+correct.
+
+**Check 3 (100% exceeding plain non-occluded LIBERO-10's own baseline)**
+-- not yet run; moot until a valid ★ condition exists to re-check
+against.
+
+**Fix**: also set `body_gravcomp=1.0` for the occluder's body ids
+(MuJoCo's per-body gravity-compensation scalar -- 1.0 exactly cancels
+that body's own weight) alongside disabling contype/conaffinity.
+Verified via the same standalone check: z-position now stays exactly
+flat (0.8976) across a full 450-step test with collision still
+disabled, and a saved frame at step 200 visually confirms the occluder
+is still clearly present and blocking the same view as before --
+collision removed, object neither falls nor visually disappears.
+Implemented in `run_libero_occluded_oracle_headroom.py`
+(`disable_collision_geom_ids` now also disables gravity for the
+corresponding bodies, saved/restored the same way as
+contype/conaffinity).
+
+**Re-running `factorial_task1_n20` with this fix** as soon as a GPU
+frees (queued behind the current priority jobs: L0 n=50 nearly done,
+task2/task0 sign-test breadth in progress) -- the TRUE physical-vs-
+visual result is not yet known. Do not treat the earlier 30%->100%,
+chi2=14.0 number as established; it is retracted pending the corrected
+re-run. Check 3 (comparison against plain non-occluded LIBERO-10
+baseline) will run once the corrected ★ result is available.

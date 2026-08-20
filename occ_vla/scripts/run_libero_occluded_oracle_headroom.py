@@ -503,11 +503,35 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # reset, every single episode, not once before the whole condition's
     # loop.
     orig_occluder_contype = orig_occluder_conaffinity = None
+    disable_collision_body_ids = None
+    orig_gravcomp = None
     if disable_collision_geom_ids:
         orig_occluder_contype = sim.model.geom_contype[disable_collision_geom_ids].copy()
         orig_occluder_conaffinity = sim.model.geom_conaffinity[disable_collision_geom_ids].copy()
         sim.model.geom_contype[disable_collision_geom_ids] = 0
         sim.model.geom_conaffinity[disable_collision_geom_ids] = 0
+        # occ_vla bug fix (2026-08-20, caught by the user BEFORE trusting
+        # the first factorial_task1_n20 result -- real validity check,
+        # not a hypothetical): zeroing contype/conaffinity removes ALL
+        # physics interaction for the occluder, including its support
+        # contact with the table -- confirmed via a standalone check that
+        # the occluder free-falls under gravity once collision is off
+        # (z-position: 0.90 at step 0 -> -175 by step 400, no floor to
+        # stop it). This means the ORIGINAL no_collision condition wasn't
+        # testing "visual occlusion kept, physical collision removed" at
+        # all -- the occluder silently vanished from view almost
+        # immediately, degenerating into "occluder removed both visually
+        # AND physically." The 30%->100% result from that run is
+        # THEREFORE INVALID and must not be trusted -- re-running with
+        # this fix. Fix: also set body_gravcomp=1.0 for the occluder's
+        # bodies (exactly cancels that body's own weight, confirmed via a
+        # standalone check to hold z-position flat for a full 450-step
+        # test) -- object stays visually in place, still doesn't
+        # physically block the robot (contype/conaffinity still 0), and
+        # does not fall.
+        disable_collision_body_ids = sorted(set(sim.model.geom_bodyid[gi] for gi in disable_collision_geom_ids))
+        orig_gravcomp = sim.model.body_gravcomp[disable_collision_body_ids].copy()
+        sim.model.body_gravcomp[disable_collision_body_ids] = 1.0
 
     action_queue = deque(maxlen=cfg.num_open_loop_steps)
     t = 0
@@ -975,6 +999,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     if disable_collision_geom_ids and orig_occluder_contype is not None:
         sim.model.geom_contype[disable_collision_geom_ids] = orig_occluder_contype
         sim.model.geom_conaffinity[disable_collision_geom_ids] = orig_occluder_conaffinity
+        sim.model.body_gravcomp[disable_collision_body_ids] = orig_gravcomp
 
     return {
         "success": success, "done_step": t,
