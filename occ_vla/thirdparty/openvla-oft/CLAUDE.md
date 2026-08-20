@@ -939,3 +939,67 @@ natural, well-motivated next experiment to actually test whether
 removing the PHYSICAL object (not just visually correcting for it)
 recovers performance -- a materially different and more targeted test
 than any of tonight's visual-correction attempts.
+
+## Window-restricted [200,300] AUC re-test, per user's sharp correction: ensemble disagreement shows a real, well-powered signal (AUC=0.841, n=50) -- earlier "no early-predictive signal" verdict was a wrong-window artifact, not a true negative
+
+User's critique of the physical-contact/kinematic-discrepancy signals
+(both n=5, whole-episode aggregate) generalized into a re-test of ALL
+gate-signal candidates tried this session, restricted to the specific
+window t∈[200,300] -- the actual point where trajectories start to
+diverge (per the earlier prefix-check finding that t<100 shows zero
+discriminative power for any signal), not the whole episode (hindsight-
+contaminated) or an arbitrary early prefix (uninformative, per the
+already-established finding). Question reframed precisely: "does
+information available at t=200-300 predict the eventual (t~=530)
+outcome" -- genuinely prospective, not tautological, since 300+ steps
+still separate the window from any episode's actual resolution.
+
+All 4 signals computed from ALREADY-COLLECTED logs this session
+(zero new GPU time), Mann-Whitney-rank AUC (predicting failure),
+task1, baseline condition only:
+
+| signal | source | n (fail/succ) | AUC |
+|---|---|---|---|
+| attention entropy | `entropy_ab_matched_A/` | 20 (10/10) | 0.410 |
+| **ensemble disagreement** | `gate_signals_all50_part{1,2,3}/` | **50 (27/23)** | **0.841** |
+| physical contact (fixed) | `contact_diagnostic_task1_n5/` | 5 (3/2) | 1.000 |
+| kinematic discrepancy ratio | `entropy_ab_matched_A/` | 20 (10/10) | 0.640 |
+
+**Ensemble disagreement in this specific window is a real, well-powered
+signal** (n=50, not a small-sample artifact) -- markedly different from
+this session's earlier verdict ("confirmed safe but... NOT a genuine
+early-predictive signal at any usable prefix length"). That earlier
+conclusion was almost certainly measured over the wrong window (whole
+episode or an early, uninformative prefix like t<100, both already
+shown to carry no signal) -- not a true negative on the signal itself.
+Attention entropy stays null even in this corrected window (0.410,
+near or below chance) -- that verdict holds. Physical contact's AUC=1.0
+is a real, well-motivated candidate (mechanistically distinct: not a
+vision-derived signal, directly real-robot-sensible) but n=5 is far too
+small to trust either direction -- needs the n=20 `factorial_task1_n20/`
+baseline data (in flight) re-tested the same way before drawing any
+conclusion. Kinematic discrepancy (commanded-vs-realized displacement
+ratio, pure encoder-derived, no extra sensing) shows a real but weaker
+signal (0.640) in this same window.
+
+**Design implication, per the user's own framing**: this reopens gate
+design as a REACTIVE mechanism (continuously monitor ensemble
+disagreement; trigger correction when it crosses a threshold around
+the point divergence actually begins) rather than a PREDICTIVE one
+(decide at episode start whether correction will be needed) -- the
+latter is what every earlier gate-signal test this session evaluated
+and rejected; the former has never been tested and, per this new
+result, has a real, well-powered signal to build on for at least one
+candidate (ensemble disagreement). Not yet implemented or tested as an
+actual reactive gate -- this is a signal-existence result, not a
+deployed mechanism.
+
+**Scope discipline, per explicit priority ordering**: this analysis is
+complete and cost nothing in GPU time. Next GPU-consuming priorities
+remain unchanged -- L=0 task1 n=50 and task8 oracle(16,18) n=20
+replication first (these determine what numbers actually go in the
+presentation); physical contact's n=20 re-test (from
+`factorial_task1_n20/`, already running as the no_collision decisive
+test) next; a real reactive-gate implementation and test is a
+plausible, well-motivated future step but explicitly NOT started
+tonight.
