@@ -1078,6 +1078,14 @@ def main():
     parser.add_argument("--results-dir", default="libero_occluded_oracle_headroom")
     parser.add_argument("--conditions", nargs="+", default=["baseline", "oracle"])
     parser.add_argument("--load-in-4bit", action="store_true")
+    parser.add_argument("--use-stock-suite", action="store_true",
+                         help="Run against the PLAIN (non-occluded) libero_10 suite instead of "
+                              "libero_10_occluded -- needed to get a real 'no occlusion at all' "
+                              "reference point for interpreting the no_collision condition's SR. "
+                              "IMPORTANT: task_ids do NOT correspond 1:1 between the two suites "
+                              "(libero_10_occluded's numbering is alphabetical-by-BDDL-filename, not "
+                              "libero_10's task_order permutation) -- look up the matching stock "
+                              "task_id by bddl_file before using this, don't assume the same index.")
     # occ_vla additions (2026-08-18), per user request -- add before the
     # real n>=20 run since this data can't be recaptured after the fact.
     parser.add_argument("--log-action-diff", action="store_true",
@@ -1198,6 +1206,7 @@ def main():
         "pixel_fill_mode": args.pixel_fill_mode,
         "prevframe_gate_max_frac_no_ref": args.prevframe_gate_max_frac_no_ref,
         "prevframe_feather_px": args.prevframe_feather_px,
+        "use_stock_suite": args.use_stock_suite,
     }
     print(f"[run-config] midlayer_split_frac={args.midlayer_split_frac} -> resolved: {resolved_layers}")
     os.makedirs(args.results_dir, exist_ok=True)
@@ -1205,10 +1214,19 @@ def main():
         json.dump(run_config, f, indent=2)
 
     all_summary = {}
+    # occ_vla addition (2026-08-20, per user request -- ★ condition's 95%
+    # on task1 is meaningless without a reference point): --use-stock-suite
+    # runs against the PLAIN (non-occluded) libero_10 task instead of
+    # libero_10_occluded, skipping occluder detection entirely (there is
+    # none) -- gives the real "no occlusion, no physical obstacle at all"
+    # baseline needed to interpret whether no_collision's SR fully
+    # recovers to normal-task performance or still falls short.
+    active_suite = stock_suite if args.use_stock_suite else occluded_suite
+
     for task_id in args.task_ids:
-        task = occluded_suite.get_task(task_id)
+        task = active_suite.get_task(task_id)
         task_description = task.language
-        print(f"\n=== task_id={task_id} '{task_description}' ===")
+        print(f"\n=== task_id={task_id} '{task_description}' (stock_suite={args.use_stock_suite}) ===")
 
         env = get_libero_env_seg(task, resolution=resize_size)
         env.seed(0)
@@ -1216,7 +1234,7 @@ def main():
                       # benchmark object -- confirmed via src/occ_vla/eval/libero_occ_env.py's own
                       # established convention: self._env.obj_of_interest[0], not task.obj_of_interest)
         target_names = list(getattr(env, "obj_of_interest", []) or [])
-        occluder_names = find_occluder_body_names(task, stock_suite)
+        occluder_names = [] if args.use_stock_suite else find_occluder_body_names(task, stock_suite)
         # BUG FIXED (2026-08-18, real smoke-test run): find_occluder_body_names
         # opens and closes 2 SEPARATE OffScreenRenderEnv instances internally
         # (env_occ/env_stock). Confirmed via an isolated diagnostic script that
@@ -1247,7 +1265,7 @@ def main():
             if not target_seg_ids:
                 print(f"  [target-id] WARNING: could not resolve segmentation ids for {target_body_substrings} -- oracle will be a no-op")
 
-        init_states = occluded_suite.get_task_init_states(task_id)
+        init_states = active_suite.get_task_init_states(task_id)
         n = min(args.n_episodes, len(init_states) - args.episode_offset)
 
         task_results = {}
