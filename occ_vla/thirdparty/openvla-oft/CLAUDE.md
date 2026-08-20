@@ -1225,3 +1225,22 @@ both could be true simultaneously (visual correction recovers some
 failures, physical interference explains others) but this has not
 been analyzed jointly. Worth doing once the corrected factorial result
 is in.
+
+## Sign-test breadth check, 5 tasks in (task1/6/8/2/0), all at corrected (16,18) depth, n=20 each: mixed, leaning null-to-negative, not yet a consistent direction
+
+| task | baseline | oracle(16,18) | effect | b/c |
+|---|---|---|---|---|
+| task1 | 54% (n=50) | 68% (n=50) | +14pt | 6/13 |
+| task6 | 30% | 20% | -10pt | 3/1 |
+| task8 | 35% | 30% | -5pt | 3/2 |
+| task2 | 70% | 65% | -5pt | 1/0 |
+| task0 | 95% | 100% | +5pt (ceiling-limited, baseline already 19/20) | 0/1 |
+
+Sign count: 2 positive (task1, task0 -- though task0's is a thin
+ceiling-effect flip, not a real headroom test), 3 negative (task6,
+task8, task2). **Not a consistent positive direction across tasks so
+far** -- per the user's own pre-stated sign-test framework (6/8 or
+7/8 positive needed for a real directional claim), this leans toward
+"task1 is an outlier, not a general effect," though only 5 of the
+planned 6-8 tasks are in. task3/task4 launched next, queued task5/7/9
+after.
