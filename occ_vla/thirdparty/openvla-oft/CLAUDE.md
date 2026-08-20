@@ -1341,3 +1341,79 @@ demanded an unexplained residual), it is "back to normal" -- visual
 occlusion itself contributes negligibly to task1's difficulty once the
 physical confound is controlled for. This is now the strongest,
 best-supported single result of the night.
+
+## Contact-rate check (L=0 vs baseline): visual completion's benefit is NOT explained by avoiding physical contact -- if anything the opposite
+
+Per user's free (no-GPU) check: does L=0's clean image reduce physical
+occluder contact (indirect mechanism -- "seeing the target lets the
+policy route around the obstacle")? Compared `occluder_contact` rates,
+task1, episodes 0-19 (baseline from `factorial_task1_n20_v2/`, L=0
+subset from `depth_sweep_task1_L0_all50/`):
+
+| condition | episodes with any contact | mean contact steps (of ~30-65 logged) |
+|---|---|---|
+| baseline | 16/20 | 3.6 |
+| **L=0** | **20/20** | **41.6** |
+
+**L=0 shows FAR MORE contact, not less** -- in most L=0 episodes the
+contact-step count nearly equals the episode's total logged step
+count (near-continuous contact for the whole episode), yet 15/20 of
+these still succeed. **This rejects the "visual completion works by
+avoiding physical interference" hypothesis** -- if anything, L=0's
+policy engages with/pushes past the occluder MORE, not less, and
+still reaches the target. The likely mechanism: knowing the true
+target location lets the policy commit to a confident reach THROUGH
+the contact rather than hesitating/flailing near an unknown target
+location (baseline's likely failure mode) -- i.e. L=0's benefit looks
+genuinely perceptual (where to reach), not an indirect physical-
+avoidance effect. Supports treating the visual and physical factors as
+more independent than the earlier sub-additive framing suggested,
+though the marginal-effect numbers below still show real overlap.
+
+## n-matched 2x2 factorial (all 4 cells, same 20 episodes 0-19, task1)
+
+Per user's methodological correction: the earlier 2x2 table mixed n=50
+(baseline, L=0) and n=20 (no_collision, oracle_no_collision) cells,
+which is not valid for estimating interaction/marginal effects. Same-
+episode, n=20-matched version:
+
+| | physical: collision | physical: no collision |
+|---|---|---|
+| visual: occluded | 35% (baseline) | 95% (★ no_collision) |
+| visual: clean | **80%** (L=0, n=20 subset of the n=50 run, episodes 0-19) | 100% (4th cell, oracle_no_collision) |
+
+Marginal effects (n=20-matched): physical-factor effect +60pt
+(occluded-visual level) / +20pt (clean-visual level); visual-factor
+effect +45pt (collision-physical level) / +5pt (no-collision-physical
+level). Same qualitative sub-additive interaction pattern as the
+mixed-n table, but larger magnitudes throughout (driven by the n=20
+baseline's own 35%, itself a known-harder subset of the true n=50 rate
+54%). **Use the n=50 L=0 estimate (76%) as the more reliable
+standalone number for any single-condition claim; use this n=20-
+matched table specifically for interaction/marginal-effect claims,
+not the mixed-n version.**
+
+## Explicit scope correction for the presentation, per user's framing
+
+Three limitations to state plainly, not to be smoothed over:
+1. **Both L=0 and oracle(16,18) are privileged-information ceilings.**
+   No deployable method (a trained predictor, prevframe, feathering)
+   has been shown to capture any of this +22pt (n=50) / +45pt (n=20,
+   collision-present level) headroom -- pixel_prevframe's own tested
+   result was net NEGATIVE. What fraction of this ceiling a real,
+   deployable method could reach is completely unestablished.
+2. **Once physical interference is addressed, the visual-completion
+   ceiling's OWN marginal contribution shrinks to +5pt** (95%->100%,
+   no_collision to 4th cell) -- most of what visual completion could
+   recover overlaps with what physical-interference handling already
+   recovers.
+3. **Effect-size ordering is clear and physical interference is
+   larger**: physical-interference remediation (+41pt to +60pt
+   depending on n/table) outweighs the visual-completion oracle
+   ceiling (+22pt to +45pt) by roughly 2x. Investment priority should
+   follow this ordering.
+
+**Correct framing for the presentation, per the user's own wording**:
+not "the proposed [visual-completion] method is effective," but
+**"we quantified the remaining headroom for visual completion, and
+showed that addressing physical interference exceeds it."**
