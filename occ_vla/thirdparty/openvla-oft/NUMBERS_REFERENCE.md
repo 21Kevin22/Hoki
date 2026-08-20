@@ -59,6 +59,34 @@ Sign count so far (5 tasks): 2 positive (task1, task0-ceiling-limited),
 | visual: occluded | 54% (baseline, n=50) | **95%** (no_collision, n=20, corrected) |
 | visual: clean | 76% (L=0, n=50, privileged) | not yet measured (4th cell, `oracle_no_collision` implemented, not run) |
 
+## Mobility sweep (task1, mass x0.2 / friction x0.1 on occluder body, physical collision left ON)
+
+| condition | success | n | episodes | source dir |
+|---|---|---|---|---|
+| baseline | 30% (6/20) | 20 | 0-19 | `mobility_sweep_task1_n20/` |
+| **low_mobility (occluder 5x lighter, 10x lower friction, still collidable)** | **50% (10/20)** | 20 | 0-19 | `mobility_sweep_task1_n20/` |
+
+McNemar: b=2 (baseline-only success), c=6 (low_mobility-only success),
+both-succeed=4, both-fail=8, chi2=2.00, **p≈0.157 (not significant at
+alpha=0.05, needs chi2>3.84)**. Directionally positive (+20pt, same
+magnitude as `no_collision`'s ceiling-style jump was large; this one is
+smaller/noisier) and the discordant pairs favor low_mobility 6:2 (3x),
+but n=20 is underpowered to confirm at conventional significance. This
+is the **realistic, real-robot-buildable analog** of the
+`no_collision` finding (a real object the arm can physically push/
+displace, e.g. a light cardboard box, vs. `no_collision`'s
+non-physical "arm passes through it" idealization) -- baseline here
+(30%) matches the noise-floor-confirmed task1 n=20 reproducibility
+number exactly, so this is a clean, well-matched pair, not a
+baseline-drift artifact.
+
+**Reading**: consistent in direction with the `no_collision`
+factorial finding (physical interference/stagnation-upon-contact hurts
+success rate; removing or reducing that interference helps) but weaker
+in magnitude and not statistically confirmed at n=20. Present as
+suggestive/consistent-with, not as a second confirmed result, unless
+n is increased.
+
 ## 2x2 factorial (visual x physical), task6/task8 -- IN PROGRESS
 
 | task | baseline | no_collision | status |

@@ -1666,3 +1666,47 @@ aggregate headlines (35%->60%, 35%->65%) remain confounded by this
 now-confirmed-real non-determinism and should NOT be cited as the
 reactive-recovery result -- report the small-n (denominator=4) raw
 counts, not percentages, per the user's own explicit instruction.
+
+## Mobility sweep (task1, n=20): realistic real-robot-buildable analog
+of the `no_collision` finding -- directionally consistent, not
+statistically confirmed at this n
+
+Per the user's explicit priority ("最優先は②の可動性スイープです...実装が
+最も軽く、実現可能性の議論に最も強く、機序の説明にも直結する"), tested a
+continuous, physically-buildable stand-in for `no_collision`'s idealized
+"arm passes through the occluder" intervention: reduce the occluder
+body's mass by 5x (floored at 5g) and its geoms' friction by 10x, while
+leaving `contype`/`conaffinity` collision fully ON (the arm still
+physically contacts and can push the occluder -- this is what a light,
+low-friction real object like an empty cardboard box would behave like,
+unlike `no_collision`'s non-physical pass-through). Reused the same
+"reapply the mjModel-level change fresh every episode, after
+`env.reset()`" pattern already established for the collision-disable
+fix (this exact bug class had recurred 3 times earlier in the session;
+applied the lesson proactively here rather than rediscovering it a
+4th time).
+
+**Result** (`mobility_sweep_task1_n20/task1.json`, n=20, episodes
+0-19): baseline **30% (6/20)** vs low_mobility **50% (10/20)**, a
+**+20pt** raw gap. Baseline here (30%) exactly matches the
+noise-floor-confirmed task1 n=20 reproducibility number from earlier
+in the session -- a clean, well-matched pair, not a baseline-drift
+artifact. McNemar: b=2 (baseline-only success), c=6
+(low_mobility-only success), chi2=2.00, **p≈0.157 -- not significant
+at alpha=0.05** (needs chi2>3.84 for that). Discordant pairs favor
+low_mobility 6:2 (3x), directionally consistent with `no_collision`'s
+much larger, ceiling-style jump (35%->95% at n=20), but this weaker/
+lower-mobility variant (still collidable, not pass-through) shows a
+smaller and not-yet-statistically-confirmed effect.
+
+**Reading**: this is evidence *consistent with* the physical-
+interference/stagnation-upon-contact mechanism already established via
+`no_collision`, using a version that could actually be built (a light,
+low-friction real occluder) rather than `no_collision`'s
+non-physical idealization -- but at n=20 it should be presented as
+suggestive/consistent-with, not as an independently statistically
+confirmed second result. A larger n (e.g. n=50, matching the
+discipline already applied to task1's baseline/oracle/L=0 numbers)
+would be needed to confirm this at conventional significance if this
+thread is pursued further. Full numbers in `NUMBERS_REFERENCE.md`
+under "Mobility sweep".
