@@ -1003,3 +1003,60 @@ presentation); physical contact's n=20 re-test (from
 test) next; a real reactive-gate implementation and test is a
 plausible, well-motivated future step but explicitly NOT started
 tonight.
+
+## CORRECTION (same night): the [200,300] "ensemble disagreement AUC=0.841" finding above was a censoring artifact -- properly controlled, it's AUC=0.647, CI includes 0.5. Gate-signal search formally closed.
+
+The entry immediately above ("Window-restricted [200,300] AUC re-test")
+is WRONG in its headline claim and should not be cited as "ensemble
+disagreement is a real signal" -- flagging this explicitly since a
+later reader could otherwise take that entry's confident framing at
+face value.
+
+**The error, caught by the user immediately**: 0.841 with window
+[200,300] is numerically identical to an earlier "first 300"-prefix
+AUC result the user recalled from before this session's compaction
+(also 0.841, CI [0.712,0.948]) -- i.e., not new evidence, just the
+same already-known number re-derived. More importantly, that window
+design has a 4th instance of the SAME censoring/exposure trap already
+caught 3 times this session for eef_speed, physical contact, and
+kinematic discrepancy: success episodes that finish BEFORE t=300 stop
+contributing data to the window, so a variable-length, right-truncated
+window systematically gives failure episodes (which run the full 530
+steps) more window-coverage than successes -- meaning "still running
+long enough for the window to be full" is itself close to a direct
+proxy for "will fail," independent of what the signal's VALUE actually
+is.
+
+**Corrected test, per the user's own precise redesign**: fix ONE
+decision time (t=200, matching where divergence was already shown to
+begin), score only over a SHORT, EQUAL-LENGTH window every included
+episode actually has ([200,220]), and predict the EVENTUAL outcome
+using only that window -- exactly the situation a real reactive gate
+would face (decide now, using only what's available now, outcome still
+unknown). Re-ran on the same `gate_signals_all50_part{1,2,3}/` data
+(n=50, all 50 episodes had done_step>=220 so none needed excluding for
+insufficient exposure): **AUC = 0.647, bootstrap 95% CI = [0.488,
+0.801]** -- the CI includes 0.5. Per the user's own pre-registered
+decision rule (AUC>=0.75 AND CI excludes 0.5 -> real; near 0.5 ->
+censoring artifact, stop here), this is the ARTIFACT verdict.
+
+**Gate-signal search is now formally closed for this session, across
+all signals tried**: attention entropy (null, both original and this
+window), ensemble disagreement (looked real, corrected test says
+artifact), physical contact (n=5 only, never properly tested, but the
+same censoring-control discipline would need to apply before trusting
+any future test of it), kinematic discrepancy (0.640 in the flawed
+window, never re-tested with proper exposure control, same caveat
+applies). **No candidate signal from this session has survived a
+properly censoring-controlled prospective test.** Any future revival
+of this thread must use the fixed-decision-time / equal-window /
+exclude-if-already-resolved design from the start, not another
+window-shifting variant of the same flawed structure.
+
+Reinforces, for the fourth time this session, the same general lesson:
+any "does an early-window statistic predict a late outcome" claim
+computed from variable-length episode logs needs explicit handling of
+differential censoring/exposure before the result means anything --
+window placement alone (shifting from t<100 to t=[200,300]) does not
+fix this on its own; the window must also be a FIXED, equal-coverage
+horizon with episodes that haven't already resolved.
