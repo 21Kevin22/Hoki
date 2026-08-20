@@ -1060,3 +1060,74 @@ differential censoring/exposure before the result means anything --
 window placement alone (shifting from t<100 to t=[200,300]) does not
 fix this on its own; the window must also be a FIXED, equal-coverage
 horizon with episodes that haven't already resolved.
+
+## ★ condition (2x2 factorial, physical vs visual) result: DECISIVE -- baseline 30% -> no_collision (visual occlusion kept, physical collision disabled) 100%, n=20, chi2=14.0
+
+`factorial_task1_n20/`, the single pre-registered decisive test per the
+user's explicit scope discipline (not scaled beyond n=20): baseline vs
+`no_collision` (occluder rendered normally -- real visual occlusion,
+zero VLA-side correction -- but `geom_contype`/`geom_conaffinity`
+disabled for the occluder geoms, so the arm passes through it as if
+physically absent).
+
+**Result: baseline 6/20 (30%) success -> no_collision 20/20 (100%)
+success.** McNemar b=0 (zero episodes where baseline succeeded and
+no_collision failed) / c=14 (fourteen episodes flipped from failure to
+success) -> **chi2=14.0, p<0.001**. Not a marginal or ambiguous
+result -- every single episode succeeded once physical collision was
+removed, and not one previously-successful episode regressed.
+
+**Interpretation, stated precisely**: this decisively shows that
+task1's difficulty under `libero_10_occluded` is overwhelmingly a
+PHYSICAL interference problem, not a visual-perception problem. The
+occluder (`black_book_1`/`white_storage_box_1`, small tabletop objects
+sitting directly in the reach path -- see the earlier "physical-
+obstacle confound check" entry) blocks the arm's actual motion far
+more than it blocks the camera's view of the target. No amount of
+visual correction -- mid-layer splice, pixel-level prevframe, even the
+privileged L=0 (true clean re-render) ceiling being measured right now
+-- could ever fully recover this specific task's performance, because
+the failure mode this benchmark is actually testing here is closer to
+"can the policy navigate around a physical obstacle" than "can the
+policy see through an occlusion."
+
+**Scope and honest caveats, per the user's own explicit framing
+throughout this thread**:
+- This is a DIAGNOSTIC/counterfactual intervention (disabling collision
+  is not something a real robot can do), not a deployable method --
+  its value is the TRANSFERABLE CONCLUSION (where performance loss on
+  this benchmark actually comes from), not the operation itself. Real-
+  robot-relevant follow-up levers were already identified earlier this
+  session (commanded-vs-realized displacement discrepancy, torque/F-T
+  sensing) as the deployable analogues, though those specific signals
+  have not yet passed a properly censoring-controlled predictive test
+  (see the gate-signal-search closure entry above) -- their VALUE as
+  a real-time "physical interference detected" trigger for a reactive
+  recovery behavior (retreat/reapproach) remains a plausible, motivated,
+  but untested next step, not something established tonight.
+- n=20, single task (task1) -- per this project's own repeatedly-
+  demonstrated pattern of single-task results not generalizing (already
+  seen tonight with mid-layer correction's task1/task6/task8
+  inconsistency), this specific 30%->100% magnitude should not be
+  assumed to hold at the same scale on other tasks without testing --
+  though the MECHANISM (small tabletop occluders sitting in the reach
+  path) plausibly generalizes to at least task6 (`desk_caddy_1`, same
+  category), less clearly to task8 (`short_fridge_1`, structurally
+  different, positioned differently -- see the same earlier entry).
+- Per the user's explicit priority call, this thread is closed at this
+  one decisive n=20 test -- no further scale-up (n=50, other tasks)
+  planned before the presentation. Remaining GPU time is going to the
+  cross-task sign-test breadth check for mid-layer correction (task2,
+  then task0/3/4/5/7/9) and completing L=0's n=50 (depth-comparison
+  restoration), per explicit instruction.
+
+**Positive framing available for the presentation, per the user's own
+suggestion**: "LIBERO-Occ's occlusion tasks conflate visual occlusion
+with physical interference in the same object; a 2x2 factorial
+protocol (visual x physical, implemented via geom collision toggling)
+lets these be decomposed for the first time on this benchmark -- for
+at least one task, the physical component alone accounts for the
+entire measured performance gap." This is a real, general, benchmark-
+level contribution independent of whether any specific visual-
+correction method (this project's own mid-layer/pixel-level attempts,
+or external work like VIM) succeeds or fails.
