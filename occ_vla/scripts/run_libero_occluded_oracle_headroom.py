@@ -109,6 +109,7 @@ os.environ.setdefault("LIBERO_CONFIG_PATH", os.path.expanduser("~/.libero_oft"))
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
+from PIL import Image  # noqa: E402
 import register_libero_occ_suites  # noqa: E402
 from libero.libero import benchmark, get_libero_path  # noqa: E402
 from libero.libero.envs import OffScreenRenderEnv  # noqa: E402
@@ -455,7 +456,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
                  pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
-                 disable_collision_geom_ids=None):
+                 disable_collision_geom_ids=None, record_video_dir=None):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -633,6 +634,14 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         while t < max_steps + cfg.num_steps_wait:
             wrist_img = get_libero_wrist_image(obs).copy()
             agentview_color, agentview_seg = get_agentview_frames(env, resize_size)
+            # occ_vla addition (2026-08-20, per user request -- real
+            # rendered qualitative video, not a trajectory-plot substitute):
+            # save every env-step's real agentview frame if enabled. Cheap
+            # (PNG write, no VLA cost) -- only used for the 2 specific
+            # illustrative episodes, not full runs.
+            if record_video_dir is not None:
+                os.makedirs(record_video_dir, exist_ok=True)
+                Image.fromarray(agentview_color).save(os.path.join(record_video_dir, f"frame_{t:05d}.png"))
 
             if clear_target_mask is None:
                 # Captured ONCE: agentview is a static camera (CLAUDE.md
@@ -838,18 +847,35 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     # a permanent, uninformative contact unrelated to the
                     # robot. Now requires the OTHER geom in the pair to
                     # actually be a robot geom.
-                    occluder_contact = any(
-                        (sim.data.contact[ci].geom1 in occluder_geom_id_set and sim.data.contact[ci].geom2 in robot_geom_ids_set)
-                        or (sim.data.contact[ci].geom2 in occluder_geom_id_set and sim.data.contact[ci].geom1 in robot_geom_ids_set)
-                        for ci in range(sim.data.ncon)
-                    )
+                    # occ_vla addition (2026-08-20, per user request -- link-
+                    # level contact histogram, more informative and more
+                    # defensible than a trajectory-overlay figure since it's
+                    # built from REAL MuJoCo contact pairs (sim.data.contact,
+                    # not a distance-threshold proxy) and directly answers
+                    # "why didn't eef_to_occluder_dist show a close approach"
+                    # -- if it's the forearm/mount, not the end-effector,
+                    # touching the occluder, eef-centered distance would
+                    # systematically miss it.
+                    contact_robot_body_names = []
+                    for ci in range(sim.data.ncon):
+                        g1, g2 = sim.data.contact[ci].geom1, sim.data.contact[ci].geom2
+                        robot_geom = None
+                        if g1 in occluder_geom_id_set and g2 in robot_geom_ids_set:
+                            robot_geom = g2
+                        elif g2 in occluder_geom_id_set and g1 in robot_geom_ids_set:
+                            robot_geom = g1
+                        if robot_geom is not None:
+                            contact_robot_body_names.append(sim.model.body_id2name(sim.model.geom_bodyid[robot_geom]))
+                    occluder_contact = bool(contact_robot_body_names)
                 else:
                     eef_to_occluder_dist, occluder_contact = None, False
+                    contact_robot_body_names = []
                 proprio_log.append({
                     "t": t, "occluded_run_length": occluded_run_length,
                     "eef_pos": eef_pos_now.tolist(), "gripper_qpos": obs["robot0_gripper_qpos"].tolist(),
                     "eef_speed_since_last_replan": eef_speed,
                     "eef_to_occluder_dist": eef_to_occluder_dist, "occluder_contact": occluder_contact,
+                    "contact_robot_body_names": contact_robot_body_names,
                 })
                 prev_eef_pos = eef_pos_now
                 # occ_vla bug fix (2026-08-18, found while auditing per user
@@ -1078,6 +1104,11 @@ def main():
     parser.add_argument("--results-dir", default="libero_occluded_oracle_headroom")
     parser.add_argument("--conditions", nargs="+", default=["baseline", "oracle"])
     parser.add_argument("--load-in-4bit", action="store_true")
+    parser.add_argument("--record-video-dir", default=None,
+                         help="If set, saves every env-step's real agentview frame as a PNG under "
+                              "<dir>/<condition>_ep<N>/frame_NNNNN.png -- for real rendered qualitative "
+                              "video, use only with --n-episodes 1 (illustrative episodes), not full "
+                              "runs (real disk cost, ~500KB/frame x max_steps).")
     parser.add_argument("--use-stock-suite", action="store_true",
                          help="Run against the PLAIN (non-occluded) libero_10 suite instead of "
                               "libero_10_occluded -- needed to get a real 'no occlusion at all' "
@@ -1332,6 +1363,10 @@ def main():
                     prevframe_gate_max_frac_no_ref=args.prevframe_gate_max_frac_no_ref,
                     prevframe_feather_px=args.prevframe_feather_px,
                     disable_collision_geom_ids=disable_collision_geom_ids,
+                    record_video_dir=(
+                        os.path.join(args.record_video_dir, f"{condition}_ep{args.episode_offset + ep}")
+                        if args.record_video_dir else None
+                    ),
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
