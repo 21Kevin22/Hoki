@@ -456,7 +456,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  original_forward=None, splice_forward=None, log_action_diff=False, save_features_dir=None,
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
                  pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
-                 disable_collision_geom_ids=None, record_video_dir=None):
+                 disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -506,7 +506,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     orig_occluder_contype = orig_occluder_conaffinity = None
     disable_collision_support_geom_ids = None
     orig_support_contype = orig_support_conaffinity = None
-    if disable_collision_geom_ids:
+
+    def _apply_collision_disable():
         # occ_vla bug fix (2026-08-20, caught by the user BEFORE trusting
         # the first factorial_task1_n20 result -- real validity check, not
         # a hypothetical): the original fix (contype/conaffinity=0 for the
@@ -540,6 +541,15 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         # check on task1: z-position stays exactly flat via genuine
         # support contact (not gravity cancellation), occluder visually
         # confirmed still present in a saved frame.
+        # occ_vla addition (2026-08-20, per user request -- reactive
+        # recovery proxy): extracted into a closure so it can be called
+        # either immediately at episode start (no_collision/
+        # oracle_no_collision, unchanged) OR lazily, mid-episode, the
+        # first time an "anomalous" contact (see reactive_collision_disable
+        # below) is detected -- same mechanism either way, just a
+        # different trigger time.
+        nonlocal disable_collision_support_geom_ids, orig_support_contype, orig_support_conaffinity
+        nonlocal orig_occluder_contype, orig_occluder_conaffinity
         all_geom_ids = list(range(sim.model.ngeom))
         support_geom_ids = [
             gi for gi in all_geom_ids
@@ -560,6 +570,27 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 if sim.model.geom_contype[gi] != 0 or sim.model.geom_conaffinity[gi] != 0:
                     sim.model.geom_contype[gi] = 2
                     sim.model.geom_conaffinity[gi] = 2
+
+    # occ_vla addition (2026-08-20, per user request -- real-robot-
+    # deployable trigger rule, no obstacle geometry/position needed):
+    # "gripper/fingertip contact = normal task contact (grasping/
+    # placing), any OTHER robot link contact = anomalous interference."
+    # Confirmed directly relevant by tonight's link-contact histogram
+    # (robot0_link6/forearm in contact 25/65 steps, gripper only 2/65,
+    # in a FAILING episode) -- this is the same distinction, made
+    # operational. `arm_only_geom_ids_set` excludes finger/gripper-
+    # named geoms from the trigger check specifically (occluder_contact
+    # in proprio_log stays unchanged, still ANY robot geom, for
+    # continuity with existing logs).
+    arm_only_geom_ids_set = {
+        gi for gi in robot_geom_ids_set
+        if not any(s in (sim.model.body_id2name(sim.model.geom_bodyid[gi]) or "").lower() for s in ("finger", "gripper"))
+    }
+    reactive_triggered = False
+    reactive_trigger_t = None
+
+    if disable_collision_geom_ids and not reactive_collision_disable:
+        _apply_collision_disable()
 
     action_queue = deque(maxlen=cfg.num_open_loop_steps)
     t = 0
@@ -681,6 +712,32 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 occluded_run_length += 1
             else:
                 occluded_run_length = 0
+
+            # occ_vla addition (2026-08-20, per user request -- reactive
+            # recovery proxy, checked EVERY env step for the fastest
+            # possible reaction, not just at replan steps): the first time
+            # a real MuJoCo contact pair links an occluder geom to an
+            # ARM-only (non-gripper) robot geom, treat it as anomalous
+            # interference and switch to no-collision from this point
+            # forward for the rest of the episode. Answers "is reacting
+            # after contact already too late" as a cheap, geometry-free
+            # proxy for a real retreat-lift-reapproach recovery motion --
+            # this idealizes the recovery as instantaneous/perfect (removes
+            # the physical blocker outright rather than actually backing
+            # away from it), so a positive result here is a NECESSARY,
+            # not sufficient, condition for a real recovery motion to work.
+            if reactive_collision_disable and disable_collision_geom_ids and not reactive_triggered:
+                occluder_geom_id_set_reactive = set(disable_collision_geom_ids)
+                anomalous_contact = any(
+                    (sim.data.contact[ci].geom1 in occluder_geom_id_set_reactive and sim.data.contact[ci].geom2 in arm_only_geom_ids_set)
+                    or (sim.data.contact[ci].geom2 in occluder_geom_id_set_reactive and sim.data.contact[ci].geom1 in arm_only_geom_ids_set)
+                    for ci in range(sim.data.ncon)
+                )
+                if anomalous_contact:
+                    _apply_collision_disable()
+                    reactive_triggered = True
+                    reactive_trigger_t = t
+                    print(f"    [reactive] anomalous arm-link contact detected at t={t} -- switching to no_collision from here")
 
             # occ_vla addition (2026-08-19): update the last-known-clean-pixel
             # buffer EVERY env step (not just replan steps), regardless of
@@ -1063,6 +1120,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "action_diff_log": action_diff_log,
         "prevframe_fill_log": prevframe_fill_log,
         "prevframe_gate_skip_log": prevframe_gate_skip_log,
+        "reactive_triggered": reactive_triggered, "reactive_trigger_t": reactive_trigger_t,
         # occ_vla addition (2026-08-18): independent runtime ground truth
         # that the splice was actually applied (incremented inside
         # patched_forward itself, not inferred) -- see
@@ -1340,15 +1398,27 @@ def main():
             # condition string so run_episode's oracle-only branches never
             # fire, while still recording results under the real
             # "no_collision" key below.
-            if condition == "no_collision":
+            # occ_vla addition (2026-08-20, per user request -- reactive
+            # recovery proxy, real-robot-deployable trigger design):
+            # "no_collision_after_contact" behaves exactly like baseline
+            # (real collision, no VLA correction) UNTIL the first
+            # anomalous (non-gripper) arm-link contact with the occluder,
+            # at which point it switches to no_collision for the rest of
+            # the episode -- tests whether reacting AFTER contact is
+            # already too late, vs. the always-on no_collision condition's
+            # upper bound.
+            if condition in ("no_collision", "no_collision_after_contact"):
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
             else:
                 run_episode_condition = condition
             disable_collision_geom_ids = (
-                occluder_geom_ids if (condition in ("no_collision", "oracle_no_collision") and occluder_geom_ids) else None
+                occluder_geom_ids
+                if (condition in ("no_collision", "oracle_no_collision", "no_collision_after_contact") and occluder_geom_ids)
+                else None
             )
+            reactive_collision_disable = condition == "no_collision_after_contact"
             results = []
             for ep in range(n):
                 res = run_episode(
@@ -1363,6 +1433,7 @@ def main():
                     prevframe_gate_max_frac_no_ref=args.prevframe_gate_max_frac_no_ref,
                     prevframe_feather_px=args.prevframe_feather_px,
                     disable_collision_geom_ids=disable_collision_geom_ids,
+                    reactive_collision_disable=reactive_collision_disable,
                     record_video_dir=(
                         os.path.join(args.record_video_dir, f"{condition}_ep{args.episode_offset + ep}")
                         if args.record_video_dir else None
@@ -1383,7 +1454,8 @@ def main():
                       f"n_attn_entropy_logged={len(res['attn_entropy_log'])} "
                       f"n_ensemble_logged={len(res['ensemble_disagreement_log'])} "
                       f"n_prevframe_fill_logged={len(res['prevframe_fill_log'])} "
-                      f"n_prevframe_gate_skipped={len(res['prevframe_gate_skip_log'])}")
+                      f"n_prevframe_gate_skipped={len(res['prevframe_gate_skip_log'])} "
+                      f"reactive_triggered={res['reactive_triggered']} reactive_trigger_t={res['reactive_trigger_t']}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
