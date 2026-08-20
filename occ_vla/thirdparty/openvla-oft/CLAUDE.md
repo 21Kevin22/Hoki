@@ -1244,3 +1244,40 @@ far** -- per the user's own pre-stated sign-test framework (6/8 or
 "task1 is an outlier, not a general effect," though only 5 of the
 planned 6-8 tasks are in. task3/task4 launched next, queued task5/7/9
 after.
+
+## Corrected factorial CONFIRMED: baseline 35% -> no_collision (bit-separation fix) 95%, n=20, chi2=12.0 -- physical-interference finding survives the free-fall-bug fix, still overwhelming
+
+`factorial_task1_n20_v2/` (with the real bit-separation collision fix,
+occluder confirmed staying visually present via monotonic
+occluded_run_length + a visual frame check before trusting this run):
+
+**baseline 7/20 (35%) vs no_collision 19/20 (95%). McNemar b=0/c=12,
+chi2=12.0, p<0.001.** Slightly less extreme than the retracted buggy
+version's 30%->100%, but still an overwhelming, highly significant
+effect -- confirms the physical-interference finding is real, not an
+artifact of the free-fall bug. One episode still failed under
+no_collision (19/20, not 20/20) -- worth a quick look at what
+distinguishes it if this thread continues, but not required before
+trusting the headline result.
+
+**2x2 factorial, task1, 3 of 4 cells now filled**:
+
+| | physical: collision | physical: no collision |
+|---|---|---|
+| visual: occluded | 54% (baseline, n=50) | **95%** (no_collision, n=20) |
+| visual: clean | 76% (L=0, n=50, privileged) | not yet measured |
+
+Next: the 4th cell (privileged clean visual input AND collision
+disabled simultaneously) -- new condition combining `oracle`'s L=0
+splice with `no_collision`'s collision-disable, needed to fully
+decompose the two factors' contributions and any interaction. Not yet
+implemented; queued behind the remaining task-breadth screening
+(task3/4/5 in flight, task7/9 next) per explicit priority order.
+
+Also queued, same priority tier: apply `no_collision` to task6/task8
+to check whether physical interference is the dominant failure mode
+there too (their occluders -- `desk_caddy_1`, `short_fridge_1` -- were
+already flagged as structurally different from task1's small tabletop
+objects; task8's furniture-scale occluder in particular may show a
+much smaller physical-interference effect, which would itself be an
+interesting, informative contrast rather than a failure to replicate).
