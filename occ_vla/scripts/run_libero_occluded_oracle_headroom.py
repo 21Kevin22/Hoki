@@ -457,7 +457,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
                  pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
                  disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False,
-                 scripted_recovery=False):
+                 scripted_recovery=False, low_mobility_geom_ids=None):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -495,6 +495,30 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # table (which shows up as a permanent, uninformative contact in
     # sim.data.contact regardless of the robot's position).
     robot_geom_ids_set = set(geom_ids_for_body_substring(sim, ["robot", "panda", "gripper", "mount"]))
+    # occ_vla addition (2026-08-20, per user request -- a physically-real,
+    # geometry-free alternative to no_collision: instead of removing
+    # collision, reduce the occluder's MASS and FRICTION so it can
+    # genuinely be pushed aside by real contact forces, real collision
+    # physics throughout (no privilege at all -- this is literally "swap
+    # the bolted fixture for a cardboard box"). Directly tests the
+    # mechanism hypothesis from the L=0 contact-rate finding (contact
+    # increased 12x under L=0 yet still succeeded -- "pushing through");
+    # collision-off is the limiting case of this continuous variable, not
+    # a separate phenomenon. Applied fresh every episode, same "must
+    # reapply after this episode's own env.reset()" lesson as collision-
+    # disable (env.reset() reloads a fresh mjModel, silently undoing
+    # ANY mjModel-level change made before this point, not just
+    # contype/conaffinity).
+    orig_mass = orig_friction = None
+    if low_mobility_geom_ids:
+        orig_mass = {}
+        body_ids_for_mobility = sorted(set(sim.model.geom_bodyid[gi] for gi in low_mobility_geom_ids))
+        for bid in body_ids_for_mobility:
+            orig_mass[bid] = sim.model.body_mass[bid]
+            sim.model.body_mass[bid] = max(sim.model.body_mass[bid] * 0.2, 0.005)  # 5x lighter, floor at 5g
+        orig_friction = sim.model.geom_friction[low_mobility_geom_ids].copy()
+        sim.model.geom_friction[low_mobility_geom_ids] = sim.model.geom_friction[low_mobility_geom_ids] * 0.1
+        sim.forward()
     # occ_vla bug fix (2026-08-20, real anomaly caught by the smoke test:
     # no_collision still showed 26/65 contact steps): disabling collision
     # in main() BEFORE calling run_episode() was silently undone by THIS
@@ -1167,6 +1191,10 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         if disable_collision_support_geom_ids is not None:
             sim.model.geom_contype[disable_collision_support_geom_ids] = orig_support_contype
             sim.model.geom_conaffinity[disable_collision_support_geom_ids] = orig_support_conaffinity
+    if low_mobility_geom_ids and orig_mass is not None:
+        for bid, m in orig_mass.items():
+            sim.model.body_mass[bid] = m
+        sim.model.geom_friction[low_mobility_geom_ids] = orig_friction
 
     return {
         "success": success, "done_step": t,
@@ -1471,7 +1499,7 @@ def main():
             # actual, deployable recovery motion (not a simulator
             # privilege) can recover the episode.
             REACTIVE_CONDITIONS = ("no_collision_after_contact", "scripted_recovery_after_contact")
-            if condition in ("no_collision",) + REACTIVE_CONDITIONS:
+            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility",):
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
@@ -1484,6 +1512,16 @@ def main():
             )
             reactive_collision_disable = condition in REACTIVE_CONDITIONS
             scripted_recovery = condition == "scripted_recovery_after_contact"
+            # occ_vla addition (2026-08-20, per user request -- mobility
+            # sweep, top priority per their own reasoning: zero geometric
+            # constraint, cheapest to implement, most directly tests the
+            # "pushable vs fixed" mechanism already suggested by the L=0
+            # contact-rate finding): "low_mobility" keeps real collision
+            # AND visual occlusion fully intact, only reduces the
+            # occluder's mass (5x lighter, floor 5g) and friction (10x
+            # lower) -- a real, physically-buildable condition (cardboard
+            # box vs bolted fixture), not a simulator privilege.
+            low_mobility_geom_ids = occluder_geom_ids if (condition == "low_mobility" and occluder_geom_ids) else None
             results = []
             for ep in range(n):
                 res = run_episode(
@@ -1500,6 +1538,7 @@ def main():
                     disable_collision_geom_ids=disable_collision_geom_ids,
                     reactive_collision_disable=reactive_collision_disable,
                     scripted_recovery=scripted_recovery,
+                    low_mobility_geom_ids=low_mobility_geom_ids,
                     record_video_dir=(
                         os.path.join(args.record_video_dir, f"{condition}_ep{args.episode_offset + ep}")
                         if args.record_video_dir else None
