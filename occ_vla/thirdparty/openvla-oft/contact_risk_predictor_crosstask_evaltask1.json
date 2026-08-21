@@ -1,0 +1,60 @@
+{
+  "eval_mode": "task",
+  "eval_task": "task1",
+  "task_json_names": [
+    "task1.json",
+    "task6.json",
+    "task8.json"
+  ],
+  "task_counts": {
+    "task1": 15211,
+    "task6": 5613,
+    "task8": 4250
+  },
+  "n_episodes_used": 754,
+  "n_episodes_skipped": 103,
+  "n_samples": 25074,
+  "n_train_episodes": 180,
+  "n_eval_episodes": 304,
+  "k_ahead": 2,
+  "results": {
+    "realistic_13dim": {
+      "train": {
+        "n": 9863,
+        "pos_rate": 0.4347561593835547,
+        "acc": 0.8092872351211599,
+        "precision": 0.7896510228640192,
+        "recall": 0.7651585820895522,
+        "auc": 0.8842976541061509
+      },
+      "eval": {
+        "n": 15211,
+        "pos_rate": 0.3754519755440142,
+        "acc": 0.411938728551706,
+        "precision": 0.38164251207729466,
+        "recall": 0.9129749606023464,
+        "auc": 0.5199882959017225
+      },
+      "majority_acc_eval": 0.6245480244559858
+    },
+    "oracle_14dim": {
+      "train": {
+        "n": 9863,
+        "pos_rate": 0.4347561593835547,
+        "acc": 0.8489303457365913,
+        "precision": 0.8583504098360656,
+        "recall": 0.7814832089552238,
+        "auc": 0.9374754032527943
+      },
+      "eval": {
+        "n": 15211,
+        "pos_rate": 0.3754519755440142,
+        "acc": 0.455657090263625,
+        "precision": 0.3867783164389599,
+        "recall": 0.7683417965330065,
+        "auc": 0.5838607488779732
+      },
+      "majority_acc_eval": 0.6245480244559858
+    }
+  }
+}

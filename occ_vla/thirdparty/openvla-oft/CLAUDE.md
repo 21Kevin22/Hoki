@@ -1759,3 +1759,182 @@ session initially guessed from a stale `find` result -- confirmed via
 **n=20 real run launched** (`composite_visual_only_task1_n20/`,
 task1, conditions `baseline composite_visual_only`) -- result not yet
 computed as of this checkpoint; see the next dated entry for the outcome.
+
+## composite_visual_only RESULT: 35%->100% (n=20) -- the strongest
+result of the whole investigation, per the user's own explicit
+prioritization (2026-08-21)
+
+**baseline 35% (7/20) -> composite_visual_only 100% (20/20)**, McNemar
+b=0/c=13/chi2=13.00 -- a clean, total-dominance result (zero episodes
+where baseline succeeded and composite_visual_only failed). Full
+writeup, mechanism, and recommended slide framing filed under the
+"★★★ HEADLINE RESULT" section at the top of `NUMBERS_REFERENCE.md` --
+that document is the one to cite for the presentation; this entry is a
+shorter pointer + the reasoning for why the user flagged it as
+tonight's single most important number.
+
+**Why this is the headline, in the user's own words**: it directly
+answers the strongest anticipated audience objection to the whole
+physical-interference finding -- "disabling collision (`contype`/
+`conaffinity`=0) is a simulator-only privilege, meaningless for a real
+robot." `composite_visual_only` reaches the occluder-genuinely-absent
+condition through a completely different, real-robot-buildable
+mechanism (digital image compositing, zero physical object in the
+workspace) and lands within ordinary cross-launch noise of
+`no_collision`'s separately-measured 95% (100% vs 95%, a 1-episode gap
+at n=20, well inside this project's own repeatedly-documented VLA
+sampling non-determinism). **Two independent, mechanistically
+different implementations agreeing is what lets the presentation claim
+the physical-interference conclusion is not an artifact of one
+particular simulator trick.**
+
+**Validity checks done before trusting this number** (matching this
+project's own standing discipline -- "does it exceed plain-task
+performance implausibly" was exactly the right question to ask, since
+100% nominally exceeds even the plain non-occluded stock baseline's
+95%): checked per-episode `done_step` values (220-340 range across all
+20 episodes) against baseline's own successful episodes' range
+(231-484) -- no degenerate/instant "cheat" completions, consistent
+with genuine task completion. The 100%-vs-95% gap against
+`no_collision` (a SEPARATE, earlier launch) is not itself evidence of
+anything wrong -- it is exactly the size of gap this project has
+repeatedly observed between independent launches of the identical
+config (e.g. task1 baseline reading 30%/30%/35% across 3 separate
+launches on identical init_states).
+
+## task9 n=50: confirmed null, retired as a "visual completion helps"
+candidate (2026-08-21)
+
+**baseline 84% (42/50), oracle(16,18) 84% (42/50), chi2=0.00 (n.s.)**
+-- fully confirms the n=20 read (80%/80%) was not a power problem; it
+was already a real null result, just measured at an n too small to be
+fully confident. Full numbers in `NUMBERS_REFERENCE.md`.
+
+**Retires task9 from this investigation's "which task shows visual-
+completion-driven gains" search.** Across all 8 tasks tested this
+whole investigation (task0, task1, task2, task4, task6, task8, task9,
+plus the earlier screening set), none has shown a case where the
+oracle(16,18) visual-completion splice produces a real, confirmed
+success-rate gain over baseline -- task1's own +14pt (54%->68%, n=50)
+was the closest positive-looking number all along and even that was
+never McNemar-significant (chi2=2.58, p=0.108). The consistent,
+repeatedly-confirmed lever across this whole investigation is physical
+interference (contact/stagnation), not missing visual content --
+`no_collision` and now `composite_visual_only` both point the same
+direction, on task1, task6 (partially), and task8.
+
+## Contact-risk predictor: built, in-distribution signal real (AUC~0.66),
+cross-task generalization fails -- recorded as a clean negative result
+per user's explicit request (2026-08-21)
+
+Per the user's own detailed proposal (their message beginning "Q. どちらの
+カメラを学習するのか"), built a numpy-only (no sklearn -- not installed,
+no pip in `.venv_openvla_oft`) logistic-regression contact-risk
+predictor: `(eef_pos, gripper_qpos, eef_speed, proposed action) ->
+occluder contact within k=2 replan-steps`, trained on ALL existing
+failure/contact logs already on disk (no new demos or rollouts needed
+-- exactly matching the user's own pitch that this avoids the
+"no successful-under-occlusion demos exist" data bottleneck their
+imitation-learning alternative would hit).
+
+**Data hygiene, applying the user's own "which trajectories must NOT
+be used" principle to this different training target**:
+- `no_collision`/`oracle_no_collision` episodes excluded entirely --
+  physical collision is disabled for the whole episode, so
+  `occluder_contact` is trivially always False regardless of the real
+  trajectory; training on this would teach "this region is safe" when
+  it isn't.
+- `no_collision_after_contact`/`scripted_recovery_after_contact`:
+  only the PRE-TRIGGER portion included (physics is faked or the
+  action becomes a scripted, non-policy motion after trigger).
+- **Real contamination bug caught mid-session** (while extending the
+  dataset builder to task6/task8): globbing by result-FILENAME (e.g.
+  "task1.json") is not the same as globbing by SCENARIO --
+  `--use-stock-suite` runs can coincidentally produce a same-numbered
+  file for a completely different, non-occluded scene (e.g.
+  `stock_libero10_baseline_task6equiv_n20/task1.json` is task6's stock
+  EQUIVALENT via stock task_id=1, nothing to do with occluded task1).
+  These runs have no occluder at all, so `occluder_contact` is
+  trivially always False and `eef_to_occluder_dist` is always None --
+  same contamination class as `no_collision`, silently present in the
+  first (task1-only) run of this script until caught and fixed (read
+  `run_config.json`'s own `use_stock_suite` flag, the authoritative
+  source, rather than pattern-matching directory names).
+- A second, smaller bug also caught before trusting the "oracle"
+  variant's numbers: `dict.get(key, 0.0)` only substitutes the default
+  when the KEY is absent, not when its value is `None` -- several
+  episodes have `eef_to_occluder_dist` present but `None` (occluder-
+  distance computation edge cases), which silently became NaN after
+  casting to float and corrupted standardization (mean/std -> NaN),
+  making the "oracle" variant score BELOW the "realistic" variant and
+  even below chance in the first run -- caught by that implausible
+  result (an added feature should never make an otherwise-identical
+  model worse if the optimizer converges correctly), not by inspection.
+  Fixed by dropping affected rows (~2.4% of the dataset) rather than
+  imputing a misleading 0.0 for a distance feature.
+
+**In-distribution result (task1-only, held-out episodes)**: eval
+AUC=0.659 (13-dim realistic features: no vision, no privileged
+occluder position -- everything a real robot's own proprioception +
+proposed action already provides) / 0.657 (+privileged scalar
+distance-to-occluder, 14-dim) -- real, modest signal, meaningfully
+above chance and above the majority-class baseline. **Adding the
+privileged distance feature gives essentially zero improvement** --
+good news in isolation (suggests the signal is recoverable from
+proprioception alone, no vision-based occluder localization needed),
+but see below for why this doesn't end up mattering.
+
+**Cross-task (leave-one-task-out) result -- the real test, per the
+user's own requirement #4 ("学習タスクと評価タスクを分ける")**:
+
+| held out (eval) | trained on | eval AUC realistic | eval AUC +priv. dist |
+|---|---|---|---|
+| task8 | task1+task6 | **0.113** (worse than chance) | 0.213 |
+| task1 | task6+task8 | 0.520 | 0.584 |
+| task6 | task1+task8 | 0.599 | 0.666 |
+
+**Generalization fails, inconsistently and in one case severely** --
+task8 held out gives an AUC well BELOW chance (the model's risk
+ranking is inverted relative to task8's true labels), task1 held out
+is indistinguishable from chance, only task6 held out reaches a
+usable-looking range (and with only 3 tasks total, this one exception
+is thin evidence on its own). Per-task occluder-contact base rates
+also vary hugely (7%-71%), a further sign these are not one shared
+phenomenon.
+
+**User's own diagnosis of the cause, recorded because it's the
+correct interpretation and the useful takeaway for future work**: the
+classifier is very likely learning task-specific hazardous
+COORDINATES (memorizing "this region of state-space is dangerous for
+THIS task's fixed occluder position"), not a task-general concept of
+"obstacle proximity" -- consistent with adding a scalar
+distance-to-occluder feature not helping (a scalar distance carries no
+DIRECTIONAL information; it can't distinguish "moving toward" from
+"moving away from" the occluder). **A directional feature -- the
+occluder-relative position vector dotted with the proposed action's
+direction ("is this action moving toward the obstacle") -- is a
+plausible task-independent alternative, flagged by the user as the
+right next thing to try if this thread continues, but NOT implemented
+this session.** It would still require a real-time occluder-position
+estimate at deployment time (a perception problem on a real robot, not
+solved by this feature-design change alone).
+
+**Decision: do not pursue a single universal contact-risk classifier
+on this evidence** -- recorded as a clean, real negative result (not a
+bug-driven one; both real bugs found along the way were fixed before
+trusting these final numbers), matching this project's own standing
+discipline of documenting negative results with the same rigor as
+positive ones. All work done inside the `occ_vla` tmux session per the
+user's request (a background Monitor task's "no completion record
+found" notification arrived after a session boundary while two GPU
+jobs -- `composite_visual_only_task1_n20` and
+`oracle_correct1618_task9_all50` -- were still running; both had in
+fact completed successfully and cleanly, confirmed by reading their
+logs/JSON directly rather than trusting the ambiguous notification --
+the monitor script itself also had a real bug, an associative array
+named `done`, colliding with bash's own `done` loop keyword, which
+produced one outright false "finished" event earlier in the session;
+neither issue lost any data, but both are worth remembering as this
+project's ongoing "verify directly, don't trust an ambiguous
+completion signal" lesson, applied here to infra rather than to an
+experimental result for once).
