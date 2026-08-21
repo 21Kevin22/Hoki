@@ -1,0 +1,29 @@
+{
+  "midlayer_split_frac_arg": 0.67,
+  "resolved_layers": {
+    "mode": "midlayer_splice",
+    "dino_layer": 15,
+    "dino_n_effective": 22,
+    "siglip_layer": 17,
+    "siglip_n_effective": 25
+  },
+  "task_ids": [
+    8
+  ],
+  "n_episodes": 20,
+  "episode_offset": 0,
+  "conditions": [
+    "baseline",
+    "composite_visual_only"
+  ],
+  "checkpoint": "/home/ubuntu/slocal1/Hoki/occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa",
+  "log_action_diff": false,
+  "log_attn_entropy": false,
+  "log_ensemble_disagreement": false,
+  "attn_implementation": null,
+  "load_in_4bit": false,
+  "pixel_fill_mode": "none",
+  "prevframe_gate_max_frac_no_ref": 1.0,
+  "prevframe_feather_px": 0.0,
+  "use_stock_suite": false
+}
