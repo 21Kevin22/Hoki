@@ -1938,3 +1938,54 @@ neither issue lost any data, but both are worth remembering as this
 project's ongoing "verify directly, don't trust an ambiguous
 completion signal" lesson, applied here to infra rather than to an
 experimental result for once).
+
+## Directional feature (occluder-vector . action-direction) implemented
+and tested -- also fails, worse than scalar distance in all 3 folds
+(2026-08-21)
+
+Direct follow-up to the user's own proposed fix for the cross-task
+generalization failure above: a scalar distance-to-occluder carries no
+directional information, so try `(occluder_pos - eef_pos)` normalized,
+dotted with the proposed action's normalized xyz direction -- a
+task-independent "is this action moving toward the obstacle" signal
+in principle, rather than a task-specific coordinate/distance value.
+
+**Implementation**: occluder centroid position computed once per task
+via a cheap fresh env query (`sim.data.body_xpos` averaged over each
+task's occluder body/bodies, reusing the already-established
+`find_occluder_body_names`/`geom_ids_for_bodies` infra) -- no new
+rollouts needed, saved to `occluder_positions.json`
+(task1=[0.192,-0.050,1.091], task6=[0.186,0.156,0.480],
+task8=[0.105,-0.237,0.468]). Added as a third variant
+(`directional_14dim`) to `train_contact_risk_predictor.py`, re-ran the
+identical 3-fold leave-one-task-out test.
+
+**Result: the directional feature does NOT fix generalization -- it's
+worse than the plain scalar-distance oracle in all 3 folds, and worse
+than realistic-only features in 2 of 3**:
+
+| held out | realistic (13dim) | +scalar dist (14dim) | +directional dot (14dim) |
+|---|---|---|---|
+| task8 | 0.113 | 0.211 | **0.084** |
+| task1 | 0.520 | 0.584 | **0.528** |
+| task6 | 0.599 | 0.666 | **0.514** |
+
+The a priori reasoning (direction generalizes better than a
+coordinate) did not hold up. Most likely explanations, none confirmed:
+(1) a single body-centroid is a coarse proxy for multi-body occluders
+(task1: 2 bodies, task8: 3 bodies) -- may not represent the actual
+danger surface; (2) `action_first`'s xyz is a very small per-step
+delta, plausibly too noisy to give a stable direction; (3) most likely
+-- a linear model can't represent the probable real interaction
+("close AND approaching" = dangerous, "far AND approaching" = fine)
+without an explicit interaction term, and this whole investigation
+used only plain logistic regression throughout.
+
+**Second clean negative result on this thread -- do not pursue a
+universal contact-risk classifier on either feature design tested so
+far.** If revisited: try a small MLP (captures interactions a linear
+model can't) before concluding the underlying idea is dead; a
+per-body or per-facet occluder representation instead of one centroid;
+more than 3 tasks before drawing a final conclusion about
+generalization. All of this run inside the `occ_vla` tmux session per
+the user's earlier request.
