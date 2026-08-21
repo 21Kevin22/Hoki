@@ -1,0 +1,79 @@
+{
+  "eval_mode": "task",
+  "eval_task": "task8",
+  "task_json_names": [
+    "task1.json",
+    "task6.json",
+    "task8.json"
+  ],
+  "task_counts": {
+    "task1": 15211,
+    "task6": 5613,
+    "task8": 4250
+  },
+  "n_episodes_used": 754,
+  "n_episodes_skipped": 103,
+  "n_samples": 25074,
+  "n_train_episodes": 404,
+  "n_eval_episodes": 80,
+  "k_ahead": 2,
+  "results": {
+    "realistic_13dim": {
+      "train": {
+        "n": 20824,
+        "pos_rate": 0.46571263926238954,
+        "acc": 0.7046196696119862,
+        "precision": 0.7275760297703067,
+        "recall": 0.5846566302330377,
+        "auc": 0.7303439942343624
+      },
+      "eval": {
+        "n": 4250,
+        "pos_rate": 0.0708235294117647,
+        "acc": 0.15576470588235294,
+        "precision": 0.028407460545193688,
+        "recall": 0.3289036544850498,
+        "auc": 0.11318648314178534
+      },
+      "majority_acc_eval": 0.9291764705882353
+    },
+    "oracle_scalar_dist_14dim": {
+      "train": {
+        "n": 20824,
+        "pos_rate": 0.46571263926238954,
+        "acc": 0.6984729158663081,
+        "precision": 0.7138211382113822,
+        "recall": 0.5884718498659517,
+        "auc": 0.73197788751483
+      },
+      "eval": {
+        "n": 4250,
+        "pos_rate": 0.0708235294117647,
+        "acc": 0.23529411764705882,
+        "precision": 0.03382864369269681,
+        "recall": 0.3554817275747508,
+        "auc": 0.2113365678177494
+      },
+      "majority_acc_eval": 0.9291764705882353
+    },
+    "directional_14dim": {
+      "train": {
+        "n": 20824,
+        "pos_rate": 0.46571263926238954,
+        "acc": 0.7069727237802536,
+        "precision": 0.7438958220293,
+        "recall": 0.5654774180243349,
+        "auc": 0.7387658240576724
+      },
+      "eval": {
+        "n": 4250,
+        "pos_rate": 0.0708235294117647,
+        "acc": 0.272,
+        "precision": 0.0,
+        "recall": 0.0,
+        "auc": 0.08417539576443508
+      },
+      "majority_acc_eval": 0.9291764705882353
+    }
+  }
+}

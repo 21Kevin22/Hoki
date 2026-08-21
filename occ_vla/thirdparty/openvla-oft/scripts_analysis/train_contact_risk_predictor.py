@@ -58,8 +58,19 @@ EXCLUDE_CONDITIONS = {"no_collision", "oracle_no_collision"}
 TRUNCATE_AT_TRIGGER_CONDITIONS = {"no_collision_after_contact", "scripted_recovery_after_contact"}
 
 
-def build_dataset(results_dir, task_json_names=("task1.json",), k_ahead=2):
-    rows = []  # each: (episode_uid, features_realistic, feature_oracle_extra, label)
+def load_occluder_positions(path):
+    """occ_vla addition (2026-08-21), per user's directional-feature
+    follow-up: occluder position is static per task, so it's cheap to
+    look up once (via a fresh env query, see the companion snippet that
+    generated `occluder_positions.json`) and reuse for every existing
+    logged row -- no new rollouts needed, matching the user's own
+    "既存データだけで作れる" framing for this whole line of work."""
+    with open(path) as f:
+        return {k: np.array(v, dtype=float) for k, v in json.load(f).items()}
+
+
+def build_dataset(results_dir, task_json_names=("task1.json",), k_ahead=2, occluder_positions=None):
+    rows = []  # each: (episode_uid, features_realistic, feature_oracle_extra, label, task_label, feat_directional)
     n_episodes_used = 0
     n_episodes_skipped = 0
     files = []
@@ -154,8 +165,37 @@ def build_dataset(results_dir, task_json_names=("task1.json",), k_ahead=2):
                     raw_extra = p.get("eef_to_occluder_dist")
                     if raw_extra is None:
                         continue
+                    # occ_vla addition (2026-08-21), per user's own
+                    # follow-up proposal: a scalar distance carries no
+                    # DIRECTIONAL information (can't tell "approaching"
+                    # from "retreating"). Directional feature = (unit
+                    # vector from eef toward the occluder) . (unit vector
+                    # of the proposed action's xyz component) -- positive
+                    # = this action moves toward the obstacle, negative =
+                    # away. Task-independent in principle (always
+                    # relative to the current eef/occluder geometry, not
+                    # an absolute coordinate) -- the actual point of this
+                    # experiment is to test whether that's true in
+                    # practice too.
+                    feat_directional = None
+                    if occluder_positions is not None and task_label in occluder_positions:
+                        occ_pos = occluder_positions[task_label]
+                        eef = np.array(p["eef_pos"], dtype=float)
+                        to_occ = occ_pos - eef
+                        to_occ_norm = np.linalg.norm(to_occ)
+                        act_xyz = np.array(a["action_first"][:3], dtype=float)
+                        act_norm = np.linalg.norm(act_xyz)
+                        if to_occ_norm > 1e-6 and act_norm > 1e-6:
+                            feat_directional = float(np.dot(to_occ / to_occ_norm, act_xyz / act_norm))
+                    # Only require the directional feature (and thus drop
+                    # the row if it can't be computed) when the caller
+                    # actually asked for it -- keeps this function fully
+                    # backward compatible with every earlier call site
+                    # that doesn't pass occluder_positions at all.
+                    if occluder_positions is not None and feat_directional is None:
+                        continue
                     label = any(occ_contact[i : min(cutoff, i + 1 + k_ahead)])
-                    rows.append((episode_uid, feat_realistic, raw_extra, label, task_label))
+                    rows.append((episode_uid, feat_realistic, raw_extra, label, task_label, feat_directional if feat_directional is not None else 0.0))
                 n_episodes_used += 1
     return rows, n_episodes_used, n_episodes_skipped
 
@@ -221,9 +261,14 @@ def main():
     ap.add_argument("--eval-task", default=None, help="task_label (e.g. 'task6') to hold out entirely, for --eval-mode task")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out-name", default="contact_risk_predictor_v0_results.json")
+    ap.add_argument("--occluder-positions", default=None, help="path to occluder_positions.json, enables the directional feature variant")
     args = ap.parse_args()
 
-    rows, n_used, n_skipped = build_dataset(args.results_dir, task_json_names=args.task_json_names, k_ahead=args.k_ahead)
+    occluder_positions = load_occluder_positions(args.occluder_positions) if args.occluder_positions else None
+    rows, n_used, n_skipped = build_dataset(
+        args.results_dir, task_json_names=args.task_json_names, k_ahead=args.k_ahead,
+        occluder_positions=occluder_positions,
+    )
     print(f"episodes used: {n_used}, episodes skipped (excluded/misaligned): {n_skipped}")
     print(f"total (state,action)->contact samples: {len(rows)}")
     task_counts = {}
@@ -252,18 +297,25 @@ def main():
         X_r = np.array([r[1] for r in rows if r[0] in eps], dtype=float)
         X_extra = np.array([r[2] for r in rows if r[0] in eps], dtype=float).reshape(-1, 1)
         y = np.array([r[3] for r in rows if r[0] in eps], dtype=float)
-        return X_r, X_extra, y
+        X_dir = np.array([r[5] for r in rows if r[0] in eps], dtype=float).reshape(-1, 1) if len(rows[0]) > 5 else None
+        return X_r, X_extra, y, X_dir
 
-    Xr_train, Xex_train, y_train = split(rows, train_eps)
-    Xr_eval, Xex_eval, y_eval = split(rows, eval_eps)
+    Xr_train, Xex_train, y_train, Xdir_train = split(rows, train_eps)
+    Xr_eval, Xex_eval, y_eval, Xdir_eval = split(rows, eval_eps)
 
     print(f"\ntrain pos_rate={y_train.mean():.3f} n={len(y_train)}  eval pos_rate={y_eval.mean():.3f} n={len(y_eval)}")
 
-    results = {}
-    for variant, Xtr, Xev in (
+    variants = [
         ("realistic_13dim", Xr_train, Xr_eval),
-        ("oracle_14dim", np.hstack([Xr_train, Xex_train]), np.hstack([Xr_eval, Xex_eval])),
-    ):
+        ("oracle_scalar_dist_14dim", np.hstack([Xr_train, Xex_train]), np.hstack([Xr_eval, Xex_eval])),
+    ]
+    if occluder_positions is not None:
+        variants.append((
+            "directional_14dim",
+            np.hstack([Xr_train, Xdir_train]), np.hstack([Xr_eval, Xdir_eval]),
+        ))
+    results = {}
+    for variant, Xtr, Xev in variants:
         mean = Xtr.mean(axis=0)
         std = Xtr.std(axis=0)
         std[std < 1e-8] = 1.0

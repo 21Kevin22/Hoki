@@ -239,16 +239,46 @@ distance carries no directional information (does not distinguish
 "moving toward" from "moving away from" the occluder), which is a
 plausible reason it doesn't transfer.
 
-**Recorded as a clean negative result -- do not pursue a single
-universal contact-risk classifier on this evidence.** Two directions
-for a future attempt, NOT implemented this session: (a) a directional
-feature -- (occluder-relative position vector) dot (proposed action
-direction), a task-independent "is this action moving toward the
-obstacle" signal rather than a coordinate/scalar-distance one, though
-this still requires a real-time occluder-position estimate at
-deployment (a perception problem on a real robot, not solved by this
-change); (b) more tasks in the training pool (only 3 available this
-session) before concluding the concept itself can't generalize.
+**Follow-up: the directional feature was implemented and tested --
+it does NOT help either.** Per the user's own proposed fix (a scalar
+distance carries no directional information; try
+`(occluder_pos - eef_pos)` normalized, dotted with the proposed
+action's normalized xyz direction -- "is this action moving toward the
+obstacle"), computed occluder centroid positions once per task
+(`occluder_positions.json`, a cheap one-time env query, no new
+rollouts -- task1=[0.19,-0.05,1.09], task6=[0.19,0.16,0.48],
+task8=[0.11,-0.24,0.47]) and re-ran the identical 3-fold leave-one-
+task-out test with this feature added:
+
+| held-out eval task | realistic (13dim) | +scalar distance (14dim) | **+directional dot (14dim)** |
+|---|---|---|---|
+| task8 | 0.113 | 0.211 | **0.084** (worse than both) |
+| task1 | 0.520 | 0.584 | **0.528** (~ties realistic, worse than scalar) |
+| task6 | 0.599 | 0.666 | **0.514** (worse than both) |
+
+**The directional feature underperforms the plain scalar distance in
+all 3 folds, and underperforms realistic-only features in 2 of 3.**
+The a priori reasoning (direction should be more task-general than a
+coordinate/distance) did not hold up empirically. Plausible reasons,
+not established: (1) occluder position was reduced to a single
+centroid per task -- for multi-body occluders (task1: book+box,
+task8: 3-body fridge) this may be a poor proxy for the actual danger
+surface; (2) `action_first`'s xyz is a very small single-step delta,
+possibly too noisy per-step to give a stable direction; (3) a linear
+model may not be the right function class for this feature --
+"dangerous" plausibly depends on distance AND direction jointly (close
++ approaching = dangerous, far + approaching = fine), an interaction a
+plain logistic regression cannot represent without an explicit
+interaction term.
+
+**Recorded as a second clean negative result -- do not pursue a single
+universal contact-risk classifier on this evidence, with either
+feature design tested so far.** Untried, not implemented this session:
+a non-linear model (small MLP) that could capture the
+distance-direction interaction; more tasks in the training pool (only
+3 available this session) before concluding the concept itself can't
+generalize; a better occluder-danger-point estimate than a single body
+centroid.
 
 ## Notes for slide-writing
 
