@@ -87,12 +87,53 @@ in magnitude and not statistically confirmed at n=20. Present as
 suggestive/consistent-with, not as a second confirmed result, unless
 n is increased.
 
-## 2x2 factorial (visual x physical), task6/task8 -- IN PROGRESS
+## "Does removing collision restore plain-task performance?" -- task1/task6/task8, n=20 each
 
-| task | baseline | no_collision | status |
-|---|---|---|---|
-| task6 | (re-measuring, see `factorial_task6_n20/`) | in progress | running |
-| task8 | (re-measuring, see `factorial_task8_n20/`) | in progress | running |
+The central generalization claim: for task1, `no_collision` (95%) already
+matched the plain (non-occluded) LIBERO-10 baseline (95%) exactly. Does
+this hold for task6/task8 too? **Answer: partially -- 2 of 3 tasks, not
+all 3.**
+
+| task | baseline (occluded) | no_collision | stock (non-occluded, `--use-stock-suite`) | no_collision vs stock |
+|---|---|---|---|---|
+| task1 | 35% (7/20, `factorial_task1_n20_v2/`) [or 54% n=50] | **95% (19/20)** | **95% (19/20)**, `stock_libero10_baseline_task1equiv_n20/` (stock task_id=3) | indistinguishable, Fisher exact p=1.0 |
+| task8 | 35% (7/20, `factorial_task8_n20/`) | **90% (18/20)** | **95% (19/20)**, `stock_libero10_baseline_task8equiv_n20/` (stock task_id=6) | not significantly different, Fisher exact p=1.0 |
+| **task6** | 30% (6/20, `factorial_task6_n20/`) | **50% (10/20)** | **100% (20/20)**, `stock_libero10_baseline_task6equiv_n20/` (stock task_id=1) | **significantly different, Fisher exact p=0.00044** |
+
+**task6 is a genuine, statistically confirmed exception**: removing
+collision only recovers half the gap (30%->50%, ceiling is 100%), not
+the full gap the way task1 and task8 do. **Do not generalize "removing
+physical interference restores plain-task performance" to all 3 tasks
+without this caveat** -- the correct claim is "for 2 of 3 tasks tested,
+no_collision statistically matches plain-task performance; task6 is a
+counter-example where a real, unexplained residual gap remains even
+with physical interference removed." Possible reasons, not yet
+investigated: task6 ("put both the cream cheese box and the butter in
+the basket") is a 2-object task, unlike task1/task8's single-target
+tasks -- the second object may introduce a failure mode unrelated to
+the occluder entirely. Worth a follow-up if this thread continues, not
+yet done.
+
+## composite_visual_only condition, task1, n=20 -- IN PROGRESS
+
+Software-pixel-compositing analog of `no_collision` (occluder never
+rendered, never collidable; occlusion delivered by pasting a static
+reference sprite onto the live frame each step -- see CLAUDE.md for
+the full mechanism and its stated z-buffering limitation). Result not
+yet computed; run in progress in `composite_visual_only_task1_n20/`.
+
+## task9 re-run at n=50 (baseline + oracle(16,18)) -- IN PROGRESS
+
+The n=20 task9 result (baseline 80%, oracle(16,18) 80%, a genuine null
+result) has only a 10pt raw gap at n=20 -- underpowered to distinguish
+a real small effect from noise. Re-running both conditions at n=50 in
+`oracle_correct1618_task9_all50/` (same depth as every other
+oracle(16,18) citation, `--midlayer-split-frac 0.7272727272727273`,
+confirmed to match `oracle_correct1618_task9_n20/run_config.json`'s
+own resolved_layers dino_layer=16/siglip_layer=18 before launching --
+an earlier launch attempt used the wrong split_frac 0.67, which
+resolves to the WRONG depth (15,17); caught and killed before any data
+was written, relaunched correctly). Result not yet computed.
 
 ## Notes for slide-writing
 
