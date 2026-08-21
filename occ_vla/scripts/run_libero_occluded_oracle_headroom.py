@@ -457,7 +457,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  task_id=None, episode_idx=None, log_attn_entropy=False, log_ensemble_disagreement=False,
                  pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
                  disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False,
-                 scripted_recovery=False, low_mobility_geom_ids=None, reactive_dry_run=False):
+                 scripted_recovery=False, low_mobility_geom_ids=None, reactive_dry_run=False,
+                 composite_visual_only=False, occluder_seg_ids=None):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -623,6 +624,30 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     success = False
     clear_target_mask = None
     n_occluded_steps = 0
+    # occ_vla addition (2026-08-20/21, per user's item③ request -- a
+    # REAL-ROBOT-BUILDABLE "visual occlusion only" cell, replacing
+    # no_collision's simulator-only "arm passes through it" trick: the
+    # occluder is (a) never natively rendered again after this episode's
+    # first real step (geom_rgba alpha=0) and (b) non-collidable (reuses
+    # the already-validated `_apply_collision_disable` path, since
+    # composite_visual_only conditions pass occluder_geom_ids as
+    # disable_collision_geom_ids in main()) -- i.e. it is genuinely
+    # ABSENT from the scene, not merely flagged inert in place. Its
+    # on-screen occlusion is then delivered purely by pasting a single
+    # static reference sprite (captured from the one, real, alpha=1
+    # render at this episode's first real step) onto the live frame each
+    # step, via the pixel mask captured at that same instant -- something
+    # a real deployment could reproduce by digitally compositing a fixed
+    # occluder silhouette onto a camera feed while the physical workspace
+    # has no object there at all. KNOWN LIMITATION, stated up front: a
+    # static single-shot sprite has no z-buffer information, so if the
+    # arm ever passes IN FRONT of the occluder's screen region (camera-
+    # dependent, not the case for every task/occluder position), the
+    # composite will incorrectly paint the occluder over the arm at
+    # those pixels -- not physically-consistent occlusion, must be noted
+    # in any write-up (per user's own explicit caveat).
+    occluder_sprite = None
+    occluder_pixel_mask = None
     occluded_run_length = 0  # elapsed consecutive occluded steps -- resets to 0 the moment occlusion clears
     # occ_vla addition (2026-08-20, per user request -- a REAL scripted
     # recovery motion, not the idealized collision-disable proxy): last
@@ -698,6 +723,34 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         while t < max_steps + cfg.num_steps_wait:
             wrist_img = get_libero_wrist_image(obs).copy()
             agentview_color, agentview_seg = get_agentview_frames(env, resize_size)
+
+            if composite_visual_only and occluder_geom_ids:
+                if occluder_sprite is None:
+                    # First real step of this episode: occluder is still
+                    # natively rendered (alpha=1) at this point -- capture
+                    # its true appearance + footprint before hiding it for
+                    # the rest of the episode. Must redo every episode
+                    # (occluder_sprite reset to None at the top of this
+                    # function each call), same "reapply after this
+                    # episode's own state" discipline as collision-disable/
+                    # low_mobility above.
+                    occluder_sprite = agentview_color.copy()
+                    occluder_pixel_mask = (
+                        np.isin(agentview_seg, occluder_seg_ids) if occluder_seg_ids else np.zeros_like(agentview_seg, dtype=bool)
+                    )
+                    sim.model.geom_rgba[occluder_geom_ids, 3] = 0.0
+                    sim.forward()
+                    # re-render now that the occluder is hidden, so
+                    # downstream oracle/clear_target_mask logic sees the
+                    # true post-hide segmentation (no occluder ids left).
+                    agentview_color, agentview_seg = get_agentview_frames(env, resize_size)
+                # Paste the pre-captured static sprite back onto the live
+                # (occluder-absent, non-collidable) frame -- see the
+                # KNOWN LIMITATION note above run_episode's occluder_sprite
+                # init: no z-buffering, arm-in-front-of-occluder cases are
+                # not handled correctly.
+                agentview_color[occluder_pixel_mask] = occluder_sprite[occluder_pixel_mask]
+
             # occ_vla addition (2026-08-20, per user request -- real
             # rendered qualitative video, not a trajectory-plot substitute):
             # save every env-step's real agentview frame if enabled. Cheap
@@ -1460,6 +1513,13 @@ def main():
             if not target_seg_ids:
                 print(f"  [target-id] WARNING: could not resolve segmentation ids for {target_body_substrings} -- oracle will be a no-op")
 
+        # occ_vla addition (2026-08-21, per user's item③ request --
+        # "composite_visual_only" condition): computed once per task, same
+        # pattern as target_seg_ids above -- occluder position/geometry is
+        # static per task, so its segmentation ids don't need recomputing
+        # per episode.
+        occluder_seg_ids = find_segmentation_ids_for_bodies(env, sim, occluder_geom_ids) if occluder_geom_ids else []
+
         init_states = active_suite.get_task_init_states(task_id)
         n = min(args.n_episodes, len(init_states) - args.episode_offset)
 
@@ -1522,7 +1582,17 @@ def main():
             # actual, deployable recovery motion (not a simulator
             # privilege) can recover the episode.
             REACTIVE_CONDITIONS = ("no_collision_after_contact", "scripted_recovery_after_contact")
-            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility",):
+            # occ_vla addition (2026-08-21, per user's item③ request -- a
+            # REAL-ROBOT-BUILDABLE alternative to no_collision's simulator-
+            # only "arm passes through it" trick: the occluder is made
+            # genuinely absent (never natively rendered, non-collidable --
+            # reuses the same disable_collision_geom_ids path as
+            # no_collision) and its on-screen occlusion delivered purely
+            # via static-sprite image compositing (see run_episode's own
+            # detailed docstring/comments at the composite_visual_only
+            # block for the exact mechanism and its known z-buffering
+            # limitation).
+            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only"):
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
@@ -1530,9 +1600,10 @@ def main():
                 run_episode_condition = condition
             disable_collision_geom_ids = (
                 occluder_geom_ids
-                if (condition in ("no_collision", "oracle_no_collision") + REACTIVE_CONDITIONS and occluder_geom_ids)
+                if (condition in ("no_collision", "oracle_no_collision", "composite_visual_only") + REACTIVE_CONDITIONS and occluder_geom_ids)
                 else None
             )
+            composite_visual_only = condition == "composite_visual_only"
             reactive_collision_disable = condition in REACTIVE_CONDITIONS
             scripted_recovery = condition == "scripted_recovery_after_contact"
             # occ_vla addition (2026-08-20, per user request -- mobility
@@ -1563,6 +1634,8 @@ def main():
                     scripted_recovery=scripted_recovery,
                     low_mobility_geom_ids=low_mobility_geom_ids,
                     reactive_dry_run=args.reactive_dry_run,
+                    composite_visual_only=composite_visual_only,
+                    occluder_seg_ids=occluder_seg_ids,
                     record_video_dir=(
                         os.path.join(args.record_video_dir, f"{condition}_ep{args.episode_offset + ep}")
                         if args.record_video_dir else None
