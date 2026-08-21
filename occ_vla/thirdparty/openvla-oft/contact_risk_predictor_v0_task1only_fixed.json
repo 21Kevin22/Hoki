@@ -1,0 +1,56 @@
+{
+  "eval_mode": "episode",
+  "eval_task": null,
+  "task_json_names": [
+    "task1.json"
+  ],
+  "task_counts": {
+    "task1": 15211
+  },
+  "n_episodes_used": 534,
+  "n_episodes_skipped": 63,
+  "n_samples": 15211,
+  "n_train_episodes": 244,
+  "n_eval_episodes": 60,
+  "k_ahead": 2,
+  "results": {
+    "realistic_13dim": {
+      "train": {
+        "n": 12085,
+        "pos_rate": 0.37616880430285476,
+        "acc": 0.7031857674803476,
+        "precision": 0.736323311976343,
+        "recall": 0.3286405631324241,
+        "auc": 0.6630161377583887
+      },
+      "eval": {
+        "n": 3126,
+        "pos_rate": 0.372680742162508,
+        "acc": 0.6967370441458733,
+        "precision": 0.7035647279549718,
+        "recall": 0.3218884120171674,
+        "auc": 0.6591749414002228
+      },
+      "majority_acc_eval": 0.627319257837492
+    },
+    "oracle_14dim": {
+      "train": {
+        "n": 12085,
+        "pos_rate": 0.37616880430285476,
+        "acc": 0.7034340091021928,
+        "precision": 0.7388282025819265,
+        "recall": 0.3273207215134184,
+        "auc": 0.6634564351017764
+      },
+      "eval": {
+        "n": 3126,
+        "pos_rate": 0.372680742162508,
+        "acc": 0.6964171465131158,
+        "precision": 0.7030075187969925,
+        "recall": 0.32103004291845494,
+        "auc": 0.6567114527273245
+      },
+      "majority_acc_eval": 0.627319257837492
+    }
+  }
+}

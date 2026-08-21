@@ -4,6 +4,63 @@ All numbers below, with exact source directory / n / episode range /
 condition, so every slide can cite this table instead of a bare
 percentage. **Any number without an entry here should not be presented.**
 
+## ★★★ HEADLINE RESULT: composite_visual_only, task1, n=20 -- REAL-ROBOT-
+BUILDABLE, confirms `no_collision` is not a simulator-only artifact
+
+**This is the single most important number in this document as of
+2026-08-21** -- it directly answers the strongest anticipated objection
+to the whole physical-interference finding ("disabling collision is a
+simulator privilege, meaningless for a real robot").
+
+| condition | success | n | episodes | source dir |
+|---|---|---|---|---|
+| baseline (paired, same run) | 35% (7/20) | 20 | 0-19 | `composite_visual_only_task1_n20/` |
+| **composite_visual_only (occluder genuinely absent -- never rendered, never collidable; occlusion delivered by pasting a static pre-episode sprite onto the live frame every step)** | **100% (20/20)** | 20 | 0-19 | `composite_visual_only_task1_n20/` |
+
+McNemar (paired, same run, same init_states): b=0 (baseline-only
+success), c=13 (composite_visual_only-only success), both-succeed=7,
+both-fail=0, chi2=13.00 -- clean, total dominance (b=0 exactly: not one
+single episode where baseline succeeded and composite_visual_only
+failed).
+
+**Why this matters**: `composite_visual_only`'s mechanism is
+categorically different from `no_collision`'s (`contype`/
+`conaffinity`=0, a MuJoCo-only concept with no real-robot analog) --
+here, the occluder is not merely flagged non-collidable, it is NEVER
+PHYSICALLY PRESENT in the simulated workspace at all (never rendered
+natively, never collidable) and its on-screen appearance is delivered
+purely by digitally compositing a fixed occlusion silhouette onto the
+camera feed. **This is a construction a real deployment could
+literally reproduce**: no physical object in the workspace, occlusion
+injected only in the image the policy sees (e.g. an AR-style overlay
+or a digitally edited camera stream) -- there is no privileged
+simulator-only step anywhere in this condition's mechanism.
+
+**Cross-validation against `no_collision` (95%, `factorial_task1_n20_v2/`,
+a separate earlier launch)**: 100% vs 95% is well within this project's
+own repeatedly-documented cross-launch VLA sampling non-determinism (a
+1-episode gap at n=20) -- **not** a discrepancy to explain away, but the
+expected level of agreement between two independent, mechanistically
+different implementations of "visual occlusion present, physical
+interference absent." **The practical conclusion for the presentation:
+`no_collision`'s ★ 95% and `composite_visual_only`'s 100% agree, which
+means the physical-interference conclusion does NOT depend on a
+simulator-only technique** -- it replicates under a condition with a
+direct real-robot construction. Recommended: add a column to the main
+results table citing both `no_collision` (95%) and `composite_visual_only`
+(100%) side by side as two independent confirmations of the same
+mechanism, one simulator-diagnostic and one real-robot-buildable.
+
+**Known, stated limitation** (unchanged from the implementation note):
+`composite_visual_only` uses a single static reference sprite with no
+z-buffer information -- if the arm ever passes visually in front of the
+occluder's screen region, the composite would incorrectly paint the
+occluder over the arm at those pixels. This did not appear to affect
+task1's result (20/20 clean successes, plausible step counts 220-340,
+matching the range of baseline's own successful episodes) but has not
+been checked frame-by-frame; state as a known implementation
+limitation, not a proven non-issue, if asked in Q&A.
+
 ## task1 (`put the black bowl in the bottom drawer of the cabinet and close it`, KITCHEN_SCENE4)
 
 | label | value | n | episodes | source dir | condition |
@@ -114,26 +171,84 @@ tasks -- the second object may introduce a failure mode unrelated to
 the occluder entirely. Worth a follow-up if this thread continues, not
 yet done.
 
-## composite_visual_only condition, task1, n=20 -- IN PROGRESS
+## composite_visual_only condition, task1, n=20 -- DONE, see ★★★ HEADLINE
+RESULT section at the top of this document for the full writeup and
+recommended slide framing. Summary: baseline 35% (7/20) -> 100% (20/20),
+McNemar b=0/c=13/chi2=13.00, source `composite_visual_only_task1_n20/`.
 
-Software-pixel-compositing analog of `no_collision` (occluder never
-rendered, never collidable; occlusion delivered by pasting a static
-reference sprite onto the live frame each step -- see CLAUDE.md for
-the full mechanism and its stated z-buffering limitation). Result not
-yet computed; run in progress in `composite_visual_only_task1_n20/`.
+## task9 re-run at n=50 (baseline + oracle(16,18)) -- DONE
 
-## task9 re-run at n=50 (baseline + oracle(16,18)) -- IN PROGRESS
+**Result: baseline 84% (42/50), oracle(16,18) 84% (42/50), chi2=0.00
+(n.s.)** -- source `oracle_correct1618_task9_all50/task9.json`.
+`--midlayer-split-frac 0.7272727272727273`, confirmed to match
+`oracle_correct1618_task9_n20/run_config.json`'s own resolved_layers
+dino_layer=16/siglip_layer=18 before launching (an earlier launch
+attempt used the wrong split_frac 0.67, resolving to the WRONG depth
+(15,17); caught and killed before any data was written, relaunched
+correctly).
 
-The n=20 task9 result (baseline 80%, oracle(16,18) 80%, a genuine null
-result) has only a 10pt raw gap at n=20 -- underpowered to distinguish
-a real small effect from noise. Re-running both conditions at n=50 in
-`oracle_correct1618_task9_all50/` (same depth as every other
-oracle(16,18) citation, `--midlayer-split-frac 0.7272727272727273`,
-confirmed to match `oracle_correct1618_task9_n20/run_config.json`'s
-own resolved_layers dino_layer=16/siglip_layer=18 before launching --
-an earlier launch attempt used the wrong split_frac 0.67, which
-resolves to the WRONG depth (15,17); caught and killed before any data
-was written, relaunched correctly). Result not yet computed.
+**This retires task9 as a "visual completion helps" candidate.** The
+n=20 read (baseline 80%, oracle 80%, already a null result but with
+only a thin 10pt-equivalent margin at that n) is now confirmed clean
+at n=50 with baseline landing at 84% (not the ~90% assumed when task9
+was first scoped as "the one task where hidden content might be the
+main cause") -- the originally-motivating "normal 90% vs occluded 80%,
+10pt gap" framing does not hold once baseline is properly measured at
+n=50. **Conclusion, stated plainly for the presentation: across all 8
+occluded tasks tested this investigation, NONE has shown a task where
+"the object is invisible" is itself the dominant cause of failure** --
+every task where a mechanism was found and confirmed (task1, task6,
+task8's `no_collision`/`composite_visual_only` results) points to
+physical interference/contact, not missing visual content, as the
+tractable lever.
+
+## Contact-risk predictor: cross-task generalization -- NEGATIVE result,
+recorded per user's explicit request (their "要件4" cross-task check)
+
+Built `scripts_analysis/train_contact_risk_predictor.py`: numpy-only
+logistic regression (no sklearn/pip available in `.venv_openvla_oft`)
+predicting "occluder contact within k=2 replan-steps" from
+(eef_pos, gripper_qpos, eef_speed, proposed action) -- built from
+existing failure/contact logs already on disk (597 episode-runs
+pooled across task1's many result dirs before task hygiene fixes; see
+CLAUDE.md for the full data-hygiene writeup: `no_collision`/
+`oracle_no_collision` episodes excluded entirely, `*_after_contact`
+conditions truncated at their trigger point, `--use-stock-suite` runs
+excluded via `run_config.json`'s own flag -- a real contamination bug
+caught and fixed mid-session, see CLAUDE.md).
+
+**In-distribution (held-out episodes, same task pool)**: task1-only,
+eval AUC=0.659 (realistic 13-dim features) / 0.657 (+privileged
+occluder-distance, 14-dim) -- real, modest signal, meaningfully above
+chance and above the majority-class baseline (67.5%/73.2% acc).
+
+**Cross-task (leave-one-task-out, the actual generalization test)**:
+
+| held-out eval task | trained on | eval AUC (realistic) | eval AUC (+priv. distance) |
+|---|---|---|---|
+| task8 | task1+task6 | **0.113** (worse than chance -- inverted) | 0.213 |
+| task1 | task6+task8 | 0.520 (~chance) | 0.584 |
+| task6 | task1+task8 | 0.599 | 0.666 |
+
+**Conclusion (user's own diagnosis, matches the data): the classifier
+is learning task-specific hazardous COORDINATES, not a task-general
+concept of "obstacle proximity."** Per-task occluder-contact base rates
+vary hugely (7%-71%), and adding the privileged scalar distance-to-
+occluder feature does not meaningfully fix generalization -- a scalar
+distance carries no directional information (does not distinguish
+"moving toward" from "moving away from" the occluder), which is a
+plausible reason it doesn't transfer.
+
+**Recorded as a clean negative result -- do not pursue a single
+universal contact-risk classifier on this evidence.** Two directions
+for a future attempt, NOT implemented this session: (a) a directional
+feature -- (occluder-relative position vector) dot (proposed action
+direction), a task-independent "is this action moving toward the
+obstacle" signal rather than a coordinate/scalar-distance one, though
+this still requires a real-time occluder-position estimate at
+deployment (a perception problem on a real robot, not solved by this
+change); (b) more tasks in the training pool (only 3 available this
+session) before concluding the concept itself can't generalize.
 
 ## Notes for slide-writing
 

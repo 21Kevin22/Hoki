@@ -1,0 +1,11 @@
+{
+  "9": {
+    "baseline_sr": 0.84,
+    "oracle_sr": 0.84,
+    "n": 50,
+    "mcnemar_chi2": 0.0,
+    "baseline_only_success": 0,
+    "oracle_only_success": 0,
+    "n_occluder_bodies": 1
+  }
+}
