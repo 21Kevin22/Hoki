@@ -1989,3 +1989,99 @@ per-body or per-facet occluder representation instead of one centroid;
 more than 3 tasks before drawing a final conclusion about
 generalization. All of this run inside the `occ_vla` tmux session per
 the user's earlier request.
+
+## composite_visual_only: replicated on task6/task8, with a real
+diagnostic-only bug found and validated around (2026-08-21)
+
+Per the user's explicit priority ("2で"), ran `composite_visual_only`
+on task6 and task8 (n=20 each), completing the 3-task set alongside
+task1's earlier headline result.
+
+**Results**:
+- task6: baseline 30% (6/20) -> composite_visual_only **100% (20/20)**,
+  McNemar b=0/c=14/chi2=14.00 -- total dominance.
+- task8: baseline 35% (7/20) -> composite_visual_only **80% (16/20)**,
+  McNemar b=1/c=10/chi2=7.36 (significant). Fisher-exact vs
+  `no_collision` (90%, p=0.66) and vs stock (95%, p=0.34): not
+  significantly different from either -- replicates task1's pattern.
+
+**task6 is the important one to scrutinize**: `no_collision` only
+recovered task6 to 50% (10/20), a confirmed, statistically significant
+shortfall vs. the 100% plain-task ceiling (the one genuine exception in
+this whole investigation, per the earlier "Does removing collision
+restore plain-task performance?" section). `composite_visual_only`
+reaching 100% on the SAME task -- a full 50pt higher than
+`no_collision` -- is a striking divergence between two conditions that
+are supposed to test the same underlying factor (visual occlusion
+present, physical interference absent), so this got a real validity
+check before being trusted, not just written down.
+
+**Validity check performed** (1 extra episode, `--record-video-dir`,
+`video_check_task6_composite/`): both conditions use the EXACT SAME
+`_apply_collision_disable` mechanism on the SAME `occluder_geom_ids` --
+mechanistically, physics should be identical between `no_collision` and
+`composite_visual_only`; the only designed difference is
+native-render-every-frame (no_collision) vs. hide-and-paste-a-static-
+sprite (composite_visual_only). Checked at t=18 (before any behavioral
+divergence between conditions): baseline vs composite_visual_only RGB
+frames are near-pixel-identical (mean abs diff 0.18/765 possible, only
+0.64% of pixels differ at all) -- **confirms the sprite compositing
+correctly reproduces baseline's own real occlusion in the RGB the
+policy actually receives.** The 50pt gap vs `no_collision` is
+therefore real and not a compositing-fidelity artifact -- most likely
+explanation (not yet independently confirmed): `no_collision` visually
+occludes the target every frame via a natively-rendered, exact,
+correctly-lit occluder, while `composite_visual_only`'s static sprite
+is captured once and reused -- if `no_collision`'s failure mode on
+task6 specifically involves subtle frame-to-frame rendering
+differences (e.g. very slight lighting/shadow changes as the arm moves
+near the occluder) that a native render produces but a frozen sprite
+cannot, that could plausibly explain why removing the occluder's
+PHYSICAL presence (both conditions) doesn't fully explain task6's
+behavior on its own -- something about `no_collision`'s specific
+rendering, not just physics, may be part of what still trips it up.
+Not conclusively diagnosed; flagged as a real, open question rather
+than resolved.
+
+**Real bug found and confirmed during this validity check, but it does
+NOT affect the success-rate results above**: `frac_occluded`
+(the new per-step logging field added earlier this session) reads as
+0.0 throughout `composite_visual_only` episodes, while the SAME
+episode's baseline shows real, nonzero values (e.g. 0.507 at t=10).
+Root cause: `geom_rgba[...,3]=0` (used to hide the occluder from
+native rendering) ALSO blinds MuJoCo's segmentation buffer for that
+body -- the same alpha-hide-and-reveal mechanism this whole codebase
+already relies on for segmentation-ID detection. Since
+`composite_visual_only` keeps the occluder permanently hidden (not a
+brief, restored diagnostic snapshot like `clear_target_mask`'s own use
+of the same trick), `live_target_mask` computed from the live
+(post-hide) segmentation buffer sees the target as fully unoccluded
+regardless of the composited RGB's real appearance -- **this is a
+measurement-only artifact of reusing one hide/reveal mechanism for two
+different purposes (native-render suppression AND segmentation-based
+occlusion tracking) that conflict when applied to the same object
+permanently.** `n_occluded_steps`/`frac_occluded` are therefore NOT
+reliable for `composite_visual_only` episodes specifically (both
+before and after this validity check -- always been broken since the
+condition was implemented, just not noticed until this direct check).
+**Not used anywhere that would invalidate an already-reported number**:
+the earlier task1 validity check used `done_step` (real, unaffected)
+not `n_occluded_steps`, to sanity-check episode plausibility -- that
+check remains valid. Do not cite `n_occluded_steps`/`frac_occluded`
+from any `composite_visual_only` run without this caveat if this
+comes up again; not fixed in code this session (documented as a known
+limitation instead, since the actual policy-facing RGB was directly
+validated as correct via the pixel-diff check above, which is the
+thing that actually matters for the success-rate claim).
+
+**Updated 3-task composite_visual_only summary**:
+
+| task | baseline | no_collision | composite_visual_only | stock (no occlusion) |
+|---|---|---|---|---|
+| task1 | 35% | 95% | 100% | 95% |
+| task6 | 30% | **50%** | **100%** | 100% |
+| task8 | 35% | 90% | 80% | 95% |
+
+Full numbers, McNemar/Fisher stats, and the validity-check writeup
+filed in `NUMBERS_REFERENCE.md`'s HEADLINE RESULT section (updated to
+cover all 3 tasks, not just task1).

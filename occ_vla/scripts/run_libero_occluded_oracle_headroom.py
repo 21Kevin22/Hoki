@@ -1079,6 +1079,21 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     "eef_speed_since_last_replan": eef_speed,
                     "eef_to_occluder_dist": eef_to_occluder_dist, "occluder_contact": occluder_contact,
                     "contact_robot_body_names": contact_robot_body_names,
+                    # occ_vla addition (2026-08-21), per user's "2D
+                    # segmentation area expansion rate" TTC proposal
+                    # (their approach 3, picked as most directly buildable
+                    # from this pipeline's existing infra): logs the
+                    # target's own occlusion fraction S_occ this step --
+                    # `frac_occluded_this_step` was already computed above
+                    # (used internally for the 5%-threshold occluded_run_
+                    # length bookkeeping) but never persisted before this.
+                    # The expansion RATE (dA/dt) is deliberately NOT
+                    # logged as a separate field -- it's a simple discrete
+                    # difference of consecutive replan-steps' own
+                    # frac_occluded values within the same episode, so any
+                    # downstream analysis script can compute it directly
+                    # from this sequence without needing a second field.
+                    "frac_occluded": float(frac_occluded_this_step),
                 })
                 prev_eef_pos = eef_pos_now
                 # occ_vla bug fix (2026-08-18, found while auditing per user

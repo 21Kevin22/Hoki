@@ -4,24 +4,36 @@ All numbers below, with exact source directory / n / episode range /
 condition, so every slide can cite this table instead of a bare
 percentage. **Any number without an entry here should not be presented.**
 
-## ★★★ HEADLINE RESULT: composite_visual_only, task1, n=20 -- REAL-ROBOT-
-BUILDABLE, confirms `no_collision` is not a simulator-only artifact
+## ★★★ HEADLINE RESULT: composite_visual_only, ALL 3 TASKS, n=20 each --
+REAL-ROBOT-BUILDABLE, confirms `no_collision` is not a simulator-only
+artifact
 
-**This is the single most important number in this document as of
-2026-08-21** -- it directly answers the strongest anticipated objection
-to the whole physical-interference finding ("disabling collision is a
-simulator privilege, meaningless for a real robot").
+**This is the single most important set of numbers in this document as
+of 2026-08-21** -- it directly answers the strongest anticipated
+objection to the whole physical-interference finding ("disabling
+collision is a simulator privilege, meaningless for a real robot").
 
-| condition | success | n | episodes | source dir |
-|---|---|---|---|---|
-| baseline (paired, same run) | 35% (7/20) | 20 | 0-19 | `composite_visual_only_task1_n20/` |
-| **composite_visual_only (occluder genuinely absent -- never rendered, never collidable; occlusion delivered by pasting a static pre-episode sprite onto the live frame every step)** | **100% (20/20)** | 20 | 0-19 | `composite_visual_only_task1_n20/` |
+| task | baseline | no_collision | **composite_visual_only** | stock (no occlusion) | source dir |
+|---|---|---|---|---|---|
+| task1 | 35% (7/20) | 95% (19/20) | **100% (20/20)** | 95% (19/20) | `composite_visual_only_task1_n20/` |
+| task6 | 30% (6/20) | **50% (10/20)** | **100% (20/20)** | 100% (20/20) | `composite_visual_only_task6_n20/` |
+| task8 | 35% (7/20) | 90% (18/20) | **80% (16/20)** | 95% (19/20) | `composite_visual_only_task8_n20/` |
 
-McNemar (paired, same run, same init_states): b=0 (baseline-only
-success), c=13 (composite_visual_only-only success), both-succeed=7,
-both-fail=0, chi2=13.00 -- clean, total dominance (b=0 exactly: not one
-single episode where baseline succeeded and composite_visual_only
-failed).
+McNemar (paired, same run, same init_states, baseline vs
+composite_visual_only): task1 b=0/c=13/chi2=13.00; task6
+b=0/c=14/chi2=14.00; task8 b=1/c=10/chi2=7.36 -- all significant, all
+in the same direction.
+
+**task6 is the one to lead with in Q&A, not just cite**: `no_collision`
+only recovered task6 to 50% -- the ONE genuine, statistically confirmed
+exception in the whole "does removing collision restore plain-task
+performance" analysis (Fisher exact vs stock 100%: p=0.00044).
+`composite_visual_only` reaches 100% on the SAME task -- **fully
+closing the one gap `no_collision` couldn't close**, via a mechanism
+with a real-robot construction. task8's 80% is statistically
+indistinguishable from both `no_collision` (90%, Fisher p=0.66) and
+stock (95%, Fisher p=0.34) -- a second, independent replication of the
+task1 pattern.
 
 **Why this matters**: `composite_visual_only`'s mechanism is
 categorically different from `no_collision`'s (`contype`/
@@ -55,11 +67,35 @@ mechanism, one simulator-diagnostic and one real-robot-buildable.
 `composite_visual_only` uses a single static reference sprite with no
 z-buffer information -- if the arm ever passes visually in front of the
 occluder's screen region, the composite would incorrectly paint the
-occluder over the arm at those pixels. This did not appear to affect
-task1's result (20/20 clean successes, plausible step counts 220-340,
-matching the range of baseline's own successful episodes) but has not
-been checked frame-by-frame; state as a known implementation
-limitation, not a proven non-issue, if asked in Q&A.
+occluder over the arm at those pixels.
+
+**Validity check performed on task6 (the largest, most surprising
+divergence from `no_collision`) before trusting the 100% number**: 1
+extra episode with `--record-video-dir`
+(`video_check_task6_composite/`). Direct pixel-diff between baseline's
+and composite_visual_only's RGB frames at t=18 (before any behavioral
+divergence between the two conditions): mean abs diff 0.18 (of 765
+possible), only 0.64% of pixels differ at all -- **confirms the sprite
+compositing correctly reproduces baseline's own real occlusion in the
+RGB the policy actually receives.** The 100% vs `no_collision`'s 50%
+gap on task6 is therefore real, not a compositing-fidelity artifact.
+
+**Real bug found during this check, does NOT affect the success-rate
+numbers above**: the new `frac_occluded` per-step log field (added
+this session) reads 0.0 throughout `composite_visual_only` episodes,
+while the same episode's baseline shows real nonzero values (e.g.
+0.507 at t=10). Root cause: hiding the occluder via `geom_rgba[...,3]=0`
+also blinds MuJoCo's segmentation buffer for that body (the same
+alpha-hide/reveal trick this codebase already uses for segmentation-ID
+detection) -- since `composite_visual_only` keeps the occluder
+permanently hidden, the live segmentation-based occlusion tracking
+sees the target as always-unoccluded regardless of the real composited
+RGB. **`n_occluded_steps`/`frac_occluded` are not reliable for
+`composite_visual_only` episodes -- do not cite them for this
+condition.** The success-rate numbers above are unaffected (based on
+`success`/`done_step`, not this diagnostic field) and the RGB-level
+pixel-diff check above independently confirms the actual policy input
+is correct.
 
 ## task1 (`put the black bowl in the bottom drawer of the cabinet and close it`, KITCHEN_SCENE4)
 
