@@ -1710,3 +1710,52 @@ discipline already applied to task1's baseline/oracle/L=0 numbers)
 would be needed to confirm this at conventional significance if this
 thread is pursued further. Full numbers in `NUMBERS_REFERENCE.md`
 under "Mobility sweep".
+
+## composite_visual_only condition implemented and smoke-tested (item③,
+2026-08-21): occlusion delivered purely by software pixel compositing,
+zero physical object presence
+
+Per the user's item③ priority ("③ ソフトウェア合成による視覚遮蔽のみ条件"),
+implemented a REAL-ROBOT-BUILDABLE alternative to `no_collision`'s
+simulator-only "arm passes through it" trick. Mechanism (all in
+`run_episode`/`main()` of `run_libero_occluded_oracle_headroom.py`,
+reusing existing validated infrastructure, no new dependency):
+
+1. At each episode's first real step (occluder still natively rendered,
+   alpha=1), capture a single static reference sprite (the true agentview
+   pixels) + its pixel mask (via the same `find_segmentation_ids_for_bodies`
+   alpha-hide/reveal technique already used for target-occlusion masking
+   elsewhere in this file).
+2. Immediately after, permanently hide the occluder for the rest of the
+   episode (`geom_rgba[...,3]=0`) AND disable its collision (reuses the
+   already-validated `_apply_collision_disable` bit-separation path
+   unchanged, by passing occluder_geom_ids as `disable_collision_geom_ids`)
+   -- the occluder is now genuinely ABSENT from the scene (never rendered,
+   never collidable), not merely flagged inert in place.
+3. Every step, paste the pre-captured static sprite's pixels back onto the
+   live (now occluder-absent) frame using the pixel mask -- this is what
+   a real deployment could reproduce by digitally compositing a fixed
+   occlusion silhouette onto a camera feed while the physical workspace
+   has no object there at all.
+
+**Explicit, stated-up-front limitation** (per the user's own approved
+caveat on this approach): a static single-shot sprite has no z-buffer
+information, so if the arm ever passes visually IN FRONT of the
+occluder's screen region, the composite incorrectly paints the occluder
+over the arm at those pixels -- not physically-consistent occlusion.
+Documented in the code and must be stated in any write-up citing this
+condition.
+
+**Smoke test (n=2, `smoketest_composite_task1_n2/`)**: ran clean, no
+crash. `composite_visual_only` ep0/ep1 both showed nonzero
+`n_occluded_steps` (129, 161) confirming the composited mask is
+genuinely being detected as target occlusion, not silently degenerating
+to a no-op. (One real path-resolution snag hit and fixed along the way,
+unrelated to the compositing logic itself: the correct LIBERO checkout
+with assets is `occ_vla/thirdparty/LIBERO`, not the `Hoki/LIBERO` this
+session initially guessed from a stale `find` result -- confirmed via
+`~/.libero/config.yaml`'s own `benchmark_root`.)
+
+**n=20 real run launched** (`composite_visual_only_task1_n20/`,
+task1, conditions `baseline composite_visual_only`) -- result not yet
+computed as of this checkpoint; see the next dated entry for the outcome.
