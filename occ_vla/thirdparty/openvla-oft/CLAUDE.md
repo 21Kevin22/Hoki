@@ -2085,3 +2085,49 @@ thing that actually matters for the success-rate claim).
 Full numbers, McNemar/Fisher stats, and the validity-check writeup
 filed in `NUMBERS_REFERENCE.md`'s HEADLINE RESULT section (updated to
 cover all 3 tasks, not just task1).
+
+## scripted_recovery_after_contact: real Trigger Rate / Recovery Success
+Rate / Failure Mode metrics, task1 & task6 (2026-08-21/22)
+
+Per the user's explicit Method/Experiments metrics request, computed
+real numbers from the already-completed n=20 batches
+(`scripted_recovery_task1_n20_full/`, `scripted_recovery_task6_n20_full/`)
+via new `scripts_analysis/analyze_scripted_recovery.py`.
+
+**task1**: 13/20 baseline episodes failed. Trigger fired on 4/13
+(30.8%, episodes 3,9,10,17). Of those 4, 2 recovered to success
+(Recovery Success Rate 50.0%); the 2 that stayed failed both classify
+as "stuck" (last 8 replan-steps' eef speed all near-zero) under the
+heuristic failure-mode classifier.
+
+**task6**: 14/20 baseline episodes failed. Trigger fired on **0/14
+(0.0%)**. Verified directly this is a correct, non-bug result, not a
+measurement failure: all 14 failing episodes DO show real
+`occluder_contact=True` at some point, but every single one involves
+ONLY gripper/finger bodies (`gripper0_leftfinger`,
+`gripper0_rightfinger`, `gripper0_right_gripper`) -- zero anomalous
+(non-gripper-link) contact across all 14. The "gripper=normal,
+other-link=anomalous" trigger design is working exactly as intended;
+task6's baseline failures genuinely aren't caused by the failure mode
+this trigger targets.
+
+**This is a real, useful cross-connection to the still-open task6
+`no_collision` (50%) vs `composite_visual_only` (100%) divergence
+question from the previous entry**: it rules out "arm physically
+bumps into the occluder via an anomalous link" as task6's dominant
+failure mechanism, using real per-episode contact-body data rather
+than speculation. Whatever IS driving task6's baseline failures (and
+whatever composite_visual_only's static-sprite approach avoids that
+no_collision's real-time render doesn't), it's not captured by the
+anomalous-contact framework at all -- worth remembering if this
+specific open question is revisited.
+
+**Failure-mode classifier is a stated heuristic**, not ground-truth
+object tracking (no direct target-object position logged in these
+runs): "stuck" = near-zero eef speed for the last 8 replan-steps;
+"dropped (approx.)" = gripper opens before 75% of the episode and
+stays open; "timeout" = neither fires (residual). Both real bugs and
+definitions are documented in the script's own docstring. Full numbers
+and definitions in `NUMBERS_REFERENCE.md`.
+
+task8's equivalent batch was still running at the time of this entry.

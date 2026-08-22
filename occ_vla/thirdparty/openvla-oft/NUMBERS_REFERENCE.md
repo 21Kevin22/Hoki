@@ -316,6 +316,62 @@ distance-direction interaction; more tasks in the training pool (only
 generalize; a better occluder-danger-point estimate than a single body
 centroid.
 
+## scripted_recovery_after_contact: Trigger Rate / Recovery Success Rate /
+Failure Mode, task1 & task6, n=20 each (2026-08-21/22)
+
+Metrics computed per the user's own Method/Experiments spec (their
+message beginning "トップ会議の「Method/Experiments」セクションに必要な
+のは以下の数字です"), via `scripts_analysis/analyze_scripted_recovery.py`
+-- source `scripted_recovery_task1_n20_full/`, `scripted_recovery_task6_n20_full/`.
+
+**Definitions** (none of these are pre-existing single fields, stated
+explicitly): Trigger Rate = among episodes where the PAIRED baseline
+condition failed, fraction where `scripted_recovery_after_contact`'s
+own anomalous-arm-link-contact trigger actually fired
+(`reactive_triggered=True`). Recovery Success Rate = among TRIGGERED
+episodes only, fraction that ended in `success=True`. Failure Mode =
+heuristic classification (not ground-truth object tracking) of
+triggered-but-still-failed episodes: "stuck" = last 8 replan-steps'
+`eef_speed_since_last_replan` all below 0.005 (near-zero motion
+plateau); "dropped (approx.)" = gripper transitions closed->open
+before 75% of the episode and stays open; "timeout" = neither
+heuristic fires (residual bucket).
+
+| | task1 | task6 |
+|---|---|---|
+| baseline fail count | 13/20 | 14/20 |
+| **Trigger Rate** | **4/13 = 30.8%** (episodes 3,9,10,17) | **0/14 = 0.0%** |
+| **Recovery Success Rate** | **2/4 = 50.0%** | n/a (zero triggers) |
+| Failure mode (2 triggered-but-failed) | "stuck" x2 (episodes 3, 9) | -- |
+| naive baseline SR -> recovery SR (reference only, NOT the recommended metric) | 35% -> 60% | 30% -> 30% (unchanged, as expected given 0 triggers) |
+
+**task6's 0% Trigger Rate is a real, correct, non-bug finding, not a
+measurement failure** -- verified directly: all 14 baseline-fail
+episodes DO show real occluder contact
+(`occluder_contact=True` at some point), but every single one of them
+involves ONLY gripper/finger bodies (`gripper0_leftfinger`,
+`gripper0_rightfinger`, `gripper0_right_gripper`) -- zero anomalous
+(non-gripper) contact across all 14 episodes. The trigger design
+("gripper contact = normal, anything else = anomalous") is correctly
+declining to fire, because task6's baseline failures genuinely are not
+caused by anomalous arm-link collisions with the occluder, unlike
+task1 (where 4/13 baseline failures did involve real anomalous
+contact).
+
+**Cross-connects to the still-open task6 `no_collision` (50%) vs
+`composite_visual_only` (100%) divergence question above**: this
+result adds real evidence that task6's baseline failure mechanism is
+NOT primarily "arm physically bumps into the occluder" (which is what
+both `no_collision` and the scripted-recovery trigger are built to
+address) -- it's something else, most plausibly related to the
+occluder's mere PRESENCE affecting grasp/approach geometry at the
+gripper level, or a different failure mode entirely. This does not
+resolve that open question, but rules out one candidate explanation
+(anomalous-link contact) with real data rather than speculation.
+
+**task8's equivalent batch was in progress at the time of this
+writing** -- see the next dated entry once it completes.
+
 ## Notes for slide-writing
 
 - Every number in this table has a `run_config.json` in its source dir

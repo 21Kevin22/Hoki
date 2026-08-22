@@ -140,11 +140,18 @@ _CfgStub = type("_CfgStub", (), {"center_crop": True})
 # matching stock libero_10 task's, by shared BDDL filename.
 # ---------------------------------------------------------------------------
 
-def get_libero_env_seg(task, resolution):
+def get_libero_env_seg(task, resolution, camera_depths=False):
+    # occ_vla addition (2026-08-21), per user's Figure-A divergence-
+    # analysis request: robosuite/LIBERO already support RGB-D rendering
+    # via this one kwarg (confirmed real via env_wrapper.py/
+    # bddl_base_domain.py, just never turned on in this project before).
+    # Depth obs key becomes f"{cam_name}_depth" e.g. "agentview_depth"
+    # (confirmed in robosuite/environments/robot_env.py). Default False,
+    # zero behavior change for every existing caller.
     task_bddl_file = os.path.join(get_libero_path("bddl_files"), task.problem_folder, task.bddl_file)
     env = OffScreenRenderEnv(
         bddl_file_name=task_bddl_file, camera_heights=resolution, camera_widths=resolution,
-        camera_segmentations="instance",
+        camera_segmentations="instance", camera_depths=camera_depths,
     )
     env.seed(0)
     return env
@@ -458,7 +465,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  pixel_fill_mode="none", prevframe_gate_max_frac_no_ref=1.0, prevframe_feather_px=0.0,
                  disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False,
                  scripted_recovery=False, low_mobility_geom_ids=None, reactive_dry_run=False,
-                 composite_visual_only=False, occluder_seg_ids=None):
+                 composite_visual_only=False, occluder_seg_ids=None,
+                 divergence_extract_dir=None, divergence_extract_t_range=None):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -1119,6 +1127,56 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 feature_store = {} if (save_features_dir and real_oracle_correction_this_call) else None
                 model.vision_backbone._diagnostic_feature_store = feature_store
 
+                # occ_vla addition (2026-08-21), per user's Figure-A
+                # divergence-analysis request: at each REAL replan step
+                # (this block only runs when action_queue is empty, i.e.
+                # a fresh model decision is about to be made -- exactly
+                # the moment an attention map means something) within the
+                # requested t-range, save RGB + depth + the raw per-patch
+                # attention map. A SEPARATE diagnostic-only get_vla_action
+                # call (return_attn_map=True), same pattern already
+                # established by log_action_diff's counterfactual call
+                # above -- does not affect action_queue/real behavior.
+                if divergence_extract_dir is not None and (
+                    divergence_extract_t_range is None or divergence_extract_t_range[0] <= t <= divergence_extract_t_range[1]
+                ):
+                    os.makedirs(divergence_extract_dir, exist_ok=True)
+                    depth_frame = None
+                    try:
+                        full_obs = env.env._get_observations(force_update=True)
+                        if "agentview_depth" in full_obs:
+                            # occ_vla note (2026-08-21): MuJoCo's raw depth
+                            # buffer is a normalized [0,1] z-buffer value,
+                            # NOT physical distance (confirmed via
+                            # robosuite.utils.camera_utils.get_real_depth_map's
+                            # own docstring) -- a first pass here saved the
+                            # raw buffer directly and got a suspiciously
+                            # narrow 0.98-0.996 range, exactly the expected
+                            # symptom of an unconverted z-buffer (most of
+                            # its dynamic range is compressed near the far
+                            # plane). Convert to real metric depth before
+                            # saving so any depth-gradient analysis operates
+                            # on physically meaningful values.
+                            from robosuite.utils.camera_utils import get_real_depth_map
+                            raw_depth = full_obs["agentview_depth"][::-1, ::-1].copy()
+                            depth_frame = get_real_depth_map(sim, raw_depth)
+                    except Exception as e:
+                        print(f"    [divergence-extract] WARNING: depth capture failed at t={t}: {e}")
+                    Image.fromarray(agentview_color).save(os.path.join(divergence_extract_dir, f"rgb_t{t:05d}.png"))
+                    if depth_frame is not None:
+                        np.save(os.path.join(divergence_extract_dir, f"depth_t{t:05d}.npy"), depth_frame)
+                    try:
+                        _, extract_attn_map = get_vla_action(
+                            cfg, model, processor, observation, task_description,
+                            action_head=action_head, proprio_projector=proprio_projector,
+                            noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
+                            return_attn_map=True,
+                        )
+                        if extract_attn_map is not None:
+                            np.save(os.path.join(divergence_extract_dir, f"attnmap_t{t:05d}.npy"), extract_attn_map)
+                    except Exception as e:
+                        print(f"    [divergence-extract] WARNING: attn map extraction failed at t={t}: {e}")
+
                 if log_attn_entropy:
                     # occ_vla addition (2026-08-19): get_vla_action's return
                     # shape changes when return_attn_entropy=True (tuple,
@@ -1364,6 +1422,18 @@ def main():
                               "step (any condition, occluded or not) -- candidate gate signal: does "
                               "baseline's own attention entropy predict eventual episode "
                               "success/failure, per user request 2026-08-19.")
+    parser.add_argument("--divergence-extract-dir", default=None,
+                         help="occ_vla addition 2026-08-21, per user's Figure-A divergence-analysis "
+                              "request: at every real replan step within --divergence-extract-t-range, "
+                              "save RGB, depth (requires enabling camera_depths on the env), and the "
+                              "raw per-patch attention map (extra diagnostic-only forward pass, no "
+                              "behavior change) to this directory. Intended for a single 1-episode "
+                              "comparison run (e.g. no_collision vs composite_visual_only, same "
+                              "init_state), not a full n=20 sweep -- real per-step cost from the extra "
+                              "forward pass.")
+    parser.add_argument("--divergence-extract-t-range", type=int, nargs=2, default=None,
+                         help="[t_min, t_max] (env-step units) -- only extract within this window. "
+                              "None (default) extracts at every replan step for the whole episode.")
     parser.add_argument("--log-ensemble-disagreement", action="store_true",
                          help="At every replan step, one extra forward pass on the agentview frame "
                               "with small Gaussian pixel noise added, logging the L2 distance from "
@@ -1491,7 +1561,7 @@ def main():
         task_description = task.language
         print(f"\n=== task_id={task_id} '{task_description}' (stock_suite={args.use_stock_suite}) ===")
 
-        env = get_libero_env_seg(task, resolution=resize_size)
+        env = get_libero_env_seg(task, resolution=resize_size, camera_depths=bool(args.divergence_extract_dir))
         env.seed(0)
         env.reset()  # obj_of_interest is only populated on the env AFTER reset (not on the Task
                       # benchmark object -- confirmed via src/occ_vla/eval/libero_occ_env.py's own
@@ -1655,6 +1725,11 @@ def main():
                         os.path.join(args.record_video_dir, f"{condition}_ep{args.episode_offset + ep}")
                         if args.record_video_dir else None
                     ),
+                    divergence_extract_dir=(
+                        os.path.join(args.divergence_extract_dir, f"{condition}_ep{args.episode_offset + ep}")
+                        if args.divergence_extract_dir else None
+                    ),
+                    divergence_extract_t_range=tuple(args.divergence_extract_t_range) if args.divergence_extract_t_range else None,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a

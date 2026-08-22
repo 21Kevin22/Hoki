@@ -1,0 +1,71 @@
+{
+  "task1": {
+    "n_episodes": 20,
+    "n_baseline_success": 7,
+    "n_baseline_fail": 13,
+    "baseline_fail_episodes": [
+      0,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      17,
+      19
+    ],
+    "n_triggered": 4,
+    "triggered_episodes": [
+      3,
+      9,
+      10,
+      17
+    ],
+    "trigger_rate": 0.3076923076923077,
+    "n_triggered_and_succeeded": 2,
+    "n_triggered_and_failed": 2,
+    "recovery_success_rate": 0.5,
+    "failure_modes": {
+      "stuck (heuristic: near-zero motion, last 8 replan-steps)": [
+        3,
+        9
+      ]
+    },
+    "naive_baseline_sr": 0.35,
+    "naive_recovery_sr": 0.6
+  },
+  "task6": {
+    "n_episodes": 20,
+    "n_baseline_success": 6,
+    "n_baseline_fail": 14,
+    "baseline_fail_episodes": [
+      0,
+      1,
+      3,
+      4,
+      7,
+      8,
+      9,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      19
+    ],
+    "n_triggered": 0,
+    "triggered_episodes": [],
+    "trigger_rate": 0.0,
+    "n_triggered_and_succeeded": 0,
+    "n_triggered_and_failed": 0,
+    "recovery_success_rate": NaN,
+    "failure_modes": {},
+    "naive_baseline_sr": 0.3,
+    "naive_recovery_sr": 0.3
+  }
+}
