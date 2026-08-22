@@ -466,7 +466,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  disable_collision_geom_ids=None, record_video_dir=None, reactive_collision_disable=False,
                  scripted_recovery=False, low_mobility_geom_ids=None, reactive_dry_run=False,
                  composite_visual_only=False, occluder_seg_ids=None,
-                 divergence_extract_dir=None, divergence_extract_t_range=None):
+                 divergence_extract_dir=None, divergence_extract_t_range=None,
+                 ttc_area_blend=False, ttc_threshold=8.0, ttc_safe_action=(0.0, 0.0, 0.05, 0.0, 0.0, 0.0)):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -656,6 +657,19 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # in any write-up (per user's own explicit caveat).
     occluder_sprite = None
     occluder_pixel_mask = None
+    # occ_vla addition (2026-08-22), per user's Option (a) design (their
+    # message proposing a continuous TTC-area-based safe-action blend,
+    # replacing scripted_recovery_after_contact's discrete post-contact
+    # interrupt with a smooth pre-emptive one): track the target's own
+    # occlusion fraction (`frac_occluded_this_step`, already computed
+    # every env-step for the n_occluded_steps bookkeeping) frame to
+    # frame, to derive an area-growth-rate TTC signal with zero new
+    # privileged information -- same quantity a real-time lightweight
+    # segmentation model (e.g. SAM) run on real camera frames could
+    # supply on a real robot, per the user's own framing of this as a
+    # proxy for that.
+    prev_frac_occluded_for_ttc = None
+    ttc_blend_log = []
     occluded_run_length = 0  # elapsed consecutive occluded steps -- resets to 0 the moment occlusion clears
     # occ_vla addition (2026-08-20, per user request -- a REAL scripted
     # recovery motion, not the idealized collision-disable proxy): last
@@ -1308,6 +1322,35 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
 
             action = action_queue.popleft()
             last_gripper_raw = float(np.asarray(action)[6])
+
+            # occ_vla addition (2026-08-22), per user's Option (a):
+            # continuous TTC-area safe-action blend. Computed and applied
+            # EVERY env-step (not just replan steps), since
+            # frac_occluded_this_step is itself recomputed every step and
+            # the action being taken right now is what should be
+            # corrected -- unlike scripted_recovery's one-shot scripted
+            # sequence, this recomputes alpha fresh every step, so it can
+            # smoothly relax back to alpha=0 (pure a_vla) the moment
+            # occlusion stops growing, not just once at trigger time.
+            ttc_alpha = 0.0
+            ttc_value = None
+            if ttc_area_blend:
+                if prev_frac_occluded_for_ttc is not None:
+                    a_dot = frac_occluded_this_step - prev_frac_occluded_for_ttc
+                    if a_dot > 1e-6:  # only when occlusion area is genuinely GROWING
+                        ttc_value = float(frac_occluded_this_step / a_dot)
+                        ttc_alpha = float(np.clip(1.0 - ttc_value / ttc_threshold, 0.0, 1.0))
+                if ttc_alpha > 0.0:
+                    safe_vec = np.asarray(ttc_safe_action, dtype=float)
+                    action_arr = np.asarray(action, dtype=float).copy()
+                    action_arr[:6] = (1.0 - ttc_alpha) * action_arr[:6] + ttc_alpha * safe_vec
+                    action = action_arr
+                ttc_blend_log.append({
+                    "t": t, "frac_occluded": float(frac_occluded_this_step),
+                    "ttc_value": ttc_value, "alpha": ttc_alpha,
+                })
+            prev_frac_occluded_for_ttc = frac_occluded_this_step
+
             action = process_action(action, cfg.model_family)
             obs, reward, done, info = env.step(action.tolist())
             if done:
@@ -1346,6 +1389,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "prevframe_gate_skip_log": prevframe_gate_skip_log,
         "reactive_triggered": reactive_triggered, "reactive_trigger_t": reactive_trigger_t,
         "dry_run_would_have_fired": dry_run_would_have_fired,
+        "ttc_blend_log": ttc_blend_log,
         # occ_vla addition (2026-08-18): independent runtime ground truth
         # that the splice was actually applied (incremented inside
         # patched_forward itself, not inferred) -- see
@@ -1422,6 +1466,16 @@ def main():
                               "step (any condition, occluded or not) -- candidate gate signal: does "
                               "baseline's own attention entropy predict eventual episode "
                               "success/failure, per user request 2026-08-19.")
+    parser.add_argument("--ttc-threshold", type=float, default=8.0,
+                         help="occ_vla addition 2026-08-22, per user's Option (a) continuous TTC-area "
+                              "safe-action blend: TTC (in replan-agnostic env-step units, since "
+                              "frac_occluded is tracked every env-step) below this triggers blending "
+                              "toward --ttc-safe-action; alpha ramps from 0 (TTC>=threshold) to 1 "
+                              "(TTC=0). Untuned default, a tuning knob for later.")
+    parser.add_argument("--ttc-safe-action", type=float, nargs=6, default=[0.0, 0.0, 0.05, 0.0, 0.0, 0.0],
+                         help="6-dim (dx,dy,dz,drx,dry,drz) safe action blended toward as TTC drops; "
+                              "gripper dim always stays the VLA's own. Default: stop XY/rotation, lift "
+                              "+Z slightly.")
     parser.add_argument("--divergence-extract-dir", default=None,
                          help="occ_vla addition 2026-08-21, per user's Figure-A divergence-analysis "
                               "request: at every real replan step within --divergence-extract-t-range, "
@@ -1677,7 +1731,7 @@ def main():
             # detailed docstring/comments at the composite_visual_only
             # block for the exact mechanism and its known z-buffering
             # limitation).
-            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only"):
+            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only", "ttc_area_blend"):
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
@@ -1691,6 +1745,16 @@ def main():
             composite_visual_only = condition == "composite_visual_only"
             reactive_collision_disable = condition in REACTIVE_CONDITIONS
             scripted_recovery = condition == "scripted_recovery_after_contact"
+            # occ_vla addition (2026-08-22), per user's Option (a):
+            # "ttc_area_blend" keeps real collision AND visual occlusion
+            # fully intact (same as baseline in both respects) -- the
+            # only difference is the continuous action-blending logic
+            # inside run_episode's main step loop, gated purely on
+            # frac_occluded's own growth rate (no privileged occluder
+            # geometry/contact information used at all, unlike
+            # no_collision/scripted_recovery's collision-geom-based
+            # mechanisms).
+            ttc_area_blend = condition == "ttc_area_blend"
             # occ_vla addition (2026-08-20, per user request -- mobility
             # sweep, top priority per their own reasoning: zero geometric
             # constraint, cheapest to implement, most directly tests the
@@ -1730,6 +1794,9 @@ def main():
                         if args.divergence_extract_dir else None
                     ),
                     divergence_extract_t_range=tuple(args.divergence_extract_t_range) if args.divergence_extract_t_range else None,
+                    ttc_area_blend=ttc_area_blend,
+                    ttc_threshold=args.ttc_threshold,
+                    ttc_safe_action=tuple(args.ttc_safe_action),
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
