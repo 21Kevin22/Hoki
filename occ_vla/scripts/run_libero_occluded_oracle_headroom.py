@@ -467,7 +467,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  scripted_recovery=False, low_mobility_geom_ids=None, reactive_dry_run=False,
                  composite_visual_only=False, occluder_seg_ids=None,
                  divergence_extract_dir=None, divergence_extract_t_range=None,
-                 ttc_area_blend=False, ttc_threshold=8.0, ttc_safe_action=(0.0, 0.0, 0.05, 0.0, 0.0, 0.0)):
+                 ttc_area_blend=False, ttc_threshold=8.0, ttc_safe_action=(0.0, 0.0, 0.05, 0.0, 0.0, 0.0),
+                 force_oracle_mask_frac=None):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -812,6 +813,29 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
 
             live_target_mask = np.isin(agentview_seg, target_seg_ids)
             occluded_pixel_mask = clear_target_mask & ~live_target_mask
+            # occ_vla addition (2026-08-22), per user's explicit priority
+            # request: the FORCED-ACTIVATION non-regression check -- on a
+            # scene with NO real occluder (stock suite, occluded_pixel_mask
+            # is structurally always empty), artificially mark a fixed
+            # fraction of the target's own clear footprint as "occluded"
+            # so `will_apply_correction_this_step` actually fires and the
+            # real mid-layer splice mechanism actively runs on a genuinely
+            # clean frame -- directly tests "does an ACTIVELY FIRING
+            # correction harm a clean image", not just "does it correctly
+            # decline to fire" (the earlier non-regression check's
+            # n_correction_applied=0 result only established the latter).
+            # A deterministic (seeded, not per-step-random) subset of the
+            # target's own real pixels -- gives a coherent, real-sized
+            # region rather than scattered noise, closer to what an actual
+            # partial occlusion's footprint would look like.
+            if force_oracle_mask_frac and clear_target_mask.any():
+                target_idx = np.flatnonzero(clear_target_mask)
+                n_force = max(1, int(len(target_idx) * force_oracle_mask_frac))
+                forced_rng = np.random.RandomState(0)  # deterministic across steps/episodes
+                forced_idx = forced_rng.choice(target_idx, size=min(n_force, len(target_idx)), replace=False)
+                forced_mask = np.zeros_like(clear_target_mask)
+                forced_mask.flat[forced_idx] = True
+                occluded_pixel_mask = forced_mask
             frac_occluded_this_step = (
                 occluded_pixel_mask.sum() / max(clear_target_mask.sum(), 1)
             )
@@ -947,7 +971,9 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     })
 
             will_apply_correction_this_step = (
-                condition == "oracle" and bool(occluder_geom_ids) and bool(occluded_pixel_mask.any())
+                condition == "oracle"
+                and (bool(occluder_geom_ids) or bool(force_oracle_mask_frac))
+                and bool(occluded_pixel_mask.any())
                 and not gate_will_skip_this_step
             )
             # occ_vla bug fix (2026-08-20, found via a real, reproduced
@@ -1466,6 +1492,20 @@ def main():
                               "step (any condition, occluded or not) -- candidate gate signal: does "
                               "baseline's own attention entropy predict eventual episode "
                               "success/failure, per user request 2026-08-19.")
+    parser.add_argument("--force-oracle-mask-frac", type=float, default=None,
+                         help="occ_vla addition 2026-08-22, per user's priority request: the FORCED-"
+                              "ACTIVATION non-regression check. On a scene with NO real occluder "
+                              "(--use-stock-suite), the mid-layer 'oracle' correction structurally "
+                              "never fires (occluded_pixel_mask is always empty). Setting this "
+                              "(e.g. 0.13, matching this project's own typical arm-silhouette "
+                              "occlusion fraction) artificially marks that fraction of the target's "
+                              "real, clear footprint as 'occluded' each step, forcing the REAL "
+                              "mid-layer splice mechanism to actively run on a genuinely clean "
+                              "image -- tests whether an ACTIVELY FIRING correction harms a clean "
+                              "scene, not just whether it correctly declines to fire (which the "
+                              "earlier non-regression check, n_correction_applied=0, already "
+                              "confirmed separately). Only meaningful with --conditions "
+                              "including 'oracle' and --use-stock-suite.")
     parser.add_argument("--ttc-threshold", type=float, default=8.0,
                          help="occ_vla addition 2026-08-22, per user's Option (a) continuous TTC-area "
                               "safe-action blend: TTC (in replan-agnostic env-step units, since "
@@ -1797,6 +1837,7 @@ def main():
                     ttc_area_blend=ttc_area_blend,
                     ttc_threshold=args.ttc_threshold,
                     ttc_safe_action=tuple(args.ttc_safe_action),
+                    force_oracle_mask_frac=args.force_oracle_mask_frac,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a

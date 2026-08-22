@@ -2296,3 +2296,60 @@ Johannink et al. ICRA 2019 / Schoettler et al. RA-L 2020): launched
 `ttc_area_blend_task{1,6,8}_n20/`, `--conditions baseline
 ttc_area_blend --ttc-threshold 150`. Result not yet computed as of
 this entry -- see the next dated entry.
+
+## Naive TTC-area blend n=20x3 complete + post-hoc failure analysis:
+mixed real effect, "gripper-closed" hypothesis only partially confirmed
+(2026-08-22)
+
+Per the user's explicit plan (naive threshold=150 first, no tuning,
+then post-hoc failure analysis before designing shielding).
+
+**Result**: task1 35%->65% (b=2/c=8/chi2=3.60, p≈0.058, close to but
+not significant), task6 30%->40% (b=2/c=4/chi2=0.667, n.s.), task8
+35%->35% (b=3/c=3/chi2=0.00, exactly tied but with real churn: 3 flips
+each direction, not "never engaged" -- 20/20 episodes DID engage).
+Engagement rate high across all 3 tasks (19-20/20 episodes).
+
+**Post-hoc gripper-state analysis on all 7 baseline-success->blend-fail
+flips (the harmful direction)**: task1's 2 flips (ep1, ep5) both had
+the gripper CLOSED at first engagement -- matches the user's own
+"fires during grasp" hypothesis. **task6's 2 flips and task8's 3 flips
+(7/7 of the non-task1 flips) all had the gripper OPEN** -- during the
+initial reach/approach phase, before any grasp. task8's 3 flips landed
+at the IDENTICAL t=44 across different episodes, a further sign this
+is a structural (task-geometry-driven) pattern, not noise.
+
+**This means the simplest state-dependent shielding design (gate
+alpha=0 whenever gripper is closed) would only fix task1's failure
+mode and leave task6/task8's untouched.** The real failure mode in
+6/7 flip episodes is the TTC-area metric misreading a *normal,
+necessary* occlusion increase during approach (before grasp) as
+danger -- gripper state alone doesn't distinguish this from a genuine
+obstacle approach. A distance-to-target or approach-phase-aware signal
+is more likely needed, not gripper state in isolation. Full numbers
+and the flip-episode table in `NUMBERS_REFERENCE.md`.
+
+## Forced-activation non-regression check implemented (2026-08-22, per
+user's explicit top priority: fills a presentation gap directly)
+
+New `--force-oracle-mask-frac` CLI flag: on a stock (non-occluded)
+scene where the mid-layer correction structurally never fires
+(`occluder_geom_ids` empty -> `occluded_pixel_mask` always empty),
+artificially marks a fixed fraction (deterministic, seeded) of the
+target's own real clear footprint as "occluded" each step, forcing
+`will_apply_correction_this_step=True` and the REAL mid-layer splice
+mechanism to actively run on a genuinely clean image. Relaxed
+`will_apply_correction_this_step`'s `bool(occluder_geom_ids)` gate to
+`(bool(occluder_geom_ids) or bool(force_oracle_mask_frac))` to allow
+this. The "clean" reference pixels spliced in are computed the same
+way as always (temporarily hide occluder_geom_ids, re-render) --
+since occluder_geom_ids is empty on a stock scene, this hide-and-
+re-render is a no-op, so the spliced content is, by construction, the
+exact same real pixels already there -- this specifically isolates
+"does the splice MECHANISM itself (not incorrect content) disturb a
+clean image," directly answering the caveat flagged in the earlier
+non-regression entry (`n_correction_applied=0` there only showed the
+mechanism correctly declines to fire, not that firing is harmless).
+
+Smoke test (n=3, task1 stock task_id=3, `--force-oracle-mask-frac
+0.13`) launched; result in the next dated entry once complete.
