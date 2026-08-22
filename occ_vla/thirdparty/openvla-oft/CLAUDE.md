@@ -2131,3 +2131,34 @@ definitions are documented in the script's own docstring. Full numbers
 and definitions in `NUMBERS_REFERENCE.md`.
 
 task8's equivalent batch was still running at the time of this entry.
+
+## scripted_recovery_after_contact: task8 complete, all 3 tasks now
+have real Trigger Rate / Recovery Success Rate numbers (2026-08-22)
+
+task8's batch finished. **Same pattern as task6: 0/13 baseline-fail
+episodes triggered the anomalous-contact mechanism.** Verified the same
+way (direct `contact_robot_body_names` inspection, not trusting the
+trigger count alone): 12/13 failing episodes DO show real occluder
+contact, but every one is `gripper0_right_gripper` only -- zero
+anomalous-link contact. 1/13 has no contact at all. Same correct,
+non-bug conclusion as task6.
+
+**Important caveat, stated explicitly to prevent misreading the
+aggregate numbers**: task8's naive baseline->recovery SR reads
+35%->25%, a 10pt DECREASE. With Trigger Rate=0%, this is NOT a real
+effect -- the scripted_recovery_after_contact condition is
+mechanistically identical to baseline code-path-wise on every episode
+(the reactive logic never executes), so the difference is pure
+run-to-run VLA sampling noise between two separate launches, same
+already-documented phenomenon as task1's baseline reading 30%/30%/35%
+across launches. Do not present task8's 35%->25% as "the recovery
+mechanism hurt this task" in any slide -- it did nothing at all here,
+in either direction.
+
+**Full 3-task summary**: the anomalous-arm-link-contact trigger only
+ever fires on task1 (4/13 = 30.8% of baseline failures); task6 and
+task8's baseline failures are, per direct verification, NOT caused by
+this failure mode at all. Recovery Success Rate (2/4 = 50%, task1 only)
+remains the only real per-episode-attributable number this mechanism
+produced across all 3 tasks tested this session. Full numbers/table
+updated in `NUMBERS_REFERENCE.md`.

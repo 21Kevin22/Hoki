@@ -67,5 +67,34 @@
     "failure_modes": {},
     "naive_baseline_sr": 0.3,
     "naive_recovery_sr": 0.3
+  },
+  "task8": {
+    "n_episodes": 20,
+    "n_baseline_success": 7,
+    "n_baseline_fail": 13,
+    "baseline_fail_episodes": [
+      0,
+      2,
+      3,
+      5,
+      7,
+      8,
+      9,
+      11,
+      12,
+      14,
+      15,
+      17,
+      18
+    ],
+    "n_triggered": 0,
+    "triggered_episodes": [],
+    "trigger_rate": 0.0,
+    "n_triggered_and_succeeded": 0,
+    "n_triggered_and_failed": 0,
+    "recovery_success_rate": NaN,
+    "failure_modes": {},
+    "naive_baseline_sr": 0.35,
+    "naive_recovery_sr": 0.25
   }
 }
