@@ -2442,3 +2442,38 @@ diverse task-relevant poses rather than random noise), same 805M/7.5B
 task1 + task6, n=30 episodes each, real policy rollouts
 (`success_action_pairs_task{1,6}_n30/`), running in parallel on GPU0/1.
 Result and any subsequent training run in the next dated entry.
+
+## Overnight-scale data collection + n=100-step training complete
+(2026-08-22): loss trend holds up past smoke-test scale
+
+**Data collection**: task1 30/30 episodes success (100% -- consistent
+with this project's own established stock-suite baseline for this
+task), 887 pairs. task6 30/30 episodes success (100%), 941 pairs.
+Source: `success_action_pairs_task{1,6}_n30/`.
+
+**Representation-alignment training, n-steps=100 (5x the earlier
+smoke-test scale)**:
+
+| task | loss (first -> last) | reduction |
+|---|---|---|
+| task1 | 0.1557 -> 0.0524 | 66% |
+| task6 | 0.1141 -> 0.0322 | 72% |
+
+Both show real, consistent downward trends across the full 100 steps,
+with real (not concerning) episode-boundary bumps (e.g. task1 ~step88,
+task6 ~step85-89) that recover within a few steps -- consistent with
+genuinely learning from diverse real-rollout poses/occlusion overlaps,
+not overfitting to a narrow easy subset. This is the first check at
+meaningfully more than smoke-test scale (100 vs 20 steps) and the
+trend held up cleanly on both tasks.
+
+**Honest scope, unchanged from earlier entries**: this still only
+validates the REPRESENTATION-ALIGNMENT feature-matching loss (Approach
+A from the user's plan) -- Approach B (behavior cloning: I_occ input,
+a_clean as the target action label, LoRA on vision-only layers) is not
+yet implemented. Whether the trained vision_backbone+projector weights
+actually change downstream POLICY BEHAVIOR (does the model take
+different/better actions on synthetically-occluded frames after this
+training) has also not been tested -- that would need loading the
+trained weights back into a real rollout, not yet done. Both are the
+natural next steps if this thread continues.
