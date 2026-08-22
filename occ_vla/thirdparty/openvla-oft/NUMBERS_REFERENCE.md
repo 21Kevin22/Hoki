@@ -441,3 +441,49 @@ on a clean image is harmless"** -- the latter, stronger claim was not
 tested here and would need a different setup (e.g. an artificially
 forced small mask on a clean frame). Do not conflate the two framings
 in the presentation.
+
+## Naive TTC-area continuous action blend, n=20 each, task1/6/8, threshold=150
+UNTUNED (2026-08-22)
+
+Per the user's explicit plan (get the naive baseline first, don't tune
+threshold/safe-action yet). Source: `ttc_area_blend_task{1,6,8}_n20/`.
+
+| task | baseline | ttc_area_blend | McNemar (b/c/chi2) | episodes engaged |
+|---|---|---|---|---|
+| task1 | 35% (7/20) | **65% (13/20)** | b=2/c=8/chi2=3.60 (p≈0.058, close but n.s.) | 19/20 |
+| task6 | 30% (6/20) | 40% (8/20) | b=2/c=4/chi2=0.667 (n.s.) | 20/20 |
+| task8 | 35% (7/20) | 35% (7/20) | b=3/c=3/chi2=0.00 (exactly tied) | 20/20 |
+
+**Real churn in both directions, not just net movement**: task1 had 2
+episodes flip from baseline-success to blend-failure alongside 8 that
+flipped the other way; task8's net-zero result masks 3 flips each
+direction (not simply "never engaged" -- 20/20 episodes DID engage).
+
+**Post-hoc failure-mode analysis on the 7 baseline-success->blend-fail
+flips** (per the user's own pre-registered plan, checking gripper state
+at the moment of first engagement):
+
+| task | flip episodes | gripper state at first engagement |
+|---|---|---|
+| task1 | ep1, ep5 | **CLOSED** (both) |
+| task6 | ep2, ep6 | OPEN (both) |
+| task8 | ep6, ep10, ep13 | OPEN (all 3, all at the SAME t=44) |
+
+**Pattern is NOT uniform -- only task1 matches the "fires during grasp
+while gripper closed" hypothesis.** task6/task8's harmful flips all
+occurred with the gripper OPEN, i.e. during the initial reach/approach
+phase (before any grasp) -- a phase where occlusion area naturally
+grows as the arm approaches the target, which the TTC-area metric alone
+cannot distinguish from "approaching a dangerous obstacle." task8's 3
+flips landing at the identical t=44 across different episodes is a
+further signal this is a structural (task/geometry-driven), not random,
+pattern.
+
+**Implication for any future shielding design**: gating purely on
+gripper-closed state (the simplest version of the state-dependent
+shielding proposal) would fix task1's failure mode but leave task6/task8's
+untouched -- a distance-to-target or approach-phase signal is likely
+needed in addition, not gripper state alone.
+
+## Forced-activation non-regression check (2026-08-22) -- see next entry
+once the smoke test (n=3, task1) and any subsequent n=20x3 completes.
