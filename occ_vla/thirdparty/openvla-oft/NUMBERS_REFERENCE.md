@@ -337,13 +337,40 @@ plateau); "dropped (approx.)" = gripper transitions closed->open
 before 75% of the episode and stays open; "timeout" = neither
 heuristic fires (residual bucket).
 
-| | task1 | task6 |
-|---|---|---|
-| baseline fail count | 13/20 | 14/20 |
-| **Trigger Rate** | **4/13 = 30.8%** (episodes 3,9,10,17) | **0/14 = 0.0%** |
-| **Recovery Success Rate** | **2/4 = 50.0%** | n/a (zero triggers) |
-| Failure mode (2 triggered-but-failed) | "stuck" x2 (episodes 3, 9) | -- |
-| naive baseline SR -> recovery SR (reference only, NOT the recommended metric) | 35% -> 60% | 30% -> 30% (unchanged, as expected given 0 triggers) |
+| | task1 | task6 | task8 |
+|---|---|---|---|
+| baseline fail count | 13/20 | 14/20 | 13/20 |
+| **Trigger Rate** | **4/13 = 30.8%** (episodes 3,9,10,17) | **0/14 = 0.0%** | **0/13 = 0.0%** |
+| **Recovery Success Rate** | **2/4 = 50.0%** | n/a (zero triggers) | n/a (zero triggers) |
+| Failure mode (2 triggered-but-failed) | "stuck" x2 (episodes 3, 9) | -- | -- |
+| naive baseline SR -> recovery SR (reference only, NOT the recommended metric) | 35% -> 60% | 30% -> 30% (unchanged, as expected given 0 triggers) | 35% -> 25% (a DECREASE -- pure run-to-run noise, see below, not a real effect) |
+
+**task8's 0% Trigger Rate independently verified the same way as task6**
+(direct inspection of `contact_robot_body_names` for all 13
+baseline-fail episodes): 12/13 show real occluder contact, but every
+one involves ONLY `gripper0_right_gripper` -- zero anomalous contact.
+1/13 (episode 15) has no occluder contact at all. Same correct,
+non-bug conclusion as task6: this task's baseline failures aren't
+caused by the failure mode this trigger targets either.
+
+**Important: task8's naive 35%->25% "decrease" is not a real effect
+and must not be presented as one.** With Trigger Rate = 0%, the
+`scripted_recovery_after_contact` condition is mechanistically
+IDENTICAL to baseline for every single episode (the reactive code path
+never executes) -- the 10pt difference is pure run-to-run VLA sampling
+noise between two separate launches, on the exact same task/config,
+the same phenomenon this project has documented repeatedly elsewhere
+(e.g. task1 baseline reading 30%/30%/35% across launches). A naive
+reader of just the aggregate numbers could easily and wrongly conclude
+"the recovery mechanism hurt task8" -- it did nothing at all on task8,
+mechanistically, in either direction.
+
+**Summary across all 3 tasks**: the anomalous-contact trigger only
+ever fires on task1 (30.8% of failures) -- task6 and task8's baseline
+failures are, per direct contact-body verification, NOT caused by
+anomalous arm-link collisions at all. Recovery Success Rate (50%, task1
+only) is the only real per-episode-attributable number this mechanism
+has produced across all 3 tasks tested.
 
 **task6's 0% Trigger Rate is a real, correct, non-bug finding, not a
 measurement failure** -- verified directly: all 14 baseline-fail
