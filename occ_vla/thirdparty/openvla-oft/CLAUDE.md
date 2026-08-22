@@ -2477,3 +2477,29 @@ different/better actions on synthetically-occluded frames after this
 training) has also not been tested -- that would need loading the
 trained weights back into a real rollout, not yet done. Both are the
 natural next steps if this thread continues.
+
+## Representation-alignment fine-tuning evaluated in real occluded-suite
+rollout: task1 promising (n.s.), task6 zero change (2026-08-22)
+
+Loaded the trained vision_backbone+projector weights into the real
+eval pipeline (`--load-vision-weights`, new flag) and ran n=20 on the
+OCCLUDED suite for both tasks trained on.
+
+**task1: 35% (7/20) -> 65% (13/20), Fisher exact p=0.113 (n.s.).**
+**task6: 30% (6/20) -> 30% (6/20), EXACT match, zero improvement.**
+Failure mode in both tasks remains 100% timeout in both baseline and
+fine-tuned conditions -- no new failure signature.
+
+**This is a task-dependent, not uniform, result -- the same pattern
+this project has hit repeatedly with other interventions this
+session** (a promising single-task signal that doesn't generalize to
+a second task). task1's +30pt raw improvement is real and worth
+noting but NOT statistically confirmed at n=20 (independent samples,
+separate launches -- not paired episodes). task6 showing literally
+zero effect (identical success count) is the more surprising and
+important finding -- worth investigating before presenting this as a
+general validation of the representation-alignment approach.
+
+**Do not describe this fine-tuning approach as "validated" in any
+presentation without this full context.** Full numbers and honest
+caveats in `NUMBERS_REFERENCE.md`.

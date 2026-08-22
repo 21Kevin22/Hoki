@@ -524,3 +524,36 @@ the 14/20 episodes that DID engage still showed no success-rate
 regression, so this doesn't undermine the conclusion, just means
 task8's n for the "did the correction actually fire" question is
 effectively 14, not 20.
+
+## Representation-alignment fine-tuning evaluated in a real occluded-suite
+rollout: task1 promising but not significant, task6 zero change (2026-08-22)
+
+Per the user's explicit evaluation request, loaded the trained
+vision_backbone+projector weights (from `train_representation_alignment.py`,
+n=100 steps, real success-action-pairs data) into the real eval
+pipeline via new `--load-vision-weights`, and ran n=20 on the OCCLUDED
+suite for both tasks. Source: `finetuned_eval_task{1,6}_n20/`.
+
+| task | baseline (established) | fine-tuned weights | Fisher exact | failure mode (fine-tuned) |
+|---|---|---|---|---|
+| task1 | 35% (7/20, `factorial_task1_n20_v2/`) | **65% (13/20)** | p=0.113 (n.s.) | 7/7 timeout (same as baseline) |
+| task6 | 30% (6/20, `factorial_task6_n20/`) | **30% (6/20)** | trivial (exact match) | 14/14 timeout (same as baseline) |
+
+**Honest read**: task1 shows a large raw improvement (+30pt) but does
+NOT reach statistical significance at n=20 (independent-sample Fisher
+exact, since baseline and fine-tuned are separate launches, not paired
+episodes). **task6 shows zero improvement whatsoever** -- exact same
+success count as baseline. This is a task-dependent result, not a
+general "fine-tuning helps" finding -- matches this project's own
+repeatedly-observed pattern (a promising single-task result that does
+not generalize to a second task). Failure mode in both tasks' failures
+remains "timeout" (the same wandering/stuck pattern as baseline) --
+no new or different failure signature emerged.
+
+**Do not present task1's 65% alone as a validated win.** If this
+thread continues, next steps would be: larger n (e.g. 50) to properly
+power the task1 comparison, investigating why task6 shows literally
+zero effect (possibly needs more/different training data, more
+steps, or Approach B/behavior-cloning instead of pure feature
+alignment), or a paired-episode re-run (same process launch, same
+init_states) to control for cross-launch noise more tightly.
