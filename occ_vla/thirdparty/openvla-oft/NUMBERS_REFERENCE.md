@@ -500,6 +500,27 @@ showed the mechanism correctly declines to fire on its own,
 (n_correction_applied=[0,0,0], as expected), oracle 3/3 success
 (**n_correction_applied=[28,30,36]** -- confirms the forced activation
 genuinely engages the real splice mechanism, not a silent no-op). No
-success-rate cost at this tiny n. Full n=20x3 evaluation
-(`force_oracle_task{1,6,8}_n20/`) launched; result in the next dated
-entry.
+success-rate cost at this tiny n.
+
+**Full n=20x3 result**: source `force_oracle_task{1,6,8}_n20/`.
+
+| task | baseline | oracle (forced-active) | McNemar (b/c/chi2) | n_correction_applied/episode |
+|---|---|---|---|---|
+| task1 | 95% (19/20) | **100% (20/20)** | b=0/c=1/chi2=1.00 | 27-37, all 20 episodes engaged |
+| task6 | 100% (20/20) | **100% (20/20)** | b=0/c=0/chi2=0.00 (exact match) | 30-36, all 20 episodes engaged |
+| task8 | 95% (19/20) | 90% (18/20) | b=2/c=1/chi2=0.33 (n.s.) | 0-65, **6/20 episodes had 0** (see caveat) |
+
+**Result: no statistically significant regression on any of the 3
+tasks.** task1 even improved by 1 episode, task6 matched exactly,
+task8's 1-episode gap is not significant.
+
+**Caveat, noted honestly, does not change the overall conclusion**:
+task8 had 6/20 episodes with `n_correction_applied=0` despite the
+force flag being set -- most likely `clear_target_mask` (target
+segmentation) came back empty for the whole episode in those cases,
+possibly related to task8's more complex multi-part target
+(`target_seg_ids=[1,3,4]`, mug+pudding). Not investigated further --
+the 14/20 episodes that DID engage still showed no success-rate
+regression, so this doesn't undermine the conclusion, just means
+task8's n for the "did the correction actually fire" question is
+effectively 14, not 20.
