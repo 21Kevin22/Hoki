@@ -2400,3 +2400,45 @@ prints once per episode, at completion), not a hang. Confirmed correct
 shortly after: task6 finished normally with a clean result. Recorded
 as a reusable diagnostic pattern (state+CPU-time-delta check, not just
 a single snapshot) for any future "is this actually stuck" question.
+
+## Self-contained fine-tuning data pipeline built and validated
+end-to-end (2026-08-22): real policy rollouts + synthetic occlusion +
+representation-alignment training, no external LIBERO-Occ data needed
+
+Per the user's revised plan (after confirming litsh/Libero-Occ ships no
+training data/checkpoints -- see the entry above): `scripts/
+collect_success_action_pairs.py` (new) runs the REAL VLA policy on the
+CLEAN (stock, non-occluded) suite where it already succeeds 95-100% of
+the time, and at every replan step saves (I_clean, I_occ, a_clean) --
+I_occ is I_clean with a REAL occluder sprite (captured once from the
+occluded-suite version of the same task, same technique as
+`composite_visual_only`) composited on top; a_clean is the action the
+policy ACTUALLY output for I_clean. No teleop, no expert-trajectory
+problem -- labels come from the model's own already-successful
+behavior on the easy condition.
+
+**Real bug found and fixed**: first smoke test (n=2, task1) completed
+without crashing but `occluder_pixel_mask.sum()==0` -- the composited
+"occluded" frames were silently identical to the clean ones. Same
+documented pattern as `run_libero_occluded_oracle_headroom.py`'s own
+2026-08-18 fix: `find_occluder_body_names` opens/closes 2 separate
+temp `OffScreenRenderEnv` instances internally, and MuJoCo/robosuite's
+offscreen EGL rendering shares process-global context state, leaving
+the sprite-capture env's own render state stale unless reset again
+afterward. Fixed with a second `env.reset()` call after
+`find_occluder_body_names` returns, exactly mirroring the established
+fix. Re-ran: mask px=5784 (real), and a direct visual check (Read tool
+on a clean/occ pair) confirmed the composited occluder (book + storage
+box) is correctly placed over the scene.
+
+**Pipeline validated end-to-end**: re-ran `train_representation_alignment.py`
+(unchanged) directly against this new, real-rollout-derived data (60
+pairs, task1) -- loss 0.156 -> 0.091 over 20 steps (more internal
+variance than the earlier random-action dataset, consistent with real
+diverse task-relevant poses rather than random noise), same 805M/7.5B
+(10.7%) trainable-param profile confirmed. No format mismatch, no OOM.
+
+**Overnight-scale collection launched** per the user's own plan:
+task1 + task6, n=30 episodes each, real policy rollouts
+(`success_action_pairs_task{1,6}_n30/`), running in parallel on GPU0/1.
+Result and any subsequent training run in the next dated entry.
