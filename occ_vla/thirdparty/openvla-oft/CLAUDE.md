@@ -2364,3 +2364,39 @@ genuinely clean frame, not a silent no-op). No success-rate cost
 observed at this tiny n. Full n=20x3 (task1/6/8,
 `force_oracle_task{1,6,8}_n20/`) launched on all 3 GPUs; result in the
 next dated entry.
+
+## Forced-activation non-regression check COMPLETE: no significant harm
+on any of 3 tasks, real engagement confirmed (2026-08-22)
+
+Full n=20x3 result: task1 95%->100% (b=0/c=1, chi2=1.00, mild
+improvement), task6 100%->100% (b=0/c=0, exact match), task8 95%->90%
+(b=2/c=1, chi2=0.33, not significant). **No statistically significant
+regression anywhere.** n_correction_applied confirms real, substantial
+engagement (27-37/episode task1, 30-36/episode task6) except task8
+where 6/20 episodes showed 0 corrections (likely target-segmentation
+detection gap for task8's multi-part target, not investigated further
+-- doesn't change the conclusion since the 14/20 engaged episodes also
+showed no regression).
+
+**This closes the presentation gap the user identified**: the 2x2
+table (occlusion x completion) now has all 4 cells measured --
+baseline/completion x occluded/clean, with clean+active-completion
+now confirmed via forced activation (not just "correctly declines to
+fire", the earlier, weaker finding). Full table in
+`NUMBERS_REFERENCE.md`.
+
+## Note: task6 non-regression run appeared stalled mid-run, was not --
+real-time diagnostic process worth recording (2026-08-22)
+
+While the n=20x3 forced-activation run was in progress, task6's
+process showed 6 consecutive log-line-count checks over ~2 minutes
+with zero new output, prompting a real concern it might be hung.
+Diagnosed via `/proc/<pid>/status` (state R, not D/Z), `ps` CPU time
+(confirmed genuinely advancing across two direct re-checks, ~1min CPU
+time per ~35s wall time, 141% CPU), and `wchan` (0, not blocked in a
+kernel wait) -- concluded it was a single long-running episode between
+log lines (this project's own established logging convention only
+prints once per episode, at completion), not a hang. Confirmed correct
+shortly after: task6 finished normally with a clean result. Recorded
+as a reusable diagnostic pattern (state+CPU-time-delta check, not just
+a single snapshot) for any future "is this actually stuck" question.
