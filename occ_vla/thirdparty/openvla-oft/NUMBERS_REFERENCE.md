@@ -485,5 +485,21 @@ shielding proposal) would fix task1's failure mode but leave task6/task8's
 untouched -- a distance-to-target or approach-phase signal is likely
 needed in addition, not gripper state alone.
 
-## Forced-activation non-regression check (2026-08-22) -- see next entry
-once the smoke test (n=3, task1) and any subsequent n=20x3 completes.
+## Forced-activation non-regression check: smoke test clean, n=20x3
+launched (2026-08-22)
+
+`--force-oracle-mask-frac 0.13` forces the real mid-layer splice
+mechanism to actively fire on a genuinely clean (stock, non-occluded)
+frame by artificially marking 13% of the target's own real footprint
+as "occluded" each step -- directly testing whether an ACTIVELY FIRING
+correction harms a clean scene (the earlier non-regression check only
+showed the mechanism correctly declines to fire on its own,
+`n_correction_applied=0`).
+
+**Smoke test (n=3, task1 stock task_id=3)**: baseline 3/3 success
+(n_correction_applied=[0,0,0], as expected), oracle 3/3 success
+(**n_correction_applied=[28,30,36]** -- confirms the forced activation
+genuinely engages the real splice mechanism, not a silent no-op). No
+success-rate cost at this tiny n. Full n=20x3 evaluation
+(`force_oracle_task{1,6,8}_n20/`) launched; result in the next dated
+entry.
