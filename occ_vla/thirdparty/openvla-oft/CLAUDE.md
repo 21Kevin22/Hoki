@@ -2262,3 +2262,37 @@ that would need loading the trained vision_backbone+projector weights
 back into a real rollout, not yet done. Weights saved locally
 (`representation_alignment_smoke/vision_projector_weights.pt`, ~1.5GB,
 not committed to git -- `loss_log.json` and the manifest/code are).
+
+## Non-regression check complete: mid-layer completion never fires (and
+therefore never hurts) on stock LIBERO, per user's request to fill a
+missing 2x2-table cell (2026-08-22)
+
+`nonreg_stock_oracle_task{1,6,8}equiv_n20/`, n=20 each, `--use-stock-
+suite --conditions baseline oracle --midlayer-split-frac
+0.7272727272727273` (correct 16,18 depth). **Result: baseline and
+oracle are exactly identical on all 3 tasks, per-episode, 60/60
+matching pairs** (task1 95%/95%, task6 100%/100%, task8 95%/95%).
+
+**Honest caveat, stated clearly to avoid overclaiming**:
+`n_correction_applied=0` across every single one of the 60
+oracle-condition episodes -- the mid-layer correction is gated on real
+occlusion detection, and stock scenes have no occluder, so it never
+engages. This is a real, useful "doesn't misfire on clean scenes"
+result, cheap to obtain -- but it is NOT evidence that an ACTIVELY
+FIRING correction on a clean frame would be harmless; that's a
+different, untested claim that would need an artificially forced mask
+on a clean frame to test. Full table and this caveat filed in
+`NUMBERS_REFERENCE.md`.
+
+## Naive TTC-area blend evaluation (threshold=150, unTuned per user's
+explicit request) launched: task1/6/8, n=20 each (2026-08-22)
+
+Per the user's own explicit plan (do NOT tune further, get the naive
+n=20 baseline first, then do post-hoc failure-mode analysis on any
+success->failure flips to check for a "fired during 
+approach/grasp" pattern before considering state-dependent shielding,
+citing Alshiekh et al. AAAI 2018 / Thananjeyan et al. RA-L 2021 /
+Johannink et al. ICRA 2019 / Schoettler et al. RA-L 2020): launched
+`ttc_area_blend_task{1,6,8}_n20/`, `--conditions baseline
+ttc_area_blend --ttc-threshold 150`. Result not yet computed as of
+this entry -- see the next dated entry.

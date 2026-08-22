@@ -412,3 +412,32 @@ writing** -- see the next dated entry once it completes.
 - "no_collision" is a diagnostic/counterfactual intervention (disabling
   physical collision is not deployable on a real robot) -- present as
   a benchmark-decomposition finding, not a method result.
+
+## Non-regression check: mid-layer oracle(16,18) on STOCK (non-occluded)
+LIBERO, task1/6/8, n=20 each (2026-08-22)
+
+Per the user's explicit request to fill the missing cell of a 2x2
+table (occlusion x completion): does applying the mid-layer visual-
+completion mechanism to a scene with NO occlusion ever hurt success
+rate?
+
+| task | baseline (stock) | oracle(16,18) (stock) | per-episode match |
+|---|---|---|---|
+| task1 (stock task_id=3) | 95% (19/20) | 95% (19/20) | 20/20 identical |
+| task6 (stock task_id=1) | 100% (20/20) | 100% (20/20) | 20/20 identical |
+| task8 (stock task_id=6) | 95% (19/20) | 95% (19/20) | 20/20 identical |
+
+Source dirs: `nonreg_stock_oracle_task{1,6,8}equiv_n20/`.
+
+**Result: zero regression, exactly identical per-episode outcomes on
+all 3 tasks (60 episode pairs total).** But an important, honest
+caveat: `n_correction_applied` was **0 across all 60 oracle-condition
+episodes** -- the correction is gated on real occlusion detection
+(`occluded_pixel_mask.any()`), and a stock scene has no occluder at
+all, so the mechanism never engages by construction. **This shows "the
+mechanism doesn't accidentally fire and hurt clean scenes" (a real,
+useful, and cheap-to-obtain result), NOT "an actively-firing correction
+on a clean image is harmless"** -- the latter, stronger claim was not
+tested here and would need a different setup (e.g. an artificially
+forced small mask on a clean frame). Do not conflate the two framings
+in the presentation.
