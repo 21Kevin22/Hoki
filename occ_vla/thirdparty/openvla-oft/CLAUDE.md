@@ -2353,3 +2353,14 @@ mechanism correctly declines to fire, not that firing is harmless).
 
 Smoke test (n=3, task1 stock task_id=3, `--force-oracle-mask-frac
 0.13`) launched; result in the next dated entry once complete.
+
+## Forced-activation smoke test: clean, real engagement confirmed, n=20x3
+launched (2026-08-22)
+
+n=3, task1: baseline 3/3 (n_correction_applied=0 throughout, as
+expected), oracle 3/3 (**n_correction_applied=[28,30,36] per
+episode** -- confirms this is a real, actively-firing correction on a
+genuinely clean frame, not a silent no-op). No success-rate cost
+observed at this tiny n. Full n=20x3 (task1/6/8,
+`force_oracle_task{1,6,8}_n20/`) launched on all 3 GPUs; result in the
+next dated entry.
