@@ -874,6 +874,7 @@ def get_vla_action(
     occlusion_mask: Optional[torch.Tensor] = None,
     return_hidden_states: bool = False,
     return_attn_entropy: bool = False,
+    return_attn_map: bool = False,
 ) -> List[np.ndarray]:
     """
     Generate action predictions with the VLA policy.
@@ -908,10 +909,17 @@ def get_vla_action(
             docstring for the full rationale (2026-08-09, replaces the earlier
             rejected mask-geometry-only shape_confidence_gate). Default False is
             fully backward-compatible (return type unchanged, zero extra compute).
+        return_attn_map: occ_vla addition (2026-08-21), per user's Figure-A
+            divergence-analysis request -- same forward pass, but also
+            returns the raw per-patch attention map (np.ndarray,
+            (NUM_PATCHES,), NUM_PATCHES = per-image patch count *
+            num_images_in_input -- reshape per-image at the call site).
+            Default False, fully additive.
 
     Returns:
-        List[np.ndarray]: Predicted actions, or a tuple with `hidden_state` and/or
-        `attn_entropy` appended (in that order) per the two flags above.
+        List[np.ndarray]: Predicted actions, or a tuple with `hidden_state`,
+        `attn_entropy`, and/or `attn_map` appended (in that order) per the
+        three flags above.
     """
     with torch.inference_mode():
 
@@ -954,7 +962,8 @@ def get_vla_action(
         if action_head is None:
             # Standard VLA output (single-image inputs, discrete actions)
             action, actions_hidden_states = vla.predict_action(
-                **inputs, unnorm_key=cfg.unnorm_key, do_sample=False, output_attentions=return_attn_entropy
+                **inputs, unnorm_key=cfg.unnorm_key, do_sample=False,
+                output_attentions=return_attn_entropy, output_attn_map=return_attn_map,
             )
         else:
             # Custom action head for continuous actions
@@ -969,11 +978,20 @@ def get_vla_action(
                 use_film=use_film,
                 occlusion_mask=occlusion_mask,
                 output_attentions=return_attn_entropy,
+                output_attn_map=return_attn_map,
             )
         attn_entropy = getattr(vla, "_last_action_attn_entropy", None) if return_attn_entropy else None
+        attn_map = getattr(vla, "_last_action_attn_map", None) if return_attn_map else None
 
     # Return action chunk as list of actions
     action_list = [action[i] for i in range(len(action))]
+    if return_attn_map:
+        extras = [x for x in (
+            actions_hidden_states.mean(dim=1).squeeze(0).float().cpu().numpy() if return_hidden_states else None,
+            attn_entropy if return_attn_entropy else None,
+            attn_map,
+        ) if x is not None]
+        return (action_list, *extras)
     if return_hidden_states and return_attn_entropy:
         hidden_state_vec = actions_hidden_states.mean(dim=1).squeeze(0).float().cpu().numpy()  # (D,)
         return action_list, hidden_state_vec, attn_entropy

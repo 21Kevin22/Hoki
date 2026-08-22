@@ -1119,8 +1119,19 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         return curr_noisy_actions.float().cpu().detach().numpy(), actions_hidden_states
 
     @staticmethod
-    def _compute_action_patch_attn_entropy(attentions, NUM_PATCHES, NUM_PROMPT_TOKENS):
-        """attentions: tuple of (B, num_heads, seq_len, seq_len) per-layer tensors from
+    def _compute_action_patch_attn_entropy(attentions, NUM_PATCHES, NUM_PROMPT_TOKENS, return_map=False):
+        """occ_vla addition (2026-08-21), per user's Figure-A divergence-
+        analysis request: `return_map=True` additionally returns the raw
+        per-patch attention DISTRIBUTION (the `probs` tensor below,
+        averaged over batch/heads/action-tokens down to a (NUM_PATCHES,)
+        vector) instead of only the scalar entropy reduction -- this is
+        the actual visualizable "where is the model looking" map,
+        reshapable into whatever patch grid this vision backbone uses
+        (identify NUM_PATCHES's sqrt/known grid shape at the call site;
+        not assumed here since this function is otherwise
+        vision-backbone-agnostic). Purely additive: default False keeps
+        the original scalar-only return signature used everywhere else.
+        attentions: tuple of (B, num_heads, seq_len, seq_len) per-layer tensors from
         self.language_model(output_attentions=True). Sequence layout is
         [BOS(1)][vision patches(NUM_PATCHES)][rest] (see _build_multimodal_attention), so vision
         patch KEY positions are the 0-indexed slice [1 : 1+NUM_PATCHES] regardless of chunk length.
@@ -1142,6 +1153,13 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         entropy = -(probs * (probs.clamp_min(1e-12)).log()).sum(dim=-1)  # (B, H, A)
         max_entropy = torch.log(torch.tensor(float(NUM_PATCHES), device=entropy.device))
         normalized_entropy = (entropy / max_entropy.clamp_min(1e-8)).mean()
+        if return_map:
+            # Mean over batch, heads, and action-token query positions ->
+            # (NUM_PATCHES,) -- "how much attention mass, on average,
+            # lands on each vision patch when the model is about to emit
+            # an action." Caller reshapes into the true patch grid.
+            patch_map = probs.mean(dim=(0, 1, 2)).float().cpu().detach().numpy()
+            return float(normalized_entropy.item()), patch_map
         return float(normalized_entropy.item())
 
     def _regression_or_discrete_prediction(
@@ -1155,8 +1173,15 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         NUM_PROMPT_TOKENS,
         action_head=None,
         output_attentions=False,
+        output_attn_map=False,
     ):
         """Run L1 regression-based continuous action prediction or discrete action tokens prediction.
+
+        output_attn_map: occ_vla addition (2026-08-21) -- if True (implies
+            output_attentions=True internally), also stashes the raw
+            per-patch attention map on `self._last_action_attn_map`
+            (numpy (NUM_PATCHES,), see `_compute_action_patch_attn_entropy`'s
+            `return_map` docstring). Default False, fully additive.
 
         output_attentions: if True, also computes and stashes on `self._last_action_attn_entropy`
             (float, normalized to [0,1]) the mean entropy of the action tokens' own self-attention
@@ -1187,16 +1212,22 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
             inputs_embeds=multimodal_embeddings,
             labels=None,
             use_cache=None,
-            output_attentions=output_attentions,
+            output_attentions=output_attentions or output_attn_map,
             output_hidden_states=True,
             return_dict=True,
         )
 
         self._last_action_attn_entropy = None
-        if output_attentions and language_model_output.attentions is not None:
-            self._last_action_attn_entropy = self._compute_action_patch_attn_entropy(
-                language_model_output.attentions, NUM_PATCHES, NUM_PROMPT_TOKENS
-            )
+        self._last_action_attn_map = None
+        if (output_attentions or output_attn_map) and language_model_output.attentions is not None:
+            if output_attn_map:
+                self._last_action_attn_entropy, self._last_action_attn_map = self._compute_action_patch_attn_entropy(
+                    language_model_output.attentions, NUM_PATCHES, NUM_PROMPT_TOKENS, return_map=True
+                )
+            else:
+                self._last_action_attn_entropy = self._compute_action_patch_attn_entropy(
+                    language_model_output.attentions, NUM_PATCHES, NUM_PROMPT_TOKENS
+                )
 
         # Extract hidden states for action tokens
         last_hidden_states = language_model_output.hidden_states[-1]  # (B, seq_len, D)
@@ -1241,6 +1272,7 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         use_film: bool = False,
         occlusion_mask=None,
         output_attentions: bool = False,
+        output_attn_map: bool = False,
         **kwargs: str,
     ) -> np.ndarray:
         """Predict actions from input sequence, with options for different prediction methods.
@@ -1370,6 +1402,7 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
                 NUM_PROMPT_TOKENS,
                 action_head,
                 output_attentions=output_attentions,
+                output_attn_map=output_attn_map,
             )
 
         # Unnormalize predicted actions
