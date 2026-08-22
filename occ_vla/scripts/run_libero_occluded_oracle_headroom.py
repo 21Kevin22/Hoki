@@ -1492,6 +1492,13 @@ def main():
                               "step (any condition, occluded or not) -- candidate gate signal: does "
                               "baseline's own attention entropy predict eventual episode "
                               "success/failure, per user request 2026-08-19.")
+    parser.add_argument("--load-vision-weights", default=None,
+                         help="occ_vla addition 2026-08-22, per user's request to evaluate "
+                              "train_representation_alignment.py's output in a real rollout: path to "
+                              "a saved vision_backbone+projector state dict (torch.save'd partial "
+                              "dict, see that script's own --out-adapter). Loaded with strict=False "
+                              "right after the base checkpoint loads (the frozen language_model is "
+                              "left untouched). None (default) is the unmodified base checkpoint.")
     parser.add_argument("--force-oracle-mask-frac", type=float, default=None,
                          help="occ_vla addition 2026-08-22, per user's priority request: the FORCED-"
                               "ACTIVATION non-regression check. On a scene with NO real occluder "
@@ -1589,6 +1596,30 @@ def main():
     set_seed_everywhere(cfg.seed)
     print(f"Loading model from {cfg.pretrained_checkpoint} ...")
     model = get_model(cfg)
+    # occ_vla addition (2026-08-22), per user's request to evaluate the
+    # trained representation-alignment weights (vision_backbone +
+    # projector, from train_representation_alignment.py) in a REAL
+    # occluded-suite rollout, not just a training-loss check: load the
+    # saved state dict (a partial dict -- only the params that had
+    # requires_grad=True during training, i.e. vision_backbone +
+    # projector; the frozen language_model is untouched) with
+    # strict=False, since it deliberately does not cover every model
+    # parameter.
+    if args.load_vision_weights:
+        print(f"  [vision-weights] loading trained vision_backbone+projector from {args.load_vision_weights}")
+        state_dict = torch.load(args.load_vision_weights, map_location="cpu")
+        missing, unexpected = model.load_state_dict(state_dict, strict=False)
+        # `unexpected` (keys in state_dict not matching any real model
+        # param) is the meaningful failure signal here -- `missing` is
+        # EXPECTED to be large (every frozen language_model param not
+        # covered by this partial state_dict), not itself an error.
+        print(f"  [vision-weights] loaded {len(state_dict)} tensors, "
+              f"{len(unexpected)} unexpected keys (should be 0), "
+              f"{len(missing)} model params left at their base-checkpoint value (expected -- the frozen LLM)")
+        assert len(unexpected) == 0, f"vision weight load found keys not in the model: {unexpected[:5]}"
+        loaded_names = set(state_dict.keys())
+        applied_correctly = loaded_names.isdisjoint(set(missing))
+        assert applied_correctly, "some trained vision weights were NOT applied -- check param name mismatch"
     proprio_projector = get_proprio_projector(cfg, model.llm_dim, proprio_dim=8)
     action_head = get_action_head(cfg, model.llm_dim)
     processor = get_processor(cfg)
