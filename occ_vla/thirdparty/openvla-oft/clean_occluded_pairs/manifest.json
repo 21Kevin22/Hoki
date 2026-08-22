@@ -1,0 +1,2402 @@
+[
+  {
+    "uid": "task1_ep0_s0",
+    "task_id": 1,
+    "episode": 0,
+    "step": 0,
+    "occ_path": "task1_ep0_s0_occ.png",
+    "clean_path": "task1_ep0_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s1",
+    "task_id": 1,
+    "episode": 0,
+    "step": 1,
+    "occ_path": "task1_ep0_s1_occ.png",
+    "clean_path": "task1_ep0_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s2",
+    "task_id": 1,
+    "episode": 0,
+    "step": 2,
+    "occ_path": "task1_ep0_s2_occ.png",
+    "clean_path": "task1_ep0_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s3",
+    "task_id": 1,
+    "episode": 0,
+    "step": 3,
+    "occ_path": "task1_ep0_s3_occ.png",
+    "clean_path": "task1_ep0_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s4",
+    "task_id": 1,
+    "episode": 0,
+    "step": 4,
+    "occ_path": "task1_ep0_s4_occ.png",
+    "clean_path": "task1_ep0_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s5",
+    "task_id": 1,
+    "episode": 0,
+    "step": 5,
+    "occ_path": "task1_ep0_s5_occ.png",
+    "clean_path": "task1_ep0_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s6",
+    "task_id": 1,
+    "episode": 0,
+    "step": 6,
+    "occ_path": "task1_ep0_s6_occ.png",
+    "clean_path": "task1_ep0_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s7",
+    "task_id": 1,
+    "episode": 0,
+    "step": 7,
+    "occ_path": "task1_ep0_s7_occ.png",
+    "clean_path": "task1_ep0_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s8",
+    "task_id": 1,
+    "episode": 0,
+    "step": 8,
+    "occ_path": "task1_ep0_s8_occ.png",
+    "clean_path": "task1_ep0_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep0_s9",
+    "task_id": 1,
+    "episode": 0,
+    "step": 9,
+    "occ_path": "task1_ep0_s9_occ.png",
+    "clean_path": "task1_ep0_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s0",
+    "task_id": 1,
+    "episode": 1,
+    "step": 0,
+    "occ_path": "task1_ep1_s0_occ.png",
+    "clean_path": "task1_ep1_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s1",
+    "task_id": 1,
+    "episode": 1,
+    "step": 1,
+    "occ_path": "task1_ep1_s1_occ.png",
+    "clean_path": "task1_ep1_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s2",
+    "task_id": 1,
+    "episode": 1,
+    "step": 2,
+    "occ_path": "task1_ep1_s2_occ.png",
+    "clean_path": "task1_ep1_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s3",
+    "task_id": 1,
+    "episode": 1,
+    "step": 3,
+    "occ_path": "task1_ep1_s3_occ.png",
+    "clean_path": "task1_ep1_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s4",
+    "task_id": 1,
+    "episode": 1,
+    "step": 4,
+    "occ_path": "task1_ep1_s4_occ.png",
+    "clean_path": "task1_ep1_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s5",
+    "task_id": 1,
+    "episode": 1,
+    "step": 5,
+    "occ_path": "task1_ep1_s5_occ.png",
+    "clean_path": "task1_ep1_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s6",
+    "task_id": 1,
+    "episode": 1,
+    "step": 6,
+    "occ_path": "task1_ep1_s6_occ.png",
+    "clean_path": "task1_ep1_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s7",
+    "task_id": 1,
+    "episode": 1,
+    "step": 7,
+    "occ_path": "task1_ep1_s7_occ.png",
+    "clean_path": "task1_ep1_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s8",
+    "task_id": 1,
+    "episode": 1,
+    "step": 8,
+    "occ_path": "task1_ep1_s8_occ.png",
+    "clean_path": "task1_ep1_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep1_s9",
+    "task_id": 1,
+    "episode": 1,
+    "step": 9,
+    "occ_path": "task1_ep1_s9_occ.png",
+    "clean_path": "task1_ep1_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s0",
+    "task_id": 1,
+    "episode": 2,
+    "step": 0,
+    "occ_path": "task1_ep2_s0_occ.png",
+    "clean_path": "task1_ep2_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s1",
+    "task_id": 1,
+    "episode": 2,
+    "step": 1,
+    "occ_path": "task1_ep2_s1_occ.png",
+    "clean_path": "task1_ep2_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s2",
+    "task_id": 1,
+    "episode": 2,
+    "step": 2,
+    "occ_path": "task1_ep2_s2_occ.png",
+    "clean_path": "task1_ep2_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s3",
+    "task_id": 1,
+    "episode": 2,
+    "step": 3,
+    "occ_path": "task1_ep2_s3_occ.png",
+    "clean_path": "task1_ep2_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s4",
+    "task_id": 1,
+    "episode": 2,
+    "step": 4,
+    "occ_path": "task1_ep2_s4_occ.png",
+    "clean_path": "task1_ep2_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s5",
+    "task_id": 1,
+    "episode": 2,
+    "step": 5,
+    "occ_path": "task1_ep2_s5_occ.png",
+    "clean_path": "task1_ep2_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s6",
+    "task_id": 1,
+    "episode": 2,
+    "step": 6,
+    "occ_path": "task1_ep2_s6_occ.png",
+    "clean_path": "task1_ep2_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s7",
+    "task_id": 1,
+    "episode": 2,
+    "step": 7,
+    "occ_path": "task1_ep2_s7_occ.png",
+    "clean_path": "task1_ep2_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s8",
+    "task_id": 1,
+    "episode": 2,
+    "step": 8,
+    "occ_path": "task1_ep2_s8_occ.png",
+    "clean_path": "task1_ep2_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep2_s9",
+    "task_id": 1,
+    "episode": 2,
+    "step": 9,
+    "occ_path": "task1_ep2_s9_occ.png",
+    "clean_path": "task1_ep2_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s0",
+    "task_id": 1,
+    "episode": 3,
+    "step": 0,
+    "occ_path": "task1_ep3_s0_occ.png",
+    "clean_path": "task1_ep3_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s1",
+    "task_id": 1,
+    "episode": 3,
+    "step": 1,
+    "occ_path": "task1_ep3_s1_occ.png",
+    "clean_path": "task1_ep3_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s2",
+    "task_id": 1,
+    "episode": 3,
+    "step": 2,
+    "occ_path": "task1_ep3_s2_occ.png",
+    "clean_path": "task1_ep3_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s3",
+    "task_id": 1,
+    "episode": 3,
+    "step": 3,
+    "occ_path": "task1_ep3_s3_occ.png",
+    "clean_path": "task1_ep3_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s4",
+    "task_id": 1,
+    "episode": 3,
+    "step": 4,
+    "occ_path": "task1_ep3_s4_occ.png",
+    "clean_path": "task1_ep3_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s5",
+    "task_id": 1,
+    "episode": 3,
+    "step": 5,
+    "occ_path": "task1_ep3_s5_occ.png",
+    "clean_path": "task1_ep3_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s6",
+    "task_id": 1,
+    "episode": 3,
+    "step": 6,
+    "occ_path": "task1_ep3_s6_occ.png",
+    "clean_path": "task1_ep3_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s7",
+    "task_id": 1,
+    "episode": 3,
+    "step": 7,
+    "occ_path": "task1_ep3_s7_occ.png",
+    "clean_path": "task1_ep3_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s8",
+    "task_id": 1,
+    "episode": 3,
+    "step": 8,
+    "occ_path": "task1_ep3_s8_occ.png",
+    "clean_path": "task1_ep3_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep3_s9",
+    "task_id": 1,
+    "episode": 3,
+    "step": 9,
+    "occ_path": "task1_ep3_s9_occ.png",
+    "clean_path": "task1_ep3_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s0",
+    "task_id": 1,
+    "episode": 4,
+    "step": 0,
+    "occ_path": "task1_ep4_s0_occ.png",
+    "clean_path": "task1_ep4_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s1",
+    "task_id": 1,
+    "episode": 4,
+    "step": 1,
+    "occ_path": "task1_ep4_s1_occ.png",
+    "clean_path": "task1_ep4_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s2",
+    "task_id": 1,
+    "episode": 4,
+    "step": 2,
+    "occ_path": "task1_ep4_s2_occ.png",
+    "clean_path": "task1_ep4_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s3",
+    "task_id": 1,
+    "episode": 4,
+    "step": 3,
+    "occ_path": "task1_ep4_s3_occ.png",
+    "clean_path": "task1_ep4_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s4",
+    "task_id": 1,
+    "episode": 4,
+    "step": 4,
+    "occ_path": "task1_ep4_s4_occ.png",
+    "clean_path": "task1_ep4_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s5",
+    "task_id": 1,
+    "episode": 4,
+    "step": 5,
+    "occ_path": "task1_ep4_s5_occ.png",
+    "clean_path": "task1_ep4_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s6",
+    "task_id": 1,
+    "episode": 4,
+    "step": 6,
+    "occ_path": "task1_ep4_s6_occ.png",
+    "clean_path": "task1_ep4_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s7",
+    "task_id": 1,
+    "episode": 4,
+    "step": 7,
+    "occ_path": "task1_ep4_s7_occ.png",
+    "clean_path": "task1_ep4_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s8",
+    "task_id": 1,
+    "episode": 4,
+    "step": 8,
+    "occ_path": "task1_ep4_s8_occ.png",
+    "clean_path": "task1_ep4_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep4_s9",
+    "task_id": 1,
+    "episode": 4,
+    "step": 9,
+    "occ_path": "task1_ep4_s9_occ.png",
+    "clean_path": "task1_ep4_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s0",
+    "task_id": 1,
+    "episode": 5,
+    "step": 0,
+    "occ_path": "task1_ep5_s0_occ.png",
+    "clean_path": "task1_ep5_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s1",
+    "task_id": 1,
+    "episode": 5,
+    "step": 1,
+    "occ_path": "task1_ep5_s1_occ.png",
+    "clean_path": "task1_ep5_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s2",
+    "task_id": 1,
+    "episode": 5,
+    "step": 2,
+    "occ_path": "task1_ep5_s2_occ.png",
+    "clean_path": "task1_ep5_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s3",
+    "task_id": 1,
+    "episode": 5,
+    "step": 3,
+    "occ_path": "task1_ep5_s3_occ.png",
+    "clean_path": "task1_ep5_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s4",
+    "task_id": 1,
+    "episode": 5,
+    "step": 4,
+    "occ_path": "task1_ep5_s4_occ.png",
+    "clean_path": "task1_ep5_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s5",
+    "task_id": 1,
+    "episode": 5,
+    "step": 5,
+    "occ_path": "task1_ep5_s5_occ.png",
+    "clean_path": "task1_ep5_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s6",
+    "task_id": 1,
+    "episode": 5,
+    "step": 6,
+    "occ_path": "task1_ep5_s6_occ.png",
+    "clean_path": "task1_ep5_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s7",
+    "task_id": 1,
+    "episode": 5,
+    "step": 7,
+    "occ_path": "task1_ep5_s7_occ.png",
+    "clean_path": "task1_ep5_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s8",
+    "task_id": 1,
+    "episode": 5,
+    "step": 8,
+    "occ_path": "task1_ep5_s8_occ.png",
+    "clean_path": "task1_ep5_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep5_s9",
+    "task_id": 1,
+    "episode": 5,
+    "step": 9,
+    "occ_path": "task1_ep5_s9_occ.png",
+    "clean_path": "task1_ep5_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s0",
+    "task_id": 1,
+    "episode": 6,
+    "step": 0,
+    "occ_path": "task1_ep6_s0_occ.png",
+    "clean_path": "task1_ep6_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s1",
+    "task_id": 1,
+    "episode": 6,
+    "step": 1,
+    "occ_path": "task1_ep6_s1_occ.png",
+    "clean_path": "task1_ep6_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s2",
+    "task_id": 1,
+    "episode": 6,
+    "step": 2,
+    "occ_path": "task1_ep6_s2_occ.png",
+    "clean_path": "task1_ep6_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s3",
+    "task_id": 1,
+    "episode": 6,
+    "step": 3,
+    "occ_path": "task1_ep6_s3_occ.png",
+    "clean_path": "task1_ep6_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s4",
+    "task_id": 1,
+    "episode": 6,
+    "step": 4,
+    "occ_path": "task1_ep6_s4_occ.png",
+    "clean_path": "task1_ep6_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s5",
+    "task_id": 1,
+    "episode": 6,
+    "step": 5,
+    "occ_path": "task1_ep6_s5_occ.png",
+    "clean_path": "task1_ep6_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s6",
+    "task_id": 1,
+    "episode": 6,
+    "step": 6,
+    "occ_path": "task1_ep6_s6_occ.png",
+    "clean_path": "task1_ep6_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s7",
+    "task_id": 1,
+    "episode": 6,
+    "step": 7,
+    "occ_path": "task1_ep6_s7_occ.png",
+    "clean_path": "task1_ep6_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s8",
+    "task_id": 1,
+    "episode": 6,
+    "step": 8,
+    "occ_path": "task1_ep6_s8_occ.png",
+    "clean_path": "task1_ep6_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep6_s9",
+    "task_id": 1,
+    "episode": 6,
+    "step": 9,
+    "occ_path": "task1_ep6_s9_occ.png",
+    "clean_path": "task1_ep6_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s0",
+    "task_id": 1,
+    "episode": 7,
+    "step": 0,
+    "occ_path": "task1_ep7_s0_occ.png",
+    "clean_path": "task1_ep7_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s1",
+    "task_id": 1,
+    "episode": 7,
+    "step": 1,
+    "occ_path": "task1_ep7_s1_occ.png",
+    "clean_path": "task1_ep7_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s2",
+    "task_id": 1,
+    "episode": 7,
+    "step": 2,
+    "occ_path": "task1_ep7_s2_occ.png",
+    "clean_path": "task1_ep7_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s3",
+    "task_id": 1,
+    "episode": 7,
+    "step": 3,
+    "occ_path": "task1_ep7_s3_occ.png",
+    "clean_path": "task1_ep7_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s4",
+    "task_id": 1,
+    "episode": 7,
+    "step": 4,
+    "occ_path": "task1_ep7_s4_occ.png",
+    "clean_path": "task1_ep7_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s5",
+    "task_id": 1,
+    "episode": 7,
+    "step": 5,
+    "occ_path": "task1_ep7_s5_occ.png",
+    "clean_path": "task1_ep7_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s6",
+    "task_id": 1,
+    "episode": 7,
+    "step": 6,
+    "occ_path": "task1_ep7_s6_occ.png",
+    "clean_path": "task1_ep7_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s7",
+    "task_id": 1,
+    "episode": 7,
+    "step": 7,
+    "occ_path": "task1_ep7_s7_occ.png",
+    "clean_path": "task1_ep7_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s8",
+    "task_id": 1,
+    "episode": 7,
+    "step": 8,
+    "occ_path": "task1_ep7_s8_occ.png",
+    "clean_path": "task1_ep7_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep7_s9",
+    "task_id": 1,
+    "episode": 7,
+    "step": 9,
+    "occ_path": "task1_ep7_s9_occ.png",
+    "clean_path": "task1_ep7_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s0",
+    "task_id": 1,
+    "episode": 8,
+    "step": 0,
+    "occ_path": "task1_ep8_s0_occ.png",
+    "clean_path": "task1_ep8_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s1",
+    "task_id": 1,
+    "episode": 8,
+    "step": 1,
+    "occ_path": "task1_ep8_s1_occ.png",
+    "clean_path": "task1_ep8_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s2",
+    "task_id": 1,
+    "episode": 8,
+    "step": 2,
+    "occ_path": "task1_ep8_s2_occ.png",
+    "clean_path": "task1_ep8_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s3",
+    "task_id": 1,
+    "episode": 8,
+    "step": 3,
+    "occ_path": "task1_ep8_s3_occ.png",
+    "clean_path": "task1_ep8_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s4",
+    "task_id": 1,
+    "episode": 8,
+    "step": 4,
+    "occ_path": "task1_ep8_s4_occ.png",
+    "clean_path": "task1_ep8_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s5",
+    "task_id": 1,
+    "episode": 8,
+    "step": 5,
+    "occ_path": "task1_ep8_s5_occ.png",
+    "clean_path": "task1_ep8_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s6",
+    "task_id": 1,
+    "episode": 8,
+    "step": 6,
+    "occ_path": "task1_ep8_s6_occ.png",
+    "clean_path": "task1_ep8_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s7",
+    "task_id": 1,
+    "episode": 8,
+    "step": 7,
+    "occ_path": "task1_ep8_s7_occ.png",
+    "clean_path": "task1_ep8_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s8",
+    "task_id": 1,
+    "episode": 8,
+    "step": 8,
+    "occ_path": "task1_ep8_s8_occ.png",
+    "clean_path": "task1_ep8_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep8_s9",
+    "task_id": 1,
+    "episode": 8,
+    "step": 9,
+    "occ_path": "task1_ep8_s9_occ.png",
+    "clean_path": "task1_ep8_s9_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s0",
+    "task_id": 1,
+    "episode": 9,
+    "step": 0,
+    "occ_path": "task1_ep9_s0_occ.png",
+    "clean_path": "task1_ep9_s0_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s1",
+    "task_id": 1,
+    "episode": 9,
+    "step": 1,
+    "occ_path": "task1_ep9_s1_occ.png",
+    "clean_path": "task1_ep9_s1_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s2",
+    "task_id": 1,
+    "episode": 9,
+    "step": 2,
+    "occ_path": "task1_ep9_s2_occ.png",
+    "clean_path": "task1_ep9_s2_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s3",
+    "task_id": 1,
+    "episode": 9,
+    "step": 3,
+    "occ_path": "task1_ep9_s3_occ.png",
+    "clean_path": "task1_ep9_s3_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s4",
+    "task_id": 1,
+    "episode": 9,
+    "step": 4,
+    "occ_path": "task1_ep9_s4_occ.png",
+    "clean_path": "task1_ep9_s4_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s5",
+    "task_id": 1,
+    "episode": 9,
+    "step": 5,
+    "occ_path": "task1_ep9_s5_occ.png",
+    "clean_path": "task1_ep9_s5_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s6",
+    "task_id": 1,
+    "episode": 9,
+    "step": 6,
+    "occ_path": "task1_ep9_s6_occ.png",
+    "clean_path": "task1_ep9_s6_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s7",
+    "task_id": 1,
+    "episode": 9,
+    "step": 7,
+    "occ_path": "task1_ep9_s7_occ.png",
+    "clean_path": "task1_ep9_s7_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s8",
+    "task_id": 1,
+    "episode": 9,
+    "step": 8,
+    "occ_path": "task1_ep9_s8_occ.png",
+    "clean_path": "task1_ep9_s8_clean.png"
+  },
+  {
+    "uid": "task1_ep9_s9",
+    "task_id": 1,
+    "episode": 9,
+    "step": 9,
+    "occ_path": "task1_ep9_s9_occ.png",
+    "clean_path": "task1_ep9_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s0",
+    "task_id": 6,
+    "episode": 0,
+    "step": 0,
+    "occ_path": "task6_ep0_s0_occ.png",
+    "clean_path": "task6_ep0_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s1",
+    "task_id": 6,
+    "episode": 0,
+    "step": 1,
+    "occ_path": "task6_ep0_s1_occ.png",
+    "clean_path": "task6_ep0_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s2",
+    "task_id": 6,
+    "episode": 0,
+    "step": 2,
+    "occ_path": "task6_ep0_s2_occ.png",
+    "clean_path": "task6_ep0_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s3",
+    "task_id": 6,
+    "episode": 0,
+    "step": 3,
+    "occ_path": "task6_ep0_s3_occ.png",
+    "clean_path": "task6_ep0_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s4",
+    "task_id": 6,
+    "episode": 0,
+    "step": 4,
+    "occ_path": "task6_ep0_s4_occ.png",
+    "clean_path": "task6_ep0_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s5",
+    "task_id": 6,
+    "episode": 0,
+    "step": 5,
+    "occ_path": "task6_ep0_s5_occ.png",
+    "clean_path": "task6_ep0_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s6",
+    "task_id": 6,
+    "episode": 0,
+    "step": 6,
+    "occ_path": "task6_ep0_s6_occ.png",
+    "clean_path": "task6_ep0_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s7",
+    "task_id": 6,
+    "episode": 0,
+    "step": 7,
+    "occ_path": "task6_ep0_s7_occ.png",
+    "clean_path": "task6_ep0_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s8",
+    "task_id": 6,
+    "episode": 0,
+    "step": 8,
+    "occ_path": "task6_ep0_s8_occ.png",
+    "clean_path": "task6_ep0_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep0_s9",
+    "task_id": 6,
+    "episode": 0,
+    "step": 9,
+    "occ_path": "task6_ep0_s9_occ.png",
+    "clean_path": "task6_ep0_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s0",
+    "task_id": 6,
+    "episode": 1,
+    "step": 0,
+    "occ_path": "task6_ep1_s0_occ.png",
+    "clean_path": "task6_ep1_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s1",
+    "task_id": 6,
+    "episode": 1,
+    "step": 1,
+    "occ_path": "task6_ep1_s1_occ.png",
+    "clean_path": "task6_ep1_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s2",
+    "task_id": 6,
+    "episode": 1,
+    "step": 2,
+    "occ_path": "task6_ep1_s2_occ.png",
+    "clean_path": "task6_ep1_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s3",
+    "task_id": 6,
+    "episode": 1,
+    "step": 3,
+    "occ_path": "task6_ep1_s3_occ.png",
+    "clean_path": "task6_ep1_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s4",
+    "task_id": 6,
+    "episode": 1,
+    "step": 4,
+    "occ_path": "task6_ep1_s4_occ.png",
+    "clean_path": "task6_ep1_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s5",
+    "task_id": 6,
+    "episode": 1,
+    "step": 5,
+    "occ_path": "task6_ep1_s5_occ.png",
+    "clean_path": "task6_ep1_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s6",
+    "task_id": 6,
+    "episode": 1,
+    "step": 6,
+    "occ_path": "task6_ep1_s6_occ.png",
+    "clean_path": "task6_ep1_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s7",
+    "task_id": 6,
+    "episode": 1,
+    "step": 7,
+    "occ_path": "task6_ep1_s7_occ.png",
+    "clean_path": "task6_ep1_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s8",
+    "task_id": 6,
+    "episode": 1,
+    "step": 8,
+    "occ_path": "task6_ep1_s8_occ.png",
+    "clean_path": "task6_ep1_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep1_s9",
+    "task_id": 6,
+    "episode": 1,
+    "step": 9,
+    "occ_path": "task6_ep1_s9_occ.png",
+    "clean_path": "task6_ep1_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s0",
+    "task_id": 6,
+    "episode": 2,
+    "step": 0,
+    "occ_path": "task6_ep2_s0_occ.png",
+    "clean_path": "task6_ep2_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s1",
+    "task_id": 6,
+    "episode": 2,
+    "step": 1,
+    "occ_path": "task6_ep2_s1_occ.png",
+    "clean_path": "task6_ep2_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s2",
+    "task_id": 6,
+    "episode": 2,
+    "step": 2,
+    "occ_path": "task6_ep2_s2_occ.png",
+    "clean_path": "task6_ep2_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s3",
+    "task_id": 6,
+    "episode": 2,
+    "step": 3,
+    "occ_path": "task6_ep2_s3_occ.png",
+    "clean_path": "task6_ep2_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s4",
+    "task_id": 6,
+    "episode": 2,
+    "step": 4,
+    "occ_path": "task6_ep2_s4_occ.png",
+    "clean_path": "task6_ep2_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s5",
+    "task_id": 6,
+    "episode": 2,
+    "step": 5,
+    "occ_path": "task6_ep2_s5_occ.png",
+    "clean_path": "task6_ep2_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s6",
+    "task_id": 6,
+    "episode": 2,
+    "step": 6,
+    "occ_path": "task6_ep2_s6_occ.png",
+    "clean_path": "task6_ep2_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s7",
+    "task_id": 6,
+    "episode": 2,
+    "step": 7,
+    "occ_path": "task6_ep2_s7_occ.png",
+    "clean_path": "task6_ep2_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s8",
+    "task_id": 6,
+    "episode": 2,
+    "step": 8,
+    "occ_path": "task6_ep2_s8_occ.png",
+    "clean_path": "task6_ep2_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep2_s9",
+    "task_id": 6,
+    "episode": 2,
+    "step": 9,
+    "occ_path": "task6_ep2_s9_occ.png",
+    "clean_path": "task6_ep2_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s0",
+    "task_id": 6,
+    "episode": 3,
+    "step": 0,
+    "occ_path": "task6_ep3_s0_occ.png",
+    "clean_path": "task6_ep3_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s1",
+    "task_id": 6,
+    "episode": 3,
+    "step": 1,
+    "occ_path": "task6_ep3_s1_occ.png",
+    "clean_path": "task6_ep3_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s2",
+    "task_id": 6,
+    "episode": 3,
+    "step": 2,
+    "occ_path": "task6_ep3_s2_occ.png",
+    "clean_path": "task6_ep3_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s3",
+    "task_id": 6,
+    "episode": 3,
+    "step": 3,
+    "occ_path": "task6_ep3_s3_occ.png",
+    "clean_path": "task6_ep3_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s4",
+    "task_id": 6,
+    "episode": 3,
+    "step": 4,
+    "occ_path": "task6_ep3_s4_occ.png",
+    "clean_path": "task6_ep3_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s5",
+    "task_id": 6,
+    "episode": 3,
+    "step": 5,
+    "occ_path": "task6_ep3_s5_occ.png",
+    "clean_path": "task6_ep3_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s6",
+    "task_id": 6,
+    "episode": 3,
+    "step": 6,
+    "occ_path": "task6_ep3_s6_occ.png",
+    "clean_path": "task6_ep3_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s7",
+    "task_id": 6,
+    "episode": 3,
+    "step": 7,
+    "occ_path": "task6_ep3_s7_occ.png",
+    "clean_path": "task6_ep3_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s8",
+    "task_id": 6,
+    "episode": 3,
+    "step": 8,
+    "occ_path": "task6_ep3_s8_occ.png",
+    "clean_path": "task6_ep3_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep3_s9",
+    "task_id": 6,
+    "episode": 3,
+    "step": 9,
+    "occ_path": "task6_ep3_s9_occ.png",
+    "clean_path": "task6_ep3_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s0",
+    "task_id": 6,
+    "episode": 4,
+    "step": 0,
+    "occ_path": "task6_ep4_s0_occ.png",
+    "clean_path": "task6_ep4_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s1",
+    "task_id": 6,
+    "episode": 4,
+    "step": 1,
+    "occ_path": "task6_ep4_s1_occ.png",
+    "clean_path": "task6_ep4_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s2",
+    "task_id": 6,
+    "episode": 4,
+    "step": 2,
+    "occ_path": "task6_ep4_s2_occ.png",
+    "clean_path": "task6_ep4_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s3",
+    "task_id": 6,
+    "episode": 4,
+    "step": 3,
+    "occ_path": "task6_ep4_s3_occ.png",
+    "clean_path": "task6_ep4_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s4",
+    "task_id": 6,
+    "episode": 4,
+    "step": 4,
+    "occ_path": "task6_ep4_s4_occ.png",
+    "clean_path": "task6_ep4_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s5",
+    "task_id": 6,
+    "episode": 4,
+    "step": 5,
+    "occ_path": "task6_ep4_s5_occ.png",
+    "clean_path": "task6_ep4_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s6",
+    "task_id": 6,
+    "episode": 4,
+    "step": 6,
+    "occ_path": "task6_ep4_s6_occ.png",
+    "clean_path": "task6_ep4_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s7",
+    "task_id": 6,
+    "episode": 4,
+    "step": 7,
+    "occ_path": "task6_ep4_s7_occ.png",
+    "clean_path": "task6_ep4_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s8",
+    "task_id": 6,
+    "episode": 4,
+    "step": 8,
+    "occ_path": "task6_ep4_s8_occ.png",
+    "clean_path": "task6_ep4_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep4_s9",
+    "task_id": 6,
+    "episode": 4,
+    "step": 9,
+    "occ_path": "task6_ep4_s9_occ.png",
+    "clean_path": "task6_ep4_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s0",
+    "task_id": 6,
+    "episode": 5,
+    "step": 0,
+    "occ_path": "task6_ep5_s0_occ.png",
+    "clean_path": "task6_ep5_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s1",
+    "task_id": 6,
+    "episode": 5,
+    "step": 1,
+    "occ_path": "task6_ep5_s1_occ.png",
+    "clean_path": "task6_ep5_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s2",
+    "task_id": 6,
+    "episode": 5,
+    "step": 2,
+    "occ_path": "task6_ep5_s2_occ.png",
+    "clean_path": "task6_ep5_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s3",
+    "task_id": 6,
+    "episode": 5,
+    "step": 3,
+    "occ_path": "task6_ep5_s3_occ.png",
+    "clean_path": "task6_ep5_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s4",
+    "task_id": 6,
+    "episode": 5,
+    "step": 4,
+    "occ_path": "task6_ep5_s4_occ.png",
+    "clean_path": "task6_ep5_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s5",
+    "task_id": 6,
+    "episode": 5,
+    "step": 5,
+    "occ_path": "task6_ep5_s5_occ.png",
+    "clean_path": "task6_ep5_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s6",
+    "task_id": 6,
+    "episode": 5,
+    "step": 6,
+    "occ_path": "task6_ep5_s6_occ.png",
+    "clean_path": "task6_ep5_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s7",
+    "task_id": 6,
+    "episode": 5,
+    "step": 7,
+    "occ_path": "task6_ep5_s7_occ.png",
+    "clean_path": "task6_ep5_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s8",
+    "task_id": 6,
+    "episode": 5,
+    "step": 8,
+    "occ_path": "task6_ep5_s8_occ.png",
+    "clean_path": "task6_ep5_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep5_s9",
+    "task_id": 6,
+    "episode": 5,
+    "step": 9,
+    "occ_path": "task6_ep5_s9_occ.png",
+    "clean_path": "task6_ep5_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s0",
+    "task_id": 6,
+    "episode": 6,
+    "step": 0,
+    "occ_path": "task6_ep6_s0_occ.png",
+    "clean_path": "task6_ep6_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s1",
+    "task_id": 6,
+    "episode": 6,
+    "step": 1,
+    "occ_path": "task6_ep6_s1_occ.png",
+    "clean_path": "task6_ep6_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s2",
+    "task_id": 6,
+    "episode": 6,
+    "step": 2,
+    "occ_path": "task6_ep6_s2_occ.png",
+    "clean_path": "task6_ep6_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s3",
+    "task_id": 6,
+    "episode": 6,
+    "step": 3,
+    "occ_path": "task6_ep6_s3_occ.png",
+    "clean_path": "task6_ep6_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s4",
+    "task_id": 6,
+    "episode": 6,
+    "step": 4,
+    "occ_path": "task6_ep6_s4_occ.png",
+    "clean_path": "task6_ep6_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s5",
+    "task_id": 6,
+    "episode": 6,
+    "step": 5,
+    "occ_path": "task6_ep6_s5_occ.png",
+    "clean_path": "task6_ep6_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s6",
+    "task_id": 6,
+    "episode": 6,
+    "step": 6,
+    "occ_path": "task6_ep6_s6_occ.png",
+    "clean_path": "task6_ep6_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s7",
+    "task_id": 6,
+    "episode": 6,
+    "step": 7,
+    "occ_path": "task6_ep6_s7_occ.png",
+    "clean_path": "task6_ep6_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s8",
+    "task_id": 6,
+    "episode": 6,
+    "step": 8,
+    "occ_path": "task6_ep6_s8_occ.png",
+    "clean_path": "task6_ep6_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep6_s9",
+    "task_id": 6,
+    "episode": 6,
+    "step": 9,
+    "occ_path": "task6_ep6_s9_occ.png",
+    "clean_path": "task6_ep6_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s0",
+    "task_id": 6,
+    "episode": 7,
+    "step": 0,
+    "occ_path": "task6_ep7_s0_occ.png",
+    "clean_path": "task6_ep7_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s1",
+    "task_id": 6,
+    "episode": 7,
+    "step": 1,
+    "occ_path": "task6_ep7_s1_occ.png",
+    "clean_path": "task6_ep7_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s2",
+    "task_id": 6,
+    "episode": 7,
+    "step": 2,
+    "occ_path": "task6_ep7_s2_occ.png",
+    "clean_path": "task6_ep7_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s3",
+    "task_id": 6,
+    "episode": 7,
+    "step": 3,
+    "occ_path": "task6_ep7_s3_occ.png",
+    "clean_path": "task6_ep7_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s4",
+    "task_id": 6,
+    "episode": 7,
+    "step": 4,
+    "occ_path": "task6_ep7_s4_occ.png",
+    "clean_path": "task6_ep7_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s5",
+    "task_id": 6,
+    "episode": 7,
+    "step": 5,
+    "occ_path": "task6_ep7_s5_occ.png",
+    "clean_path": "task6_ep7_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s6",
+    "task_id": 6,
+    "episode": 7,
+    "step": 6,
+    "occ_path": "task6_ep7_s6_occ.png",
+    "clean_path": "task6_ep7_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s7",
+    "task_id": 6,
+    "episode": 7,
+    "step": 7,
+    "occ_path": "task6_ep7_s7_occ.png",
+    "clean_path": "task6_ep7_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s8",
+    "task_id": 6,
+    "episode": 7,
+    "step": 8,
+    "occ_path": "task6_ep7_s8_occ.png",
+    "clean_path": "task6_ep7_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep7_s9",
+    "task_id": 6,
+    "episode": 7,
+    "step": 9,
+    "occ_path": "task6_ep7_s9_occ.png",
+    "clean_path": "task6_ep7_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s0",
+    "task_id": 6,
+    "episode": 8,
+    "step": 0,
+    "occ_path": "task6_ep8_s0_occ.png",
+    "clean_path": "task6_ep8_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s1",
+    "task_id": 6,
+    "episode": 8,
+    "step": 1,
+    "occ_path": "task6_ep8_s1_occ.png",
+    "clean_path": "task6_ep8_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s2",
+    "task_id": 6,
+    "episode": 8,
+    "step": 2,
+    "occ_path": "task6_ep8_s2_occ.png",
+    "clean_path": "task6_ep8_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s3",
+    "task_id": 6,
+    "episode": 8,
+    "step": 3,
+    "occ_path": "task6_ep8_s3_occ.png",
+    "clean_path": "task6_ep8_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s4",
+    "task_id": 6,
+    "episode": 8,
+    "step": 4,
+    "occ_path": "task6_ep8_s4_occ.png",
+    "clean_path": "task6_ep8_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s5",
+    "task_id": 6,
+    "episode": 8,
+    "step": 5,
+    "occ_path": "task6_ep8_s5_occ.png",
+    "clean_path": "task6_ep8_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s6",
+    "task_id": 6,
+    "episode": 8,
+    "step": 6,
+    "occ_path": "task6_ep8_s6_occ.png",
+    "clean_path": "task6_ep8_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s7",
+    "task_id": 6,
+    "episode": 8,
+    "step": 7,
+    "occ_path": "task6_ep8_s7_occ.png",
+    "clean_path": "task6_ep8_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s8",
+    "task_id": 6,
+    "episode": 8,
+    "step": 8,
+    "occ_path": "task6_ep8_s8_occ.png",
+    "clean_path": "task6_ep8_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep8_s9",
+    "task_id": 6,
+    "episode": 8,
+    "step": 9,
+    "occ_path": "task6_ep8_s9_occ.png",
+    "clean_path": "task6_ep8_s9_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s0",
+    "task_id": 6,
+    "episode": 9,
+    "step": 0,
+    "occ_path": "task6_ep9_s0_occ.png",
+    "clean_path": "task6_ep9_s0_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s1",
+    "task_id": 6,
+    "episode": 9,
+    "step": 1,
+    "occ_path": "task6_ep9_s1_occ.png",
+    "clean_path": "task6_ep9_s1_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s2",
+    "task_id": 6,
+    "episode": 9,
+    "step": 2,
+    "occ_path": "task6_ep9_s2_occ.png",
+    "clean_path": "task6_ep9_s2_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s3",
+    "task_id": 6,
+    "episode": 9,
+    "step": 3,
+    "occ_path": "task6_ep9_s3_occ.png",
+    "clean_path": "task6_ep9_s3_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s4",
+    "task_id": 6,
+    "episode": 9,
+    "step": 4,
+    "occ_path": "task6_ep9_s4_occ.png",
+    "clean_path": "task6_ep9_s4_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s5",
+    "task_id": 6,
+    "episode": 9,
+    "step": 5,
+    "occ_path": "task6_ep9_s5_occ.png",
+    "clean_path": "task6_ep9_s5_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s6",
+    "task_id": 6,
+    "episode": 9,
+    "step": 6,
+    "occ_path": "task6_ep9_s6_occ.png",
+    "clean_path": "task6_ep9_s6_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s7",
+    "task_id": 6,
+    "episode": 9,
+    "step": 7,
+    "occ_path": "task6_ep9_s7_occ.png",
+    "clean_path": "task6_ep9_s7_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s8",
+    "task_id": 6,
+    "episode": 9,
+    "step": 8,
+    "occ_path": "task6_ep9_s8_occ.png",
+    "clean_path": "task6_ep9_s8_clean.png"
+  },
+  {
+    "uid": "task6_ep9_s9",
+    "task_id": 6,
+    "episode": 9,
+    "step": 9,
+    "occ_path": "task6_ep9_s9_occ.png",
+    "clean_path": "task6_ep9_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s0",
+    "task_id": 8,
+    "episode": 0,
+    "step": 0,
+    "occ_path": "task8_ep0_s0_occ.png",
+    "clean_path": "task8_ep0_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s1",
+    "task_id": 8,
+    "episode": 0,
+    "step": 1,
+    "occ_path": "task8_ep0_s1_occ.png",
+    "clean_path": "task8_ep0_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s2",
+    "task_id": 8,
+    "episode": 0,
+    "step": 2,
+    "occ_path": "task8_ep0_s2_occ.png",
+    "clean_path": "task8_ep0_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s3",
+    "task_id": 8,
+    "episode": 0,
+    "step": 3,
+    "occ_path": "task8_ep0_s3_occ.png",
+    "clean_path": "task8_ep0_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s4",
+    "task_id": 8,
+    "episode": 0,
+    "step": 4,
+    "occ_path": "task8_ep0_s4_occ.png",
+    "clean_path": "task8_ep0_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s5",
+    "task_id": 8,
+    "episode": 0,
+    "step": 5,
+    "occ_path": "task8_ep0_s5_occ.png",
+    "clean_path": "task8_ep0_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s6",
+    "task_id": 8,
+    "episode": 0,
+    "step": 6,
+    "occ_path": "task8_ep0_s6_occ.png",
+    "clean_path": "task8_ep0_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s7",
+    "task_id": 8,
+    "episode": 0,
+    "step": 7,
+    "occ_path": "task8_ep0_s7_occ.png",
+    "clean_path": "task8_ep0_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s8",
+    "task_id": 8,
+    "episode": 0,
+    "step": 8,
+    "occ_path": "task8_ep0_s8_occ.png",
+    "clean_path": "task8_ep0_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep0_s9",
+    "task_id": 8,
+    "episode": 0,
+    "step": 9,
+    "occ_path": "task8_ep0_s9_occ.png",
+    "clean_path": "task8_ep0_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s0",
+    "task_id": 8,
+    "episode": 1,
+    "step": 0,
+    "occ_path": "task8_ep1_s0_occ.png",
+    "clean_path": "task8_ep1_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s1",
+    "task_id": 8,
+    "episode": 1,
+    "step": 1,
+    "occ_path": "task8_ep1_s1_occ.png",
+    "clean_path": "task8_ep1_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s2",
+    "task_id": 8,
+    "episode": 1,
+    "step": 2,
+    "occ_path": "task8_ep1_s2_occ.png",
+    "clean_path": "task8_ep1_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s3",
+    "task_id": 8,
+    "episode": 1,
+    "step": 3,
+    "occ_path": "task8_ep1_s3_occ.png",
+    "clean_path": "task8_ep1_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s4",
+    "task_id": 8,
+    "episode": 1,
+    "step": 4,
+    "occ_path": "task8_ep1_s4_occ.png",
+    "clean_path": "task8_ep1_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s5",
+    "task_id": 8,
+    "episode": 1,
+    "step": 5,
+    "occ_path": "task8_ep1_s5_occ.png",
+    "clean_path": "task8_ep1_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s6",
+    "task_id": 8,
+    "episode": 1,
+    "step": 6,
+    "occ_path": "task8_ep1_s6_occ.png",
+    "clean_path": "task8_ep1_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s7",
+    "task_id": 8,
+    "episode": 1,
+    "step": 7,
+    "occ_path": "task8_ep1_s7_occ.png",
+    "clean_path": "task8_ep1_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s8",
+    "task_id": 8,
+    "episode": 1,
+    "step": 8,
+    "occ_path": "task8_ep1_s8_occ.png",
+    "clean_path": "task8_ep1_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep1_s9",
+    "task_id": 8,
+    "episode": 1,
+    "step": 9,
+    "occ_path": "task8_ep1_s9_occ.png",
+    "clean_path": "task8_ep1_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s0",
+    "task_id": 8,
+    "episode": 2,
+    "step": 0,
+    "occ_path": "task8_ep2_s0_occ.png",
+    "clean_path": "task8_ep2_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s1",
+    "task_id": 8,
+    "episode": 2,
+    "step": 1,
+    "occ_path": "task8_ep2_s1_occ.png",
+    "clean_path": "task8_ep2_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s2",
+    "task_id": 8,
+    "episode": 2,
+    "step": 2,
+    "occ_path": "task8_ep2_s2_occ.png",
+    "clean_path": "task8_ep2_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s3",
+    "task_id": 8,
+    "episode": 2,
+    "step": 3,
+    "occ_path": "task8_ep2_s3_occ.png",
+    "clean_path": "task8_ep2_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s4",
+    "task_id": 8,
+    "episode": 2,
+    "step": 4,
+    "occ_path": "task8_ep2_s4_occ.png",
+    "clean_path": "task8_ep2_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s5",
+    "task_id": 8,
+    "episode": 2,
+    "step": 5,
+    "occ_path": "task8_ep2_s5_occ.png",
+    "clean_path": "task8_ep2_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s6",
+    "task_id": 8,
+    "episode": 2,
+    "step": 6,
+    "occ_path": "task8_ep2_s6_occ.png",
+    "clean_path": "task8_ep2_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s7",
+    "task_id": 8,
+    "episode": 2,
+    "step": 7,
+    "occ_path": "task8_ep2_s7_occ.png",
+    "clean_path": "task8_ep2_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s8",
+    "task_id": 8,
+    "episode": 2,
+    "step": 8,
+    "occ_path": "task8_ep2_s8_occ.png",
+    "clean_path": "task8_ep2_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep2_s9",
+    "task_id": 8,
+    "episode": 2,
+    "step": 9,
+    "occ_path": "task8_ep2_s9_occ.png",
+    "clean_path": "task8_ep2_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s0",
+    "task_id": 8,
+    "episode": 3,
+    "step": 0,
+    "occ_path": "task8_ep3_s0_occ.png",
+    "clean_path": "task8_ep3_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s1",
+    "task_id": 8,
+    "episode": 3,
+    "step": 1,
+    "occ_path": "task8_ep3_s1_occ.png",
+    "clean_path": "task8_ep3_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s2",
+    "task_id": 8,
+    "episode": 3,
+    "step": 2,
+    "occ_path": "task8_ep3_s2_occ.png",
+    "clean_path": "task8_ep3_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s3",
+    "task_id": 8,
+    "episode": 3,
+    "step": 3,
+    "occ_path": "task8_ep3_s3_occ.png",
+    "clean_path": "task8_ep3_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s4",
+    "task_id": 8,
+    "episode": 3,
+    "step": 4,
+    "occ_path": "task8_ep3_s4_occ.png",
+    "clean_path": "task8_ep3_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s5",
+    "task_id": 8,
+    "episode": 3,
+    "step": 5,
+    "occ_path": "task8_ep3_s5_occ.png",
+    "clean_path": "task8_ep3_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s6",
+    "task_id": 8,
+    "episode": 3,
+    "step": 6,
+    "occ_path": "task8_ep3_s6_occ.png",
+    "clean_path": "task8_ep3_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s7",
+    "task_id": 8,
+    "episode": 3,
+    "step": 7,
+    "occ_path": "task8_ep3_s7_occ.png",
+    "clean_path": "task8_ep3_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s8",
+    "task_id": 8,
+    "episode": 3,
+    "step": 8,
+    "occ_path": "task8_ep3_s8_occ.png",
+    "clean_path": "task8_ep3_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep3_s9",
+    "task_id": 8,
+    "episode": 3,
+    "step": 9,
+    "occ_path": "task8_ep3_s9_occ.png",
+    "clean_path": "task8_ep3_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s0",
+    "task_id": 8,
+    "episode": 4,
+    "step": 0,
+    "occ_path": "task8_ep4_s0_occ.png",
+    "clean_path": "task8_ep4_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s1",
+    "task_id": 8,
+    "episode": 4,
+    "step": 1,
+    "occ_path": "task8_ep4_s1_occ.png",
+    "clean_path": "task8_ep4_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s2",
+    "task_id": 8,
+    "episode": 4,
+    "step": 2,
+    "occ_path": "task8_ep4_s2_occ.png",
+    "clean_path": "task8_ep4_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s3",
+    "task_id": 8,
+    "episode": 4,
+    "step": 3,
+    "occ_path": "task8_ep4_s3_occ.png",
+    "clean_path": "task8_ep4_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s4",
+    "task_id": 8,
+    "episode": 4,
+    "step": 4,
+    "occ_path": "task8_ep4_s4_occ.png",
+    "clean_path": "task8_ep4_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s5",
+    "task_id": 8,
+    "episode": 4,
+    "step": 5,
+    "occ_path": "task8_ep4_s5_occ.png",
+    "clean_path": "task8_ep4_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s6",
+    "task_id": 8,
+    "episode": 4,
+    "step": 6,
+    "occ_path": "task8_ep4_s6_occ.png",
+    "clean_path": "task8_ep4_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s7",
+    "task_id": 8,
+    "episode": 4,
+    "step": 7,
+    "occ_path": "task8_ep4_s7_occ.png",
+    "clean_path": "task8_ep4_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s8",
+    "task_id": 8,
+    "episode": 4,
+    "step": 8,
+    "occ_path": "task8_ep4_s8_occ.png",
+    "clean_path": "task8_ep4_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep4_s9",
+    "task_id": 8,
+    "episode": 4,
+    "step": 9,
+    "occ_path": "task8_ep4_s9_occ.png",
+    "clean_path": "task8_ep4_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s0",
+    "task_id": 8,
+    "episode": 5,
+    "step": 0,
+    "occ_path": "task8_ep5_s0_occ.png",
+    "clean_path": "task8_ep5_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s1",
+    "task_id": 8,
+    "episode": 5,
+    "step": 1,
+    "occ_path": "task8_ep5_s1_occ.png",
+    "clean_path": "task8_ep5_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s2",
+    "task_id": 8,
+    "episode": 5,
+    "step": 2,
+    "occ_path": "task8_ep5_s2_occ.png",
+    "clean_path": "task8_ep5_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s3",
+    "task_id": 8,
+    "episode": 5,
+    "step": 3,
+    "occ_path": "task8_ep5_s3_occ.png",
+    "clean_path": "task8_ep5_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s4",
+    "task_id": 8,
+    "episode": 5,
+    "step": 4,
+    "occ_path": "task8_ep5_s4_occ.png",
+    "clean_path": "task8_ep5_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s5",
+    "task_id": 8,
+    "episode": 5,
+    "step": 5,
+    "occ_path": "task8_ep5_s5_occ.png",
+    "clean_path": "task8_ep5_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s6",
+    "task_id": 8,
+    "episode": 5,
+    "step": 6,
+    "occ_path": "task8_ep5_s6_occ.png",
+    "clean_path": "task8_ep5_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s7",
+    "task_id": 8,
+    "episode": 5,
+    "step": 7,
+    "occ_path": "task8_ep5_s7_occ.png",
+    "clean_path": "task8_ep5_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s8",
+    "task_id": 8,
+    "episode": 5,
+    "step": 8,
+    "occ_path": "task8_ep5_s8_occ.png",
+    "clean_path": "task8_ep5_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep5_s9",
+    "task_id": 8,
+    "episode": 5,
+    "step": 9,
+    "occ_path": "task8_ep5_s9_occ.png",
+    "clean_path": "task8_ep5_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s0",
+    "task_id": 8,
+    "episode": 6,
+    "step": 0,
+    "occ_path": "task8_ep6_s0_occ.png",
+    "clean_path": "task8_ep6_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s1",
+    "task_id": 8,
+    "episode": 6,
+    "step": 1,
+    "occ_path": "task8_ep6_s1_occ.png",
+    "clean_path": "task8_ep6_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s2",
+    "task_id": 8,
+    "episode": 6,
+    "step": 2,
+    "occ_path": "task8_ep6_s2_occ.png",
+    "clean_path": "task8_ep6_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s3",
+    "task_id": 8,
+    "episode": 6,
+    "step": 3,
+    "occ_path": "task8_ep6_s3_occ.png",
+    "clean_path": "task8_ep6_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s4",
+    "task_id": 8,
+    "episode": 6,
+    "step": 4,
+    "occ_path": "task8_ep6_s4_occ.png",
+    "clean_path": "task8_ep6_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s5",
+    "task_id": 8,
+    "episode": 6,
+    "step": 5,
+    "occ_path": "task8_ep6_s5_occ.png",
+    "clean_path": "task8_ep6_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s6",
+    "task_id": 8,
+    "episode": 6,
+    "step": 6,
+    "occ_path": "task8_ep6_s6_occ.png",
+    "clean_path": "task8_ep6_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s7",
+    "task_id": 8,
+    "episode": 6,
+    "step": 7,
+    "occ_path": "task8_ep6_s7_occ.png",
+    "clean_path": "task8_ep6_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s8",
+    "task_id": 8,
+    "episode": 6,
+    "step": 8,
+    "occ_path": "task8_ep6_s8_occ.png",
+    "clean_path": "task8_ep6_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep6_s9",
+    "task_id": 8,
+    "episode": 6,
+    "step": 9,
+    "occ_path": "task8_ep6_s9_occ.png",
+    "clean_path": "task8_ep6_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s0",
+    "task_id": 8,
+    "episode": 7,
+    "step": 0,
+    "occ_path": "task8_ep7_s0_occ.png",
+    "clean_path": "task8_ep7_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s1",
+    "task_id": 8,
+    "episode": 7,
+    "step": 1,
+    "occ_path": "task8_ep7_s1_occ.png",
+    "clean_path": "task8_ep7_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s2",
+    "task_id": 8,
+    "episode": 7,
+    "step": 2,
+    "occ_path": "task8_ep7_s2_occ.png",
+    "clean_path": "task8_ep7_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s3",
+    "task_id": 8,
+    "episode": 7,
+    "step": 3,
+    "occ_path": "task8_ep7_s3_occ.png",
+    "clean_path": "task8_ep7_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s4",
+    "task_id": 8,
+    "episode": 7,
+    "step": 4,
+    "occ_path": "task8_ep7_s4_occ.png",
+    "clean_path": "task8_ep7_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s5",
+    "task_id": 8,
+    "episode": 7,
+    "step": 5,
+    "occ_path": "task8_ep7_s5_occ.png",
+    "clean_path": "task8_ep7_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s6",
+    "task_id": 8,
+    "episode": 7,
+    "step": 6,
+    "occ_path": "task8_ep7_s6_occ.png",
+    "clean_path": "task8_ep7_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s7",
+    "task_id": 8,
+    "episode": 7,
+    "step": 7,
+    "occ_path": "task8_ep7_s7_occ.png",
+    "clean_path": "task8_ep7_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s8",
+    "task_id": 8,
+    "episode": 7,
+    "step": 8,
+    "occ_path": "task8_ep7_s8_occ.png",
+    "clean_path": "task8_ep7_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep7_s9",
+    "task_id": 8,
+    "episode": 7,
+    "step": 9,
+    "occ_path": "task8_ep7_s9_occ.png",
+    "clean_path": "task8_ep7_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s0",
+    "task_id": 8,
+    "episode": 8,
+    "step": 0,
+    "occ_path": "task8_ep8_s0_occ.png",
+    "clean_path": "task8_ep8_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s1",
+    "task_id": 8,
+    "episode": 8,
+    "step": 1,
+    "occ_path": "task8_ep8_s1_occ.png",
+    "clean_path": "task8_ep8_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s2",
+    "task_id": 8,
+    "episode": 8,
+    "step": 2,
+    "occ_path": "task8_ep8_s2_occ.png",
+    "clean_path": "task8_ep8_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s3",
+    "task_id": 8,
+    "episode": 8,
+    "step": 3,
+    "occ_path": "task8_ep8_s3_occ.png",
+    "clean_path": "task8_ep8_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s4",
+    "task_id": 8,
+    "episode": 8,
+    "step": 4,
+    "occ_path": "task8_ep8_s4_occ.png",
+    "clean_path": "task8_ep8_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s5",
+    "task_id": 8,
+    "episode": 8,
+    "step": 5,
+    "occ_path": "task8_ep8_s5_occ.png",
+    "clean_path": "task8_ep8_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s6",
+    "task_id": 8,
+    "episode": 8,
+    "step": 6,
+    "occ_path": "task8_ep8_s6_occ.png",
+    "clean_path": "task8_ep8_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s7",
+    "task_id": 8,
+    "episode": 8,
+    "step": 7,
+    "occ_path": "task8_ep8_s7_occ.png",
+    "clean_path": "task8_ep8_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s8",
+    "task_id": 8,
+    "episode": 8,
+    "step": 8,
+    "occ_path": "task8_ep8_s8_occ.png",
+    "clean_path": "task8_ep8_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep8_s9",
+    "task_id": 8,
+    "episode": 8,
+    "step": 9,
+    "occ_path": "task8_ep8_s9_occ.png",
+    "clean_path": "task8_ep8_s9_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s0",
+    "task_id": 8,
+    "episode": 9,
+    "step": 0,
+    "occ_path": "task8_ep9_s0_occ.png",
+    "clean_path": "task8_ep9_s0_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s1",
+    "task_id": 8,
+    "episode": 9,
+    "step": 1,
+    "occ_path": "task8_ep9_s1_occ.png",
+    "clean_path": "task8_ep9_s1_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s2",
+    "task_id": 8,
+    "episode": 9,
+    "step": 2,
+    "occ_path": "task8_ep9_s2_occ.png",
+    "clean_path": "task8_ep9_s2_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s3",
+    "task_id": 8,
+    "episode": 9,
+    "step": 3,
+    "occ_path": "task8_ep9_s3_occ.png",
+    "clean_path": "task8_ep9_s3_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s4",
+    "task_id": 8,
+    "episode": 9,
+    "step": 4,
+    "occ_path": "task8_ep9_s4_occ.png",
+    "clean_path": "task8_ep9_s4_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s5",
+    "task_id": 8,
+    "episode": 9,
+    "step": 5,
+    "occ_path": "task8_ep9_s5_occ.png",
+    "clean_path": "task8_ep9_s5_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s6",
+    "task_id": 8,
+    "episode": 9,
+    "step": 6,
+    "occ_path": "task8_ep9_s6_occ.png",
+    "clean_path": "task8_ep9_s6_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s7",
+    "task_id": 8,
+    "episode": 9,
+    "step": 7,
+    "occ_path": "task8_ep9_s7_occ.png",
+    "clean_path": "task8_ep9_s7_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s8",
+    "task_id": 8,
+    "episode": 9,
+    "step": 8,
+    "occ_path": "task8_ep9_s8_occ.png",
+    "clean_path": "task8_ep9_s8_clean.png"
+  },
+  {
+    "uid": "task8_ep9_s9",
+    "task_id": 8,
+    "episode": 9,
+    "step": 9,
+    "occ_path": "task8_ep9_s9_occ.png",
+    "clean_path": "task8_ep9_s9_clean.png"
+  }
+]

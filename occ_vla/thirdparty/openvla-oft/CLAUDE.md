@@ -2162,3 +2162,103 @@ this failure mode at all. Recovery Success Rate (2/4 = 50%, task1 only)
 remains the only real per-episode-attributable number this mechanism
 produced across all 3 tasks tested this session. Full numbers/table
 updated in `NUMBERS_REFERENCE.md`.
+
+## Two new mechanisms implemented and smoke-tested (2026-08-22): TTC-area
+continuous action blending, and Representation Alignment training
+
+Per the user's two follow-up proposals: (a) replacing
+`scripted_recovery_after_contact`'s discrete post-contact interrupt with
+a continuous, pre-emptive TTC-area-based action blend (their Option (a)
+design, using only `frac_occluded` -- no privileged occluder geometry/
+contact info); (b) "Representation Alignment" -- freeze the LLM, train
+only the vision encoder + projector so Encoder(I_occluded) matches
+Encoder(I_clean) via MSE loss, needing no expert/successful trajectories
+at all (unlike the other two proposed fine-tuning ideas, Task Arithmetic
+and Dynamic LoRA Routing, both of which remain blocked on the same
+missing-expert-trajectory-data problem as Phase 2 of the earlier 14-hour
+sprint plan).
+
+**Correction made before evaluating either proposal**: the user's
+Phase-1 framing assumed a "Gated Action Blending" mechanism already
+existed and was this project's main method ("現在のgated_blendは有効で
+すが..."). Verified directly (grep across this project) -- no such
+mechanism exists here. `gated_blend_xy`/`SCENE_BLEND_ALPHA` are from
+the SIBLING pi0.5+MMaDA+PKLP project (different codebase, loaded in a
+separate system-context CLAUDE.md) and were being conflated with this
+project's own state. Corrected before proceeding; this project's actual
+headline result remains `composite_visual_only`.
+
+### TTC-area continuous action blending (`ttc_area_blend` condition)
+
+Implemented in `run_libero_occluded_oracle_headroom.py`: every env-step,
+`TTC = frac_occluded_this_step / max(0, d(frac_occluded)/dt)` (only
+defined when occlusion area is genuinely growing), `alpha =
+clip(1 - TTC/ttc_threshold, 0, 1)`, blends `action[:6] = (1-alpha)*a_vla
++ alpha*a_safe` (gripper dim always left to the VLA). `a_safe` default
+`[0,0,0.05,0,0,0]` (stop XY/rotation, small +Z lift) -- exactly the
+user's own spec. Zero privileged information: `frac_occluded` is
+target-occlusion-fraction from segmentation, framed (per the user's own
+proposal) as a stand-in for what a real-time lightweight segmenter (SAM
+etc.) could supply on a real robot.
+
+**Real calibration bug caught before trusting any result**: first smoke
+test (n=3, task6, default `ttc_threshold=8.0`) showed the mechanism
+computing real, sane TTC values (35-3076 across 357 samples) but
+**alpha=0 at every single one of 1326 logged steps across all 3
+episodes -- 0% engagement.** Root cause: the untuned default threshold
+(8.0) was 1-2 orders of magnitude smaller than real observed TTC
+values (p25=138, p50=366) -- `1 - TTC/8` is always deeply negative,
+clips to 0 unconditionally. Not a logic bug (the underlying computation
+is correct, confirmed by the real, varied TTC values logged) -- a pure
+calibration miss on an explicitly-flagged "untuned default" (already
+noted as such in the CLI help text before this was even run). Refit
+threshold to 150 (~p25 of the real observed distribution) and re-ran;
+see next entry for that result once complete.
+
+### Representation Alignment training
+
+`scripts/collect_clean_occluded_pairs.py` (new): collects paired
+(I_clean, I_occ) agentview frames at identical sim states via the
+established alpha-hide-and-reveal technique (occluder geom_rgba alpha=0
+for the "clean" render) -- no rollout/policy needed, small random
+actions only for state diversity (same convention as the sibling
+project's `collect_arm_removal_pairs.py`). 300 pairs collected (task1/
+6/8, 10 episodes x 10 samples each). One real bug hit and fixed: same
+"stale `sim` reference after `env.reset()`" lesson this project has
+hit repeatedly -- `sim` was fetched once before the episode loop
+instead of after each reset.
+
+`scripts/train_representation_alignment.py` (new): freezes
+`language_model` entirely, unfreezes only `vision_backbone` +
+`projector`, trains with `MSE(Encoder(I_occ), Encoder(I_clean).detach())`
+-- exactly the user's own formula, no action-head loss, no
+autoregressive generation. Two real bugs caught before it ran cleanly:
+(1) a hand-rolled minimal config stub was missing several fields
+`get_vla()` actually needs (`use_film` etc.) -- switched to reusing the
+real `GenerateConfig` class already validated elsewhere in this
+project, not guessing at a stub's required fields; (2) `num_images_in_input`
+must be 1 for this script (only agentview pairs were collected, no
+wrist image) -- using the production rollout's `=2` value caused a
+real shape-mismatch `RuntimeError` in `vision_backbone.forward`'s
+`torch.split`.
+
+**Smoke-test result (n=20 steps, 2 episodes worth of task1 pairs)**:
+805M / 7.5B trainable params (10.7%, vision_backbone+projector only,
+confirmed via direct parameter-name inspection, not just intent).
+**Loss decreased 0.085 -> 0.044 over 20 steps** (within-episode trend
+also monotonic in both 10-step blocks: 0.085->0.050 then 0.071->0.044,
+the jump at the episode boundary is a different pair, not divergence).
+Real, working plumbing -- LLM confirmed untouched (zero grad), vision
+encoder/projector demonstrably learn to reduce the clean-vs-occluded
+feature gap on real data. n=20/2-episodes is a pure plumbing check, not
+a claim of convergence or of any downstream task-success benefit --
+neither attempted yet.
+
+**Honest scope for both**: TTC blending needs its re-threshold result
+confirmed before any n=20 evaluation is trustworthy (see above).
+Representation alignment has NOT been evaluated for whether it
+actually changes downstream policy behavior/success rate at all --
+that would need loading the trained vision_backbone+projector weights
+back into a real rollout, not yet done. Weights saved locally
+(`representation_alignment_smoke/vision_projector_weights.pt`, ~1.5GB,
+not committed to git -- `loss_log.json` and the manifest/code are).
