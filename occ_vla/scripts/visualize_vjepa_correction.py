@@ -217,8 +217,8 @@ def compute_frame(ctx, ep, t):
 
 
 def render_panel(d, suptitle, out_path):
-    """Renders the 5-panel figure from one compute_frame() result dict."""
-    fig, axes = plt.subplots(1, 5, figsize=(24, 5.2))
+    """Renders the 6-panel figure from one compute_frame() result dict."""
+    fig, axes = plt.subplots(1, 6, figsize=(28, 5.2))
 
     axes[0].imshow(d["wrist_t"])
     axes[0].set_title("Clean wrist frame\n(ground truth, never seen by the\nmodel once occluded)")
@@ -243,6 +243,20 @@ def render_panel(d, suptitle, out_path):
     axes[4].set_title(f"cos-sim(corrected, ground-truth)\nAFTER correction\n(occluded-region mean={d['mean_cos_after_occ']:.3f})")
     axes[4].axis("off")
     plt.colorbar(im4, ax=axes[4], fraction=0.046)
+
+    # occ_vla addition (2026-08-24, per user's "before/after change" request):
+    # a direct delta map (AFTER - BEFORE), so the reader doesn't have to
+    # eyeball-compare two separate heatmaps -- positive (warm) = correction
+    # moved that patch's features closer to ground truth, negative (cool) =
+    # moved further away. Diverging colormap centered at 0, symmetric range
+    # so the color scale itself is honest about "no change".
+    delta_grid = d["cos_after_grid"] - d["cos_before_grid"]
+    vmax_delta = max(0.05, float(np.abs(delta_grid).max()))
+    im5 = axes[5].imshow(delta_grid, cmap="RdBu_r", vmin=-vmax_delta, vmax=vmax_delta)
+    axes[5].set_title(f"Delta: AFTER - BEFORE\n(where correction actually helped)\n(occluded-region mean change="
+                       f"{d['mean_cos_after_occ'] - d['mean_cos_before_occ']:+.3f})")
+    axes[5].axis("off")
+    plt.colorbar(im5, ax=axes[5], fraction=0.046)
 
     fig.suptitle(
         f"{suptitle} -- the vjepa module operates in ViT patch-EMBEDDING space, not pixel space, so there is no\n"

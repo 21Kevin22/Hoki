@@ -112,6 +112,15 @@ import torch  # noqa: E402
 from PIL import Image  # noqa: E402
 import register_libero_occ_suites  # noqa: E402
 from libero.libero import benchmark, get_libero_path  # noqa: E402
+# occ_vla addition (2026-08-24, Phase 2 proactive avoidance): robosuite's own
+# camera-projection utilities (intrinsics from cam_fovy, extrinsics from
+# cam_xpos/cam_xmat, real-depth conversion, pixel<->world back-projection) --
+# reused as-is rather than hand-rolling pinhole math, since this project's own
+# real-robot-deployable design bar (see scripted_recovery_after_stuck) prefers
+# validated library functions over new geometry code where one already exists.
+from robosuite.utils.camera_utils import (  # noqa: E402
+    get_camera_transform_matrix, get_real_depth_map, transform_from_pixels_to_world,
+)
 from libero.libero.envs import OffScreenRenderEnv  # noqa: E402
 
 from experiments.robot.libero.libero_utils import (  # noqa: E402
@@ -468,7 +477,13 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  composite_visual_only=False, occluder_seg_ids=None,
                  divergence_extract_dir=None, divergence_extract_t_range=None,
                  ttc_area_blend=False, ttc_threshold=8.0, ttc_safe_action=(0.0, 0.0, 0.05, 0.0, 0.0, 0.0),
-                 force_oracle_mask_frac=None):
+                 force_oracle_mask_frac=None, stuck_velocity_trigger=False, stuck_dist_threshold=0.012,
+                 stuck_recovery_steps=4, stuck_cooldown_envsteps=None, stuck_retreat_mag=0.6,
+                 proactive_avoidance_oracle=False, proactive_safety_margin=0.04, blank_agentview=False,
+                 proactive_use_cbf=False, proactive_cbf_gain=2.0,
+                 proactive_use_depth=False,
+                 proactive_use_mpc=False, proactive_mpc_n_candidates=16, proactive_mpc_noise_std=0.15,
+                 proactive_mpc_w_safety=50.0, proactive_mpc_w_fidelity=1.0):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -506,6 +521,99 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # table (which shows up as a permanent, uninformative contact in
     # sim.data.contact regardless of the robot's position).
     robot_geom_ids_set = set(geom_ids_for_body_substring(sim, ["robot", "panda", "gripper", "mount"]))
+    # occ_vla addition (2026-08-24, per user's proactive-avoidance Phase 1
+    # request -- "VoxPoser/V-JEPA-style pre-collision" proposal, scoped down
+    # to what's actually buildable on this project's existing assets):
+    # PRIVILEGED proof-of-concept -- uses sim.data.geom_xpos directly (same
+    # privilege class as the "oracle" mid-layer splice and `no_collision`
+    # conditions elsewhere in this file), to first establish whether
+    # proactively checking the upcoming 8-step action CHUNK against the
+    # occluder's true 3D position/size has any value at all, BEFORE
+    # investing in a real depth-camera+segmentation-based version (per the
+    # user's own explicit 2-phase plan, mirroring this project's established
+    # "ceiling probe first" discipline). Deliberately NOT camera/pixel-space
+    # -- both eef_pos and the action chunk's xyz deltas are already in the
+    # same real-world metric frame, so no projection is needed for this
+    # phase.
+    PROACTIVE_SAFETY_MARGIN_M = proactive_safety_margin
+    proactive_correction_applied_count = 0
+    proactive_correction_ts = []
+
+    def _occluder_radius_m(geom_id):
+        # occ_vla note: same geom-type-aware radius convention already
+        # established elsewhere in this project's own investigation history
+        # (sphere/capsule/cylinder -> size[0] is a true radius; box/other ->
+        # median(size) as a reasonable half-extent approximation, since
+        # geom_size stores half-extents for box geoms, not a radius).
+        gtype = int(sim.model.geom_type[geom_id])
+        size = sim.model.geom_size[geom_id]
+        if gtype in (2, 3, 5):  # mjGEOM_SPHERE, CAPSULE, CYLINDER
+            return float(size[0])
+        return float(np.median(size))
+
+    # occ_vla addition (2026-08-24, Phase 2 -- per user's explicit request
+    # ("実機でも対応できるようにして、ロボットの関節データ、画像、深度など")):
+    # a REAL-ROBOT-DEPLOYABLE alternative to proactive_avoidance_oracle/cbf's
+    # privileged sim.data.geom_xpos[occluder_geom_ids] lookup. Builds a generic
+    # 3D obstacle point cloud from RGB-D (agentview depth + known, calibratable
+    # camera extrinsics -- NOT a simulator privilege, a real robot's own depth
+    # camera + a standard one-time calibration would supply the same inputs)
+    # every replan step, with the robot's OWN body self-filtered out via its
+    # real-time segmentation footprint (self-filtering via known link geometry
+    # is itself a standard, real-robot technique, not privileged information
+    # about the OCCLUDER specifically -- unlike occluder_geom_ids, this doesn't
+    # require knowing which object is "the occluder" at all, just "is anything
+    # physically there that isn't me"). Cached once per episode: the camera
+    # pose is static (confirmed elsewhere in this project's own investigation
+    # history), and robot_seg_ids only needs the hide/reveal technique once,
+    # not every step (self-filtering is by geometry, not per-frame lookup).
+    depth_cam2world = None
+    robot_seg_ids_for_depth = None
+    if proactive_use_depth:
+        cam_h = cam_w = resize_size
+        world2pix = get_camera_transform_matrix(sim, "agentview", cam_h, cam_w)
+        depth_cam2world = np.linalg.inv(world2pix)
+        robot_seg_ids_for_depth = set(
+            find_segmentation_ids_for_bodies(env, sim, list(robot_geom_ids_set))
+        ) if robot_geom_ids_set else set()
+
+    def _depth_obstacle_points(obs_dict, stride=6, max_range_m=1.2):
+        """Real-sensor obstacle point cloud for this step: back-projects a
+        downsampled agentview depth grid to 3D world points, excluding the
+        robot's own body (self-filter) and the task's own TARGET object
+        (target_seg_ids -- we want to avoid OTHER stuff, not the thing we're
+        supposed to reach for) and anything beyond max_range_m (MuJoCo scenes
+        include distant background geometry irrelevant to near-field
+        avoidance). No occluder-identity information used anywhere here."""
+        depth_key = "agentview_depth"
+        if depth_key not in obs_dict:
+            return np.zeros((0, 3))
+        depth_raw = np.asarray(obs_dict[depth_key])
+        if depth_raw.ndim == 3:
+            depth_raw = depth_raw[..., 0]
+        depth_m = get_real_depth_map(sim, np.clip(depth_raw, 0.0, 1.0))
+        seg = np.asarray(obs_dict.get(AGENTVIEW_SEG_KEY, np.zeros_like(depth_raw, dtype=int))).squeeze()
+        h, w = depth_m.shape[:2]
+        rows = np.arange(0, h, stride)
+        cols = np.arange(0, w, stride)
+        rr, cc = np.meshgrid(rows, cols, indexing="ij")
+        seg_sub = seg[rr, cc]
+        depth_sub = depth_m[rr, cc]
+        exclude_ids = robot_seg_ids_for_depth | set(target_seg_ids or [])
+        keep = np.isin(seg_sub, list(exclude_ids), invert=True) & (depth_sub > 1e-4) & (depth_sub < max_range_m)
+        if not np.any(keep):
+            return np.zeros((0, 3))
+        # Direct back-projection (same math transform_from_pixels_to_world uses
+        # internally, done here without its batched-depth-map wrapper since we
+        # sample exact integer pixel indices from ONE depth map, not sub-pixel
+        # bilinear queries against a per-item depth map): homogeneous camera-
+        # frame point [col*z, row*z, z, 1] -> world frame via depth_cam2world.
+        z = depth_sub[keep].astype(float)
+        col = cc[keep].astype(float)
+        row = rr[keep].astype(float)
+        cam_pts = np.stack([col * z, row * z, z, np.ones_like(z)], axis=-1)  # (N, 4)
+        world_pts = (depth_cam2world @ cam_pts.T).T[:, :3]
+        return world_pts
     # occ_vla addition (2026-08-20, per user request -- a physically-real,
     # geometry-free alternative to no_collision: instead of removing
     # collision, reduce the occluder's MASS and FRICTION so it can
@@ -625,6 +733,43 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     reactive_triggered = False
     reactive_trigger_t = None
     dry_run_would_have_fired = []
+    # occ_vla addition (2026-08-23, per user's explicit "no privileged
+    # information" request): a second, independent reactive-recovery
+    # trigger, ZERO privileged info (no occluder geom identity, no
+    # segmentation, no sim.data.contact) -- purely obs["robot0_eef_pos"],
+    # exactly what a real robot's own proprioceptive encoders provide.
+    # Rationale: scripted_recovery_after_contact's trigger (anomalous
+    # arm-link contact with a KNOWN occluder geom) never fired at all on
+    # task6/task8 (0/14, 0/13 baseline failures -- verified directly via
+    # contact_robot_body_names, not a bug) -- its failure modes there
+    # apparently don't involve that specific kind of contact. A general
+    # "have I made real progress lately" velocity check has no such
+    # blind spot: it fires on ANY sustained near-zero net motion,
+    # regardless of cause (contact-driven or not), and needs no
+    # knowledge of what the robot is stuck against.
+    # STUCK_WINDOW_ENVSTEPS sampled at native env-step cadence (not just
+    # replan-step cadence) so a stuck state is detected quickly.
+    # STUCK_DIST_THRESHOLD is deliberately well below what one real VLA
+    # replan chunk (8 open-loop steps under the active OSC_POSE
+    # controller, ~0.05m max delta each) would produce if genuinely
+    # progressing -- see the recovery-injection site below for the exact
+    # value and its justification.
+    STUCK_WINDOW_ENVSTEPS = 64  # ~8 replan-steps' worth, matching the
+    # existing "stuck" failure-mode classifier's own 8-replan-step window
+    # occ_vla change (2026-08-23, per user's ablation request): cooldown is
+    # now independently configurable instead of always reusing the window
+    # size -- default (None) reproduces the original untuned behavior.
+    STUCK_COOLDOWN_ENVSTEPS = stuck_cooldown_envsteps if stuck_cooldown_envsteps is not None else STUCK_WINDOW_ENVSTEPS
+    stuck_eef_pos_history = deque(maxlen=STUCK_WINDOW_ENVSTEPS)
+    stuck_triggered_count = 0
+    stuck_trigger_ts = []
+    stuck_cooldown_remaining = 0  # env-steps to skip re-checking right
+    # after a trigger, so the recovery motion's own (large, intentional)
+    # displacement doesn't immediately refill the window with "moving"
+    # samples that then look like a brand-new episode of being stuck the
+    # instant the window is long enough again -- simpler and more
+    # conservative than trying to distinguish "recovery motion" from
+    # "real progress" after the fact.
 
     if disable_collision_geom_ids and not reactive_collision_disable:
         _apply_collision_disable()
@@ -931,6 +1076,84 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                         _apply_collision_disable()
                         print(f"    [reactive] anomalous arm-link contact detected at t={t} -- switching to no_collision from here")
 
+            # occ_vla addition (2026-08-23, per user's explicit "no
+            # privileged information" request): general stuck-velocity
+            # trigger, independent of the contact-based one above. Uses
+            # ONLY obs["robot0_eef_pos"] (real proprioception, sampled at
+            # native env-step cadence) -- no occluder geom identity, no
+            # segmentation, no sim.data.contact. Real physics/rendering
+            # stay completely untouched by this condition (unlike
+            # no_collision/scripted_recovery_after_contact, this needs
+            # disable_collision_geom_ids to be None/unused).
+            if stuck_velocity_trigger:
+                if stuck_cooldown_remaining > 0:
+                    stuck_cooldown_remaining -= 1
+                else:
+                    stuck_eef_pos_history.append(obs["robot0_eef_pos"].copy())
+                    if len(stuck_eef_pos_history) == STUCK_WINDOW_ENVSTEPS:
+                        half = STUCK_WINDOW_ENVSTEPS // 2
+                        # "have I made real progress in the RECENT half of
+                        # the window" -- checking only the recent half (not
+                        # the whole window) means a stuck state is flagged
+                        # ~half the window's length after it actually
+                        # begins, not only once the entire window has gone
+                        # stale from a still-moving state.
+                        recent_disp = float(np.linalg.norm(stuck_eef_pos_history[-1] - stuck_eef_pos_history[-half]))
+                        # occ_vla note: 0.012m over 32 env-steps (~4 replan
+                        # chunks) is well below what any genuinely-
+                        # progressing reach/insert motion produces under
+                        # this env's active OSC_POSE controller (per-action
+                        # max delta ~0.05m; 32 real, non-degenerate actions
+                        # would need to almost perfectly cancel out to stay
+                        # under this) -- conservative (few false positives
+                        # on real progress), not tuned/swept.
+                        # occ_vla change (2026-08-23, per user's threshold-
+                        # sweep request): now a caller-supplied parameter
+                        # (default unchanged, 0.012m) instead of hardcoded,
+                        # so sensitivity to this experimentally-chosen value
+                        # can be measured directly rather than assumed.
+                        if recent_disp < stuck_dist_threshold:
+                            # Retreat direction: reverse of the FULL
+                            # window's net displacement (the direction the
+                            # arm was heading when it got stuck), NOT the
+                            # (near-zero, by definition) recent-half
+                            # displacement used for detection -- purely
+                            # from the eef's own position history, zero
+                            # privileged/occluder information needed.
+                            full_disp = stuck_eef_pos_history[-1] - stuck_eef_pos_history[0]
+                            away = -full_disp
+                            away_xy_norm = np.linalg.norm(away[:2])
+                            retreat_dir = away.copy()
+                            if away_xy_norm > 1e-6:
+                                retreat_dir[:2] = away[:2] / away_xy_norm
+                            else:
+                                retreat_dir[:2] = 0.0  # degenerate (stuck from the very start, no net heading) -- lift only
+                            retreat_dir[2] = 0.0
+                            # occ_vla change (2026-08-23, per user's step-count-sweep
+                            # request): now a caller-supplied parameter instead of the
+                            # hardcoded 4 inherited from scripted_recovery_after_contact.
+                            RETREAT_STEPS = LIFT_STEPS = stuck_recovery_steps
+                            # occ_vla change (2026-08-23, per user's ablation
+                            # request): now caller-supplied instead of the
+                            # hardcoded 0.6 inherited from
+                            # scripted_recovery_after_contact.
+                            RETREAT_MAG = LIFT_MAG = stuck_retreat_mag
+                            recovery_actions = []
+                            for _ in range(RETREAT_STEPS):
+                                recovery_actions.append(
+                                    [retreat_dir[0] * RETREAT_MAG, retreat_dir[1] * RETREAT_MAG, 0.0, 0.0, 0.0, 0.0, last_gripper_raw]
+                                )
+                            for _ in range(LIFT_STEPS):
+                                recovery_actions.append([0.0, 0.0, LIFT_MAG, 0.0, 0.0, 0.0, last_gripper_raw])
+                            action_queue.clear()
+                            action_queue.extend(np.array(recovery_actions, dtype=float))
+                            stuck_triggered_count += 1
+                            stuck_trigger_ts.append(t)
+                            stuck_cooldown_remaining = STUCK_COOLDOWN_ENVSTEPS
+                            stuck_eef_pos_history.clear()
+                            print(f"    [stuck-trigger] near-zero eef motion detected at t={t} (recent_disp={recent_disp:.4f}m) "
+                                  f"-- injecting scripted retreat(dir={retreat_dir[:2]})+lift recovery, no privileged info used")
+
             # occ_vla addition (2026-08-19): update the last-known-clean-pixel
             # buffer EVERY env step (not just replan steps), regardless of
             # condition -- a real robot's camera stream would give this for
@@ -1073,8 +1296,21 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     model.vision_backbone._diagnostic_agentview_patch_mask_256 = torch.from_numpy(token_mask_256)
 
             if len(action_queue) == 0:
+                # occ_vla addition (2026-08-24, per user's "is it even looking
+                # at the image anymore" hypothesis): substitute a flat
+                # mid-gray agentview frame -- NOT just the occluder region,
+                # the WHOLE frame -- to test whether the policy relies on
+                # agentview content at all for these suites' tasks, or
+                # succeeds mainly via the (always real, never occluded)
+                # wrist camera + proprioception. Wrist image and state are
+                # left untouched -- this isolates the agentview channel
+                # specifically, same "one-variable-at-a-time" discipline as
+                # every other diagnostic condition in this file.
+                agentview_for_policy = (
+                    np.full_like(agentview_color, 128) if blank_agentview else agentview_color
+                )
                 observation = {
-                    "full_image": agentview_color,
+                    "full_image": agentview_for_policy,
                     "wrist_image": wrist_img,
                     "state": np.concatenate((obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])),
                 }
@@ -1197,7 +1433,16 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                             # plane). Convert to real metric depth before
                             # saving so any depth-gradient analysis operates
                             # on physically meaningful values.
-                            from robosuite.utils.camera_utils import get_real_depth_map
+                            # occ_vla fix (2026-08-24): this local import used to
+                            # live here, but ANY local `import X` inside a function
+                            # body makes X a local name for the WHOLE function scope
+                            # in Python -- this silently broke the NEW
+                            # _depth_obstacle_points() closure defined earlier in
+                            # run_episode (real crash: "free variable
+                            # 'get_real_depth_map' referenced before assignment in
+                            # enclosing scope", found via the proactive_avoidance_depth
+                            # smoke test). Removed; the module-level import at the
+                            # top of this file already provides the same name.
                             raw_depth = full_obs["agentview_depth"][::-1, ::-1].copy()
                             depth_frame = get_real_depth_map(sim, raw_depth)
                     except Exception as e:
@@ -1344,6 +1589,198 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     "action_chunk": np.asarray(actions, dtype=float).tolist(),
                 })
 
+                # occ_vla addition (2026-08-24, per user's proactive-
+                # avoidance Phase 1 request): before queuing the fresh
+                # 8-step chunk, check whether EXECUTING it (cumulative eef
+                # displacement, real controller scale) would bring the
+                # end-effector within an unsafe distance of the occluder's
+                # TRUE 3D position -- if so, correct the chunk (lift in Z)
+                # BEFORE any of it runs, rather than reacting after the arm
+                # is already stuck (scripted_recovery_after_stuck's own
+                # approach, complementary not replaced by this).
+                if proactive_avoidance_oracle and (occluder_geom_ids or proactive_use_depth or proactive_use_mpc):
+                    OSC_POSE_MAX_DELTA_M = 0.05  # confirmed via robosuite.controllers.load_controller_config(default_controller="OSC_POSE") -- this env never overrides controller_configs
+                    if proactive_use_depth:
+                        # occ_vla addition (2026-08-24, Phase 2): obstacle source is a
+                        # real RGB-D point cloud, not sim.data.geom_xpos[occluder_geom_ids].
+                        # Each point is treated as a near-zero-radius obstacle (radius
+                        # 0.01m -- a small margin for the point-sampling itself, not an
+                        # object-size estimate, since individual points have no "size").
+                        occ_centers = _depth_obstacle_points(obs)
+                        occ_radii = np.full(len(occ_centers), 0.01)
+                        if len(occ_centers) == 0:
+                            occ_centers = np.zeros((1, 3)) + 1e6  # no real obstacle seen this step -> push "nearest" far away, never triggers
+                            occ_radii = np.zeros(1)
+                    else:
+                        occ_centers = sim.data.geom_xpos[occluder_geom_ids]
+                        occ_radii = np.array([_occluder_radius_m(gi) for gi in occluder_geom_ids])
+                    predicted_pos = np.asarray(obs["robot0_eef_pos"], dtype=float).copy()
+                    actions_arr = np.asarray(actions, dtype=float)
+
+                    if proactive_use_mpc:
+                        # occ_vla addition (2026-08-25, per user request -- "V-JEPA2
+                        # style" CBF-regularized sampling-based MPC): STRUCTURALLY
+                        # inspired by V-JEPA 2-AC's (arXiv:2506.09985, Meta, confirmed
+                        # real via direct paper fetch) CEM + energy-function planning
+                        # loop -- NOT a reimplementation of V-JEPA2 itself. That paper
+                        # uses a learned 300M-param action-conditioned transformer atop
+                        # a frozen 1B-param encoder to predict future LATENT states and
+                        # scores candidates by L1 distance to a GOAL IMAGE's latent; this
+                        # project has neither a trained world model nor a goal-image
+                        # scorer, so both are substituted with already-validated,
+                        # zero-training components: state prediction reuses the SAME
+                        # analytic forward-kinematics approximation as CBF-v2
+                        # (predicted_pos += a_xyz * OSC_POSE_MAX_DELTA_M), and the "goal"
+                        # term is fidelity-to-the-VLA's-own-anchor-chunk (stay close to
+                        # its task-directed policy) rather than a learned distance to an
+                        # imagined future frame.
+                        #
+                        # This is a genuine capability addition beyond CBF-v2 (the
+                        # `elif not proactive_use_cbf` / `else` branches below), not a
+                        # reimplementation of it: CBF-v2 computes the closed-form
+                        # minimal-norm correction for a SINGLE linear safety constraint,
+                        # ONE STEP at a time. That closed-form solution is provably
+                        # optimal for that exact (convex, single-constraint, single-step)
+                        # problem, so a sampling search over the same problem could only
+                        # match it, not beat it. What sampling genuinely adds is WHOLE-
+                        # CHUNK lookahead (score entire T-step candidate trajectories by
+                        # their WORST-point margin violation, not just the current step)
+                        # and robustness to multiple/irregular obstacle geometry where no
+                        # simple closed form exists -- closer in spirit to V-JEPA2-AC's
+                        # actual receding-horizon re-planning (execute the best full
+                        # chunk, replan next chunk) than CBF-v2's per-step reactive nudge.
+                        #
+                        # Candidates: the VLA's own anchor chunk (always included,
+                        # candidate 0) plus (N-1) perturbations sharing ONE random xyz
+                        # offset per candidate applied to ALL T steps (not independent
+                        # per-step noise, which would produce jittery, physically
+                        # nonsensical trajectories) -- crude but zero-training, matching
+                        # this smoke test's scope.
+                        anchor = actions_arr.copy()
+                        T = len(anchor)
+                        rng_mpc = np.random.default_rng(1000 + t)  # deterministic per replan-step, for reproducibility
+                        candidates = [anchor]
+                        for _ in range(proactive_mpc_n_candidates - 1):
+                            offset = rng_mpc.normal(0.0, proactive_mpc_noise_std, size=3)
+                            cand = anchor.copy()
+                            cand[:, :3] = cand[:, :3] + offset[None, :]
+                            candidates.append(cand)
+
+                        best_energy, best_cand, best_margin_violation = None, anchor, None
+                        for cand in candidates:
+                            pos = predicted_pos.copy()
+                            worst_violation = 0.0  # deepest safety-margin penetration anywhere along this candidate's T-step trajectory
+                            for step_i in range(T):
+                                pos = pos + cand[step_i, :3] * OSC_POSE_MAX_DELTA_M
+                                dists = np.linalg.norm(occ_centers - pos[None, :], axis=1) - occ_radii
+                                violation = max(0.0, PROACTIVE_SAFETY_MARGIN_M - float(dists.min()))
+                                worst_violation = max(worst_violation, violation)
+                            fidelity_cost = float(np.mean((cand[:, :3] - anchor[:, :3]) ** 2))
+                            energy = proactive_mpc_w_safety * (worst_violation ** 2) + proactive_mpc_w_fidelity * fidelity_cost
+                            if best_energy is None or energy < best_energy:
+                                best_energy, best_cand, best_margin_violation = energy, cand, worst_violation
+
+                        if not np.array_equal(best_cand, anchor):
+                            actions_arr = best_cand
+                            actions = actions_arr
+                            proactive_correction_applied_count += 1
+                            proactive_correction_ts.append(t)
+                            print(f"    [proactive-avoidance-mpc] chunk at t={t}: selected non-anchor candidate "
+                                  f"among {proactive_mpc_n_candidates} (energy={best_energy:.5f}, "
+                                  f"anchor_worst_violation vs selected={best_margin_violation:.4f})")
+                    elif not proactive_use_cbf:
+                        # occ_vla addition (2026-08-24, original Phase-1 design):
+                        # a single trigger check, then a HARD override of xyz to a
+                        # fixed +Z lift for the entire rest of the chunk. Found
+                        # NEGATIVE (35%->25%, n=20) -- the fixed lift discards the
+                        # VLA's own lateral/forward intent entirely, so on the
+                        # NEXT replan the policy tries to resume its original
+                        # approach and immediately re-triggers ("tug-of-war":
+                        # repeated-firing episodes correlate strongly with
+                        # failure, 3.2 vs 14.2 mean corrections success/failure).
+                        # Kept, unchanged, as condition="proactive_avoidance_oracle"
+                        # for reproducibility of that negative result -- superseded
+                        # by the proactive_use_cbf branch below as the condition
+                        # actually meant to show a real benefit.
+                        unsafe_from_step = None
+                        for step_i in range(len(actions_arr)):
+                            predicted_pos = predicted_pos + actions_arr[step_i, :3] * OSC_POSE_MAX_DELTA_M
+                            dists = np.linalg.norm(occ_centers - predicted_pos[None, :], axis=1) - occ_radii
+                            if dists.min() < PROACTIVE_SAFETY_MARGIN_M:
+                                unsafe_from_step = step_i
+                                break
+                        if unsafe_from_step is not None:
+                            LIFT_MAG = 0.5  # untuned, same order of magnitude as the file's other correction magnitudes
+                            for step_i in range(unsafe_from_step, len(actions_arr)):
+                                actions_arr[step_i, 0] = 0.0
+                                actions_arr[step_i, 1] = 0.0
+                                actions_arr[step_i, 2] = LIFT_MAG
+                            actions = actions_arr
+                            proactive_correction_applied_count += 1
+                            proactive_correction_ts.append(t)
+                            print(f"    [proactive-avoidance-override] chunk at t={t} would approach occluder within "
+                                  f"{PROACTIVE_SAFETY_MARGIN_M}m at step {unsafe_from_step} -- correcting to +Z lift from there")
+                    else:
+                        # occ_vla addition (2026-08-24, v2 -- CBF/APF-style
+                        # minimal-norm safe correction, redesigned per user
+                        # request to fix the v1 override's "tug-of-war" failure
+                        # mode, grounded in standard robotics safety-control
+                        # theory: Artificial Potential Fields (Khatib, 1986,
+                        # "Real-Time Obstacle Avoidance for Manipulators and
+                        # Mobile Robots") and Control Barrier Functions (Ames et
+                        # al., 2019, "Control Barrier Function Based Quadratic
+                        # Programs for Safety-Critical Systems"). Rather than
+                        # discarding the VLA's entire xyz intent once ANY future
+                        # step looks unsafe, this computes -- PER STEP, for the
+                        # whole chunk, not just from a single trigger point --
+                        # the minimal correction that keeps the predicted
+                        # position outside the safety margin: only the velocity
+                        # COMPONENT heading into the occluder (the projection
+                        # onto the outward normal direction) is topped up to the
+                        # minimum safe value; the tangential/lateral component
+                        # (the VLA's actual approach/reach direction) is left
+                        # completely untouched. This is the closed-form solution
+                        # to a single-constraint CBF-QP (min_a ||a - a_vla||^2
+                        # s.t. dot(a, n_hat) >= k*(margin-dist)), not an
+                        # approximation of one. Because the correction is
+                        # continuous (scales with how deep into the margin the
+                        # predicted point is, k=proactive_cbf_gain) and per-step
+                        # (not "everything from here to the end of the chunk"),
+                        # each replan naturally re-derives the correction fresh
+                        # from the VLA's current intent rather than fighting a
+                        # frozen fixed-lift override -- directly targeting the
+                        # v1 tug-of-war mechanism (repeated full-chunk
+                        # overrides), not just a smaller lift magnitude.
+                        n_corrected_this_chunk = 0
+                        for step_i in range(len(actions_arr)):
+                            a_xyz = actions_arr[step_i, :3]
+                            candidate_pos = predicted_pos + a_xyz * OSC_POSE_MAX_DELTA_M
+                            dists = np.linalg.norm(occ_centers - candidate_pos[None, :], axis=1) - occ_radii
+                            nearest_idx = int(np.argmin(dists))
+                            dist = float(dists[nearest_idx])
+                            if dist < PROACTIVE_SAFETY_MARGIN_M:
+                                to_robot = candidate_pos - occ_centers[nearest_idx]
+                                to_robot_norm = float(np.linalg.norm(to_robot))
+                                n_hat = (to_robot / to_robot_norm) if to_robot_norm > 1e-6 else np.array([0.0, 0.0, 1.0])
+                                v_normal = float(np.dot(a_xyz, n_hat))
+                                v_min_normal = proactive_cbf_gain * (PROACTIVE_SAFETY_MARGIN_M - dist)  # >0, scales with penetration depth
+                                if v_normal < v_min_normal:
+                                    deficit = v_min_normal - v_normal
+                                    a_xyz = a_xyz + deficit * n_hat  # only the unsafe normal component is topped up; tangential intent untouched
+                                    actions_arr[step_i, :3] = a_xyz
+                                    n_corrected_this_chunk += 1
+                            # propagate using the (possibly-corrected) action for THIS step,
+                            # so later steps in the chunk see where the corrected trajectory
+                            # actually goes, not the original uncorrected one.
+                            predicted_pos = predicted_pos + a_xyz * OSC_POSE_MAX_DELTA_M
+                        if n_corrected_this_chunk > 0:
+                            actions = actions_arr
+                            proactive_correction_applied_count += n_corrected_this_chunk
+                            proactive_correction_ts.append(t)
+                            print(f"    [proactive-avoidance-cbf] chunk at t={t}: minimal-norm safety "
+                                  f"correction applied to {n_corrected_this_chunk}/{len(actions_arr)} steps "
+                                  f"(gain={proactive_cbf_gain})")
+
                 action_queue.extend(actions)
 
             action = action_queue.popleft()
@@ -1415,6 +1852,9 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "prevframe_gate_skip_log": prevframe_gate_skip_log,
         "reactive_triggered": reactive_triggered, "reactive_trigger_t": reactive_trigger_t,
         "dry_run_would_have_fired": dry_run_would_have_fired,
+        "stuck_triggered_count": stuck_triggered_count, "stuck_trigger_ts": stuck_trigger_ts,
+        "proactive_correction_applied_count": proactive_correction_applied_count,
+        "proactive_correction_ts": proactive_correction_ts,
         "ttc_blend_log": ttc_blend_log,
         # occ_vla addition (2026-08-18): independent runtime ground truth
         # that the splice was actually applied (incremented inside
@@ -1499,6 +1939,13 @@ def main():
                               "dict, see that script's own --out-adapter). Loaded with strict=False "
                               "right after the base checkpoint loads (the frozen language_model is "
                               "left untouched). None (default) is the unmodified base checkpoint.")
+    parser.add_argument("--vision-weights-a", default=None,
+                         help="occ_vla addition 2026-08-24, per user's Approach-A+B factorial request: "
+                              "same file format as --load-vision-weights, but SWAPPED IN/OUT per "
+                              "condition within a single process run, rather than applied once globally. "
+                              "Conditions 'A_only' and 'A_plus_B' use these weights; 'baseline' and "
+                              "'B_only' use the original (unmodified) checkpoint weights. Required if "
+                              "--conditions includes 'A_only' or 'A_plus_B'.")
     parser.add_argument("--force-oracle-mask-frac", type=float, default=None,
                          help="occ_vla addition 2026-08-22, per user's priority request: the FORCED-"
                               "ACTIVATION non-regression check. On a scene with NO real occluder "
@@ -1513,6 +1960,66 @@ def main():
                               "earlier non-regression check, n_correction_applied=0, already "
                               "confirmed separately). Only meaningful with --conditions "
                               "including 'oracle' and --use-stock-suite.")
+    parser.add_argument("--blank-agentview-diagnostic", action="store_true",
+                         help="occ_vla addition 2026-08-24: substitutes a flat mid-gray agentview frame for "
+                              "the policy's ENTIRE input (not just the occluded region) -- diagnostic only, "
+                              "to test whether the policy relies on agentview content at all for a given "
+                              "task, or succeeds mainly via the always-real wrist camera + proprioception.")
+    parser.add_argument("--proactive-safety-margin", type=float, default=0.04,
+                         help="occ_vla addition 2026-08-24: proactive_avoidance_oracle's safety margin "
+                              "(meters, added on top of the occluder's own geometric half-extent). Untuned.")
+    parser.add_argument("--proactive-cbf-gain", type=float, default=2.0,
+                         help="occ_vla addition 2026-08-24, v2 (proactive_avoidance_cbf condition): gain k "
+                              "in the minimal-norm safety correction v_min_normal = k*(margin-dist) -- how "
+                              "hard to push away per meter of margin penetration. Untuned; same order of "
+                              "magnitude as other correction gains in this file.")
+    parser.add_argument("--proactive-mpc-n-candidates", type=int, default=16,
+                         help="occ_vla addition 2026-08-25 (proactive_avoidance_mpc condition): number of "
+                              "candidate chunks scored per replan, including the VLA's own anchor chunk "
+                              "(candidate 0). Untuned.")
+    parser.add_argument("--proactive-mpc-noise-std", type=float, default=0.15,
+                         help="occ_vla addition 2026-08-25: std of the single per-candidate xyz offset "
+                              "(normalized action units, applied to all T steps of that candidate) used to "
+                              "perturb the anchor chunk. Untuned.")
+    parser.add_argument("--proactive-mpc-w-safety", type=float, default=50.0,
+                         help="occ_vla addition 2026-08-25: energy-function weight on squared worst-point "
+                              "safety-margin violation across a candidate's whole chunk. Untuned; large "
+                              "relative to w-fidelity so any real violation dominates the selection.")
+    parser.add_argument("--proactive-mpc-w-fidelity", type=float, default=1.0,
+                         help="occ_vla addition 2026-08-25: energy-function weight on mean squared deviation "
+                              "from the VLA's own anchor chunk (the 'goal' term substitute -- see the "
+                              "proactive_use_mpc branch's docstring for why, in the absence of a learned "
+                              "goal-image latent scorer). Untuned.")
+    parser.add_argument("--suite", default="10", choices=["10", "spatial", "object", "goal"],
+                         help="occ_vla addition 2026-08-24, per user's cross-suite VIM-comparison request: "
+                              "which LIBERO-Occ suite to evaluate against. Was previously hardcoded to "
+                              "libero_10 (STOCK_SUITE/OCCLUDED_SUITE module constants) -- this flag also "
+                              "resolves the CORRECT per-suite max_steps (spatial=220, object=280, goal=300, "
+                              "10=520, per the vendored TASK_MAX_STEPS table), instead of the previous "
+                              "unconditional libero_10 value (520), which would have been silently wrong "
+                              "for spatial/object/goal (same 'ported constant not checked per-suite' bug "
+                              "class already documented elsewhere in this project).")
+    parser.add_argument("--stuck-cooldown-envsteps", type=int, default=None,
+                         help="occ_vla addition 2026-08-23, per user's ablation request: env-steps to wait "
+                              "after a stuck-trigger fires before re-arming. Default None reproduces the "
+                              "original (untuned) behavior of reusing STUCK_WINDOW_ENVSTEPS (64) -- pass an "
+                              "explicit value to decouple it from the detection-window size.")
+    parser.add_argument("--stuck-retreat-mag", type=float, default=0.6,
+                         help="occ_vla addition 2026-08-23, per user's ablation request: normalized-action "
+                              "magnitude for BOTH the retreat and lift phases of scripted_recovery_after_stuck's "
+                              "recovery motion. Untuned default (0.6), inherited unchanged from the earlier "
+                              "scripted_recovery_after_contact mechanism.")
+    parser.add_argument("--stuck-recovery-steps", type=int, default=4,
+                         help="occ_vla addition 2026-08-23, per user's step-count-sweep request: number of "
+                              "steps for EACH phase (retreat, then lift) of scripted_recovery_after_stuck's "
+                              "recovery motion -- total motion length is 2x this value. Inherited unchanged "
+                              "from the earlier scripted_recovery_after_contact mechanism's own untuned "
+                              "default (4) until this sweep; not previously verified against other values.")
+    parser.add_argument("--stuck-dist-threshold", type=float, default=0.012,
+                         help="occ_vla addition 2026-08-23, per user's threshold-sweep request: "
+                              "scripted_recovery_after_stuck's near-zero-progress trigger threshold, "
+                              "in meters, over the recent-half (32 env-step) window. Untuned default "
+                              "(0.012m); swept at 0.006/0.012/0.024 to check sensitivity.")
     parser.add_argument("--ttc-threshold", type=float, default=8.0,
                          help="occ_vla addition 2026-08-22, per user's Option (a) continuous TTC-area "
                               "safe-action blend: TTC (in replan-agnostic env-step units, since "
@@ -1579,12 +2086,25 @@ def main():
     if args.save_oracle_features_dir:
         os.makedirs(args.save_oracle_features_dir, exist_ok=True)
 
+    # occ_vla bug fix (2026-08-24, real crash: check_unnorm_key asserted
+    # "Action un-norm key libero_10 not found in VLA norm_stats!" for EVERY
+    # single spatial/object/goal job tonight -- task_suite_name here was
+    # still hardcoded to the module-level STOCK_SUITE ("libero_10") even
+    # after --suite was added, since this cfg is built BEFORE this file's
+    # own suite_stock_name resolution further down. check_unnorm_key uses
+    # cfg.task_suite_name directly as the norm_stats lookup key, and each
+    # suite-specific checkpoint's dataset_statistics.json only contains ITS
+    # OWN suite's key (confirmed: openvla-7b-oft-libero-spatial only has
+    # "libero_spatial_no_noops") -- so every one of tonight's 30 new-suite
+    # jobs failed at startup, before a single episode ran. Resolved here,
+    # ahead of cfg construction, instead of leaving it for later.
+    _suite_stock_name_for_cfg = {"10": "libero_10", "spatial": "libero_spatial", "object": "libero_object", "goal": "libero_goal"}[args.suite]
     cfg = GenerateConfig(
         pretrained_checkpoint=args.checkpoint,
         use_l1_regression=True, use_diffusion=False, use_film=False,
         num_images_in_input=2, use_proprio=True,
         load_in_8bit=False, load_in_4bit=args.load_in_4bit,
-        center_crop=True, num_open_loop_steps=8, task_suite_name=STOCK_SUITE, seed=7,
+        center_crop=True, num_open_loop_steps=8, task_suite_name=_suite_stock_name_for_cfg, seed=7,
     )
     if args.attn_implementation:
         # occ_vla addition (2026-08-19, per user request -- determinism
@@ -1605,6 +2125,37 @@ def main():
     # projector; the frozen language_model is untouched) with
     # strict=False, since it deliberately does not cover every model
     # parameter.
+    # occ_vla addition (2026-08-24, per user's Approach-A+B factorial request):
+    # capture the UNMODIFIED vision_backbone+projector state on CPU before any
+    # weight swapping happens, so 'baseline'/'B_only' conditions can be
+    # restored to it after an 'A_only'/'A_plus_B' condition has loaded the
+    # fine-tuned weights -- all 4 conditions run in ONE process (per the
+    # user's explicit non-determinism concern: cross-process VLA inference is
+    # NOT bit-reproducible, real, measured drift up to 2/20 episodes on task1
+    # -- see this file's own history), so weights must be swappable in place,
+    # not just loadable once at startup like the older --load-vision-weights.
+    _base_vision_projector_state = {
+        k: v.clone() for k, v in model.state_dict().items()
+        if k.startswith("vision_backbone.") or k.startswith("projector.")
+    }
+    _vision_weights_a_state = None
+    if args.vision_weights_a:
+        _vision_weights_a_state = torch.load(args.vision_weights_a, map_location="cpu")
+        unexpected_a = [k for k in _vision_weights_a_state if k not in _base_vision_projector_state]
+        assert not unexpected_a, f"--vision-weights-a has keys not in the model: {unexpected_a[:5]}"
+
+    def _set_vision_projector_weights(use_finetuned):
+        """occ_vla addition (2026-08-24): swap vision_backbone+projector
+        in-place between the base checkpoint's own weights and
+        --vision-weights-a's fine-tuned weights, WITHOUT touching the frozen
+        language_model. strict=False since the partial state dict never
+        covers the LLM; unexpected/missing checked once at load time above
+        and at each swap below."""
+        target = _vision_weights_a_state if use_finetuned else _base_vision_projector_state
+        assert target is not None, "requested fine-tuned vision weights but --vision-weights-a was not given"
+        missing, unexpected = model.load_state_dict(target, strict=False)
+        assert not unexpected, f"vision weight swap found keys not in the model: {unexpected[:5]}"
+
     if args.load_vision_weights:
         print(f"  [vision-weights] loading trained vision_backbone+projector from {args.load_vision_weights}")
         state_dict = torch.load(args.load_vision_weights, map_location="cpu")
@@ -1625,10 +2176,16 @@ def main():
     processor = get_processor(cfg)
     check_unnorm_key(cfg, model)
     resize_size = get_image_resize_size(cfg)
-    max_steps = TASK_MAX_STEPS["libero_10"]  # same underlying scenes/horizon convention as the fast scan
+    # occ_vla change (2026-08-24, per user's cross-suite VIM-comparison
+    # request): suite/max_steps now resolved from --suite instead of the
+    # module-level STOCK_SUITE/OCCLUDED_SUITE constants (still the default
+    # for "10", unchanged behavior for every existing script/experiment).
+    suite_stock_name = _suite_stock_name_for_cfg  # occ_vla: reuse the same resolution used for cfg.task_suite_name above, avoid drift
+    suite_occ_name = {"10": OCCLUDED_SUITE, "spatial": "libero_spatial_occluded", "object": "libero_object_occluded", "goal": "libero_goal_occluded"}[args.suite]
+    max_steps = TASK_MAX_STEPS[suite_stock_name]
 
-    occluded_suite = benchmark.get_benchmark_dict()[OCCLUDED_SUITE]()
-    stock_suite = benchmark.get_benchmark_dict()[STOCK_SUITE]()
+    occluded_suite = benchmark.get_benchmark_dict()[suite_occ_name]()
+    stock_suite = benchmark.get_benchmark_dict()[suite_stock_name]()
 
     original_forward = model.vision_backbone.forward
     splice_forward = make_agentview_midlayer_splice_forward(model.vision_backbone, args.midlayer_split_frac, img_idx=0)
@@ -1665,6 +2222,16 @@ def main():
         "prevframe_gate_max_frac_no_ref": args.prevframe_gate_max_frac_no_ref,
         "prevframe_feather_px": args.prevframe_feather_px,
         "use_stock_suite": args.use_stock_suite,
+        # occ_vla addition (2026-08-24/25, Approach-A+B factorial): resolved
+        # effective settings for A_only/B_only/A_plus_B, per user's explicit
+        # "run_config.json に解決後の実効設定を全部書き出す" requirement.
+        "vision_weights_a": args.vision_weights_a,
+        "vision_weights_a_abspath": os.path.abspath(args.vision_weights_a) if args.vision_weights_a else None,
+        "stuck_dist_threshold": args.stuck_dist_threshold,
+        "stuck_recovery_steps": args.stuck_recovery_steps,
+        "stuck_retreat_mag": args.stuck_retreat_mag,
+        "stuck_cooldown_envsteps": args.stuck_cooldown_envsteps,
+        "episode_seed_range": [args.episode_offset, args.episode_offset + args.n_episodes],
     }
     print(f"[run-config] midlayer_split_frac={args.midlayer_split_frac} -> resolved: {resolved_layers}")
     os.makedirs(args.results_dir, exist_ok=True)
@@ -1686,7 +2253,14 @@ def main():
         task_description = task.language
         print(f"\n=== task_id={task_id} '{task_description}' (stock_suite={args.use_stock_suite}) ===")
 
-        env = get_libero_env_seg(task, resolution=resize_size, camera_depths=bool(args.divergence_extract_dir))
+        # occ_vla addition (2026-08-24, Phase 2 proactive avoidance): also enable
+        # depth rendering when "proactive_avoidance_depth" is among the requested
+        # conditions -- that condition needs a real RGB-D obstacle point cloud,
+        # not the privileged occluder_geom_ids used by proactive_avoidance_oracle/cbf.
+        env = get_libero_env_seg(
+            task, resolution=resize_size,
+            camera_depths=bool(args.divergence_extract_dir) or "proactive_avoidance_depth" in args.conditions,
+        )
         env.seed(0)
         env.reset()  # obj_of_interest is only populated on the env AFTER reset (not on the Task
                       # benchmark object -- confirmed via src/occ_vla/eval/libero_occ_env.py's own
@@ -1745,6 +2319,19 @@ def main():
             # (occluded+collision), L=0 (clean+collision), and
             # no_collision (occluded+no-collision) cells.
             model.vision_backbone.forward = splice_forward if condition in ("oracle", "oracle_no_collision") else original_forward
+            # occ_vla addition (2026-08-24, per user's Approach-A+B factorial
+            # request): "A_only"/"A_plus_B" swap in the fine-tuned
+            # (representation-alignment) vision_backbone+projector weights;
+            # "baseline"/"B_only" use the original checkpoint weights. Swap
+            # happens fresh at the START of every condition's block (not just
+            # once at process start), so all 4 conditions can run in one
+            # process/one model load, satisfying the user's explicit
+            # same-process requirement.
+            AB_FACTORIAL_CONDITIONS = ("baseline", "A_only", "B_only", "A_plus_B")
+            if condition in AB_FACTORIAL_CONDITIONS:
+                _set_vision_projector_weights(use_finetuned=condition in ("A_only", "A_plus_B"))
+                ab_vision_weights_used = args.vision_weights_a if condition in ("A_only", "A_plus_B") else "<base checkpoint>"
+                print(f"    [A+B factorial] condition={condition} -> vision weights: {ab_vision_weights_used}")
             # occ_vla addition (2026-08-20, per user's 2x2 factorial design
             # request -- decouple VISUAL occlusion from PHYSICAL collision,
             # since removing the occluder entirely (visual+physical at
@@ -1802,7 +2389,7 @@ def main():
             # detailed docstring/comments at the composite_visual_only
             # block for the exact mechanism and its known z-buffering
             # limitation).
-            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only", "ttc_area_blend"):
+            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only", "ttc_area_blend", "scripted_recovery_after_stuck", "proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc"):
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
@@ -1826,6 +2413,43 @@ def main():
             # no_collision/scripted_recovery's collision-geom-based
             # mechanisms).
             ttc_area_blend = condition == "ttc_area_blend"
+            # occ_vla addition (2026-08-23, per user's explicit "no
+            # privileged information" request): "scripted_recovery_after_stuck"
+            # keeps real collision AND real occluder rendering fully
+            # intact -- it needs NO occluder-geom identity at all (unlike
+            # every other reactive/no_collision/low_mobility condition
+            # above, all of which require disable_collision_geom_ids ==
+            # occluder_geom_ids). Trigger + recovery motion are computed
+            # purely from obs["robot0_eef_pos"] inside run_episode.
+            stuck_velocity_trigger = condition in ("scripted_recovery_after_stuck", "B_only", "A_plus_B")
+            # occ_vla addition (2026-08-24): "proactive_avoidance_oracle" also
+            # keeps real collision AND real occluder rendering fully intact --
+            # it needs occluder_geom_ids for the PRIVILEGED true-3D-position
+            # lookup (Phase 1 proof-of-concept only; a real depth-camera/
+            # segmentation-based version is the planned Phase 2 if this shows
+            # value), but does not disable collision/rendering itself.
+            proactive_avoidance_oracle = condition in ("proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc")
+            # occ_vla addition (2026-08-24, v2): "proactive_avoidance_cbf" reuses
+            # the exact same trigger/plumbing as proactive_avoidance_oracle (same
+            # privileged occluder-position lookup, same "keeps real collision AND
+            # real occluder rendering intact" contract) -- only the correction
+            # MATH differs (per-step minimal-norm CBF/APF nudge vs. v1's hard
+            # full-chunk override to a fixed lift), selected via proactive_use_cbf.
+            proactive_use_cbf = condition in ("proactive_avoidance_cbf", "proactive_avoidance_depth")
+            # occ_vla addition (2026-08-24, Phase 2): "proactive_avoidance_depth"
+            # reuses proactive_avoidance_cbf's exact correction math -- the ONLY
+            # difference is where occ_centers/occ_radii come from (real RGB-D
+            # obstacle point cloud vs. privileged occluder_geom_ids). No occluder
+            # identity/geometry is used anywhere in this condition's path.
+            proactive_use_depth = condition == "proactive_avoidance_depth"
+            # occ_vla addition (2026-08-25): "proactive_avoidance_mpc" uses the
+            # SAME privileged occluder-position lookup as proactive_avoidance_oracle/
+            # proactive_avoidance_cbf (Phase 1 -- validate the sampling-based MPC
+            # mechanism itself before adding real depth-estimation noise on top, same
+            # sequencing already used for CBF v1->v2->depth). Real collision AND real
+            # occluder rendering stay fully intact, same contract as every other
+            # proactive_avoidance_* condition.
+            proactive_use_mpc = condition == "proactive_avoidance_mpc"
             # occ_vla addition (2026-08-20, per user request -- mobility
             # sweep, top priority per their own reasoning: zero geometric
             # constraint, cheapest to implement, most directly tests the
@@ -1869,6 +2493,22 @@ def main():
                     ttc_threshold=args.ttc_threshold,
                     ttc_safe_action=tuple(args.ttc_safe_action),
                     force_oracle_mask_frac=args.force_oracle_mask_frac,
+                    stuck_velocity_trigger=stuck_velocity_trigger,
+                    stuck_dist_threshold=args.stuck_dist_threshold,
+                    stuck_recovery_steps=args.stuck_recovery_steps,
+                    stuck_cooldown_envsteps=args.stuck_cooldown_envsteps,
+                    stuck_retreat_mag=args.stuck_retreat_mag,
+                    proactive_avoidance_oracle=proactive_avoidance_oracle,
+                    proactive_safety_margin=args.proactive_safety_margin,
+                    blank_agentview=args.blank_agentview_diagnostic,
+                    proactive_use_cbf=proactive_use_cbf,
+                    proactive_cbf_gain=args.proactive_cbf_gain,
+                    proactive_use_depth=proactive_use_depth,
+                    proactive_use_mpc=proactive_use_mpc,
+                    proactive_mpc_n_candidates=args.proactive_mpc_n_candidates,
+                    proactive_mpc_noise_std=args.proactive_mpc_noise_std,
+                    proactive_mpc_w_safety=args.proactive_mpc_w_safety,
+                    proactive_mpc_w_fidelity=args.proactive_mpc_w_fidelity,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
@@ -1886,7 +2526,8 @@ def main():
                       f"n_ensemble_logged={len(res['ensemble_disagreement_log'])} "
                       f"n_prevframe_fill_logged={len(res['prevframe_fill_log'])} "
                       f"n_prevframe_gate_skipped={len(res['prevframe_gate_skip_log'])} "
-                      f"reactive_triggered={res['reactive_triggered']} reactive_trigger_t={res['reactive_trigger_t']}")
+                      f"reactive_triggered={res['reactive_triggered']} reactive_trigger_t={res['reactive_trigger_t']} "
+                      f"stuck_triggered_count={res['stuck_triggered_count']} stuck_trigger_ts={res['stuck_trigger_ts']}")
             task_results[condition] = results
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,

@@ -52,3 +52,21 @@ thirdparty/openvla-oft/*.pt.back.*
 thirdparty/openvla-oft/**/*.back.*
 
 .venv_dev_test/
+
+# Vendored LIBERO + LIBERO-Occ checkouts used by the occluded-suite scripts
+# (LIBERO pinned to Lifelong-Robot-Learning/LIBERO@8f1084e, Libero-Occ pinned
+# to litsh/Libero-Occ@25cc040) — reproducible via scripts/setup_libero_occ_env.sh,
+# not versioned here (643MB / 5.6MB, external repos not this project's own code).
+thirdparty/LIBERO/
+thirdparty/Libero-Occ/
+
+# Per-run experiment output directories (run_libero_occluded_oracle_headroom.py
+# --results-dir) — reproducible by rerunning the documented command, not meant
+# to be diffed/frozen. Named ad hoc per experiment (task ids, condition names,
+# episode counts) rather than one fixed pattern, so this is illustrative, not
+# exhaustive — check `git status` before committing a new results-dir by habit.
+thirdparty/openvla-oft/*_n[0-9]*/
+thirdparty/openvla-oft/exp*_task*/
+thirdparty/openvla-oft/smoke_*/
+thirdparty/openvla-oft/replicate_task*/
+thirdparty/openvla-oft/blank_libero10_*/

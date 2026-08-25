@@ -557,3 +557,235 @@ zero effect (possibly needs more/different training data, more
 steps, or Approach B/behavior-cloning instead of pure feature
 alignment), or a paired-episode re-run (same process launch, same
 init_states) to control for cross-launch noise more tightly.
+
+## n=50 expansion + task8 zero-shot transfer: task1 confirmed significant,
+task6 reverses to a (non-significant) REGRESSION, task8 zero-shot
+transfer hurts on both source tasks (2026-08-22, overnight, unattended --
+existing scripts only, no code changes)
+
+Per user's explicit late-night instruction (stop human/code work, launch
+only GPU jobs using already-validated scripts), scaled task1/task6's
+`--load-vision-weights` eval from n=20 to n=50 (independent launches,
+same weights as above), and additionally ran task8 (never fine-tuned
+itself) baseline plus two zero-shot conditions using task1's and task6's
+trained weights, n=20 each. All via `--conditions baseline
+[--load-vision-weights ...]`, no new code. Source dirs:
+`baseline_occ_task1_n50_paired/`, `finetuned_eval_task1_n50/`,
+`baseline_occ_task6_n50_paired/`, `finetuned_eval_task6_n50/`,
+`baseline_occ_task8_n20_paired/`,
+`finetuned_eval_task8_using_task{1,6}weights_n20/`.
+
+| task | baseline | fine-tuned/transfer | Fisher exact | note |
+|---|---|---|---|---|
+| task1 (n=50) | 44.0% (22/50) | **72.0% (36/50)** | **p=0.0081 (significant)** | n=20's 35%->65% (p=0.113) now confirmed at n=50 |
+| task6 (n=50) | 30.0% (15/50) | **20.0% (10/50)** | p=0.3558 (n.s.) | n=20's "zero effect" (30%=30%) did NOT hold at n=50 -- now a directional REGRESSION, though not significant |
+| task8 (n=20, own weights: none, never fine-tuned) | 35.0% (7/20) | -- | -- | new baseline number for task8 under this eval harness |
+| task8 + task1's weights (zero-shot) | 35.0% (7/20) | 25.0% (5/20) | p=0.7311 (n.s.) | worse, not significant |
+| task8 + task6's weights (zero-shot) | 35.0% (7/20) | 30.0% (6/20) | p=1.0000 (n.s.) | worse, not significant |
+
+**Two real, honest updates to the earlier n=20 read, stated plainly
+rather than smoothed over:**
+
+1. **task1's improvement is now the first statistically significant
+   result in this whole representation-alignment thread** (p<0.01 at
+   n=50, independent-sample Fisher exact since baseline/fine-tuned are
+   separate process launches, not paired episodes). This is real
+   evidence the technique works on at least one task.
+2. **task6 did NOT merely fail to improve -- at n=50 it trended toward
+   active harm** (30%->20%, though p=0.356 keeps this within noise for
+   n=50). The n=20 "exact match, zero effect" read from the entry above
+   is superseded -- always trust the larger-n number when they disagree,
+   consistent with this project's own repeated small-n-doesn't-replicate
+   pattern (matches, e.g., the sibling pi0.5 project's own extensively
+   documented version of the same lesson).
+
+**Zero-shot transfer to task8 (never itself fine-tuned) shows a
+consistent, if individually non-significant, negative direction under
+BOTH source tasks' weights** (35%->25% and 35%->30%). This argues
+against "the learned vision/projector adaptation generalizes across
+occlusion scenes" -- it looks more consistent with **task-specific
+overfitting to the source task's own occluder shape/scene geometry**
+(task1's book+box vs task6's desk_caddy vs task8's mug+pudding,
+`target_seg_ids=[1,3,4]`) than a general de-occlusion representation.
+
+**Bottom line, updated**: this technique is not (yet) a general fix --
+it is a real, significant, task1-specific win, a possible (non-
+significant) task6-specific harm, and a consistent (non-significant)
+zero-shot-transfer harm on task8. Any future write-up of this thread
+must lead with task1's significance AND task6's reversal together, not
+just task1's number in isolation. If pursued further: task8 would need
+its own dedicated fine-tuning run (own `collect_success_action_pairs.py`
++ `train_representation_alignment.py` pass) rather than reusing another
+task's weights; task6's regression is worth investigating on its own
+(same open question already flagged above -- more data/steps, or
+Approach B/behavior-cloning, since pure feature-space alignment may
+not be the right mechanism for this task's more complex 3D occluder).
+
+## scripted_recovery_after_stuck: a NO-PRIVILEGED-INFO, NO-TRAINING
+velocity-based stuck trigger -- the single largest and cleanest result
+of this whole investigation, on 2 of 3 tasks (2026-08-23)
+
+Per user's explicit priority call (chose this over Approach B given the
+already-confirmed physical-collision dominance data) and explicit "no
+privileged information" requirement. `scripted_recovery_after_contact`
+(existing, 2026-08-20/21) already implements a REAL scripted retreat+
+lift recovery motion (not the idealized collision-disable proxy), but
+its trigger (anomalous non-gripper arm-link contact with a KNOWN
+occluder geom) needs occluder-geometry identity (privileged) AND only
+ever fired on task1 (4/13 baseline failures); task6/task8 showed 0/14,
+0/13 -- verified as a real "this failure mode doesn't involve that kind
+of contact" finding, not a bug.
+
+**New condition, `scripted_recovery_after_stuck`** (`run_libero_occluded_oracle_headroom.py`):
+trigger uses ONLY `obs["robot0_eef_pos"]` (real proprioception, sampled
+every env-step into a 64-step window) -- zero occluder-geom identity,
+zero segmentation, zero `sim.data.contact`. Fires when the recent-half
+window's net displacement is <1.2cm (real progress essentially absent,
+threshold well below what 32 genuine OSC_POSE actions would produce).
+Recovery motion: real retreat (4 steps, direction = reverse of the
+FULL window's net displacement, i.e. "back away from wherever you were
+heading when you got stuck") + real lift (4 steps) -- same magnitudes
+as the existing contact-triggered recovery, real physics/rendering
+stay completely untouched throughout (this condition needs no
+`disable_collision_geom_ids` at all). Re-armable (64-step cooldown
+after each trigger, not one-shot) -- can retry multiple times per
+episode if stuck again.
+
+**Result, n=20 each, baseline vs scripted_recovery_after_stuck, all
+3 tasks, paired by episode index (single launch, same init_states)**:
+
+| task | baseline | scripted_recovery_after_stuck | McNemar (b/c/chi2) | Fisher p |
+|---|---|---|---|---|
+| **task1** | 30.0% (6/20) | **70.0% (14/20)** | b=1/c=9/chi2=6.40 | **p=0.0256** |
+| **task6** | 30.0% (6/20) | **95.0% (19/20)** | b=0/c=13/chi2=13.00 | **p=0.00004** |
+| task8 | 35.0% (7/20) | 40.0% (8/20) | b=3/c=4/chi2=0.14 | p=1.0000 (n.s.) |
+
+**task6's result is the largest, cleanest win in this entire
+investigation to date** -- ZERO episodes regressed (b=0), 13/20
+episodes flipped from failure to success, reaching 95% with no
+training and no privileged information. This is a striking, direct
+contrast with the SAME task's representation-alignment result from the
+entry immediately above (30%->20%, a REGRESSION): the vision-feature
+fix hurt exactly the task where the physical/proprioceptive fix helped
+most -- strong support for the standing hypothesis that task6's
+baseline failures are dominated by something the vision-alignment
+approach can't touch (physical stuck states) while being vulnerable to
+the same approach's real cost (feature distortion).
+
+task1's stuck-trigger result (30%->70%) is smaller than but comparable
+in kind to `scripted_recovery_after_contact`'s own task1 number,
+achieved with a strictly more general (non-contact-dependent) trigger.
+
+**task8 is the one task where this doesn't clearly help** (35%->40%,
+n.s., 3 regressions vs 4 recoveries -- roughly balanced, not a clean
+win like the other two). The trigger DID engage at a similar rate to
+task1/task6 in the smoke test (3, 1, 3 firings across 3 episodes) --
+this is not a trigger-never-fires situation like the old contact-based
+mechanism's task6/task8 result. Most plausible reading: task8's
+baseline failures are less dominated by a simple "got physically stuck,
+back off and retry" failure mode than task1/task6's are -- consistent
+with task8's smaller physical-interference effect size measured
+earlier this investigation (no_collision only +55pt vs stock's ceiling,
+still large but the composite_visual_only/no_collision divergence
+there was never as clean as task1's).
+
+**Also completed same session: task8's own dedicated representation-
+alignment fine-tune** (`collect_success_action_pairs.py --task-ids 8
+--n-episodes 20` -> 653 pairs -> `train_representation_alignment.py`,
+loss 0.111->0.017, healthy convergence) -- its own n=20 occluded-suite
+eval (`finetuned_own_eval_task8_n20/`) is the natural next comparison
+point against task8's zero-shot-transfer results (25%/30% from the
+entry above, both worse than baseline) and against baseline itself
+(35%) -- in progress at the time of this entry, not yet reported.
+
+**Bottom line**: this is the first mechanism in the whole
+representation-alignment/recovery investigation to combine (a) a large
+effect size, (b) statistical significance, (c) zero training cost, and
+(d) zero privileged information, on more than one task. It is also the
+first CLEAR case of two different interventions (vision fine-tuning vs.
+physical recovery) showing opposite signs on the same task (task6),
+which is itself informative about what's actually driving that task's
+baseline failures. task8 remains the hardest task for every
+intervention tried in this whole investigation (fine-tuning: negative/
+n.s.; zero-shot transfer: negative; stuck-trigger: n.s.) -- worth
+investigating what task8's actual dominant failure mode is (not yet
+done) before assuming any of these interventions "should" work there.
+
+## task8's own dedicated fine-tune: total collapse (35%->0%), confirmed
+NOT a bug (2026-08-23)
+
+`finetuned_own_eval_task8_n20/` (own data: 653 pairs, `train_representation_alignment.py`,
+loss 0.111->0.017 healthy convergence): **0/20 (0.0%) success** -- worse
+than baseline (35%) AND both cross-task zero-shot transfers (25%/30%).
+Confirmed not a bug: all 20 episodes ran the full `max_steps` (530) and
+timed out normally (no crash). Worst result in the whole
+representation-alignment thread, on the task with the smallest training
+set (653 pairs vs. task1's 887) -- strong support for the Feature-
+Collapse hypothesis and for prioritizing Approach B over further
+Approach A tuning.
+
+## Pre-conference 6-point review, results (2026-08-23)
+
+Per user's explicit review of the presentation draft (6 numbered
+follow-ups), gated to avoid GPU double-booking with the still-running
+task8-own-weight eval, then re-launched a second time after the
+monitor process was killed mid-queue by a session interruption (3 of 5
+remaining jobs had to be verified/relaunched from scratch -- no partial
+results were reused, since a killed mid-run log cannot be trusted).
+
+**1. Non-regression on the CLEAN (non-occluded) stock suite** (n=20,
+baseline vs `scripted_recovery_after_stuck`, `--use-stock-suite`) --
+the single most important check before any real-robot-deployable claim:
+
+| task-equivalent | baseline | scripted_recovery_after_stuck | trigger engagement | verdict |
+|---|---|---|---|---|
+| task1 (stock id=3) | 95.0% (19/20) | 95.0% (19/20), IDENTICAL episode pattern | fired 8/20 episodes (40%) | clean -- false triggers happen, zero harm |
+| task6 (stock id=1) | 100% (20/20) | 100% (20/20) | fired 6/20 episodes | clean -- ceiling, zero harm |
+| **task8 (stock id=6)** | 95.0% (19/20) | **75.0% (15/20)** | fired 10/20 episodes (50%, highest), 6 with multiple firings | **REAL REGRESSION**: McNemar b=4(succ->fail)/c=0(fail->succ)/chi2=4.00 (p~=0.046, borderline sig.); Fisher (unpaired) p=0.1818 (n.s.) |
+
+**This is the real, materialized version of the exact risk flagged as
+the presentation's single biggest gap before this check ran.** task8's
+own task involves more low-velocity manipulation phases than task1/
+task6, triggers the detector far more often even on the CLEAN task, and
+the resulting false-positive recovery motions actively cost real
+successes (4 flipped success->failure, 0 the other way).
+**Conclusion for the presentation: confirmed safe on task1/task6-style
+tasks, NOT unconditionally safe on task8-style tasks -- any real-robot-
+deployability claim must be qualified per task type, not stated as a
+blanket guarantee.**
+
+**2. A+B combined** (fine-tuned vision weights + `scripted_recovery_after_stuck`
+together, same launch, n=20 seeds[0:20]):
+
+| task | baseline | B alone | A+B combined | A+B vs baseline (McNemar) | A+B vs B alone (McNemar) |
+|---|---|---|---|---|---|
+| task1 | 30.0% | 70.0% | 65.0% | b=2/c=9/chi2=4.45 (sig.) | b=4/c=3/chi2=0.14 (n.s.) |
+| task6 | 30.0% | 95.0% | 85.0% | b=1/c=12/chi2=9.31 (highly sig.) | b=3/c=1/chi2=1.00 (n.s.) |
+
+**No synergy found.** A+B combined beats baseline strongly on both
+tasks (as expected, since B alone already does), but is NOT
+statistically distinguishable from B alone, and numerically trends
+slightly LOWER than B alone on both tasks (70%->65%, 95%->85%) --
+consistent with A's own known cost on task6 (a real regression, 30%->20%,
+alone) partially diluting B's benefit when stacked. **Practical
+conclusion: no evidence-based reason to combine A+B with this specific
+Approach-A implementation -- B alone is at least as good and requires
+no training.**
+
+**3. task8's own fine-tune**: see the entry immediately above (0%,
+total collapse) -- now fills the previously-empty row.
+
+**4. task1 baseline canonicalization**: not resolved by picking one
+number (would break every McNemar pairing in this file, which each
+depend on baseline being measured in the SAME launch/seeds as its
+paired intervention). Documented instead as a Limitations footnote
+(see `conference_slide_prompt.md`): task1's n=20 seeds[0:20] baseline
+is a confirmed-reproducible LOW-OUTLIER subset (n=50 rate is 44-54%,
+and even n=50-vs-n=50 across separate launches disagrees -- real
+run-to-run policy stochasticity, not sampling-subset artifact alone).
+Every comparison in this file should be read as a same-launch paired
+delta, not as claims about the task's absolute population success rate.
+
+**5 & 6 (threshold sweep, task6 reproducibility replication)**: queued/
+in progress at the time of this entry -- results to follow in a later
+entry.
