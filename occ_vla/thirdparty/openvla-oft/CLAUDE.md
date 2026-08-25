@@ -2503,3 +2503,393 @@ general validation of the representation-alignment approach.
 **Do not describe this fine-tuning approach as "validated" in any
 presentation without this full context.** Full numbers and honest
 caveats in `NUMBERS_REFERENCE.md`.
+
+## Approach B (scripted stuck-recovery, zero privileged info) + cross-task
+replication: task-dependent, dramatic win on task6, actively harmful on
+task8 (2026-08-23)
+
+New condition `scripted_recovery_after_stuck`: trigger is purely a
+velocity check on `obs["robot0_eef_pos"]` (net displacement over the
+last 32 env-steps < 0.012m), no occluder-geom identity or contact
+info used at all -- a real-robot-deployable mechanism, unlike
+`no_collision`/`scripted_recovery_after_contact`'s reliance on
+disabling/identifying the occluder geom. On trigger: a scripted
+retreat (4 steps back + 4 steps up, magnitude 0.6), then a 64-env-step
+cooldown before it can re-trigger.
+
+**n=20 cross-task replication, real collision + real occluder
+rendering intact throughout:**
+- task6: baseline 30% -> Approach B **95%** -- a dramatic, large effect.
+- task8: baseline 35% -> Approach B **30%** -- ACTIVELY HARMFUL, not
+  just a null result.
+- (task1's own Approach-B-alone number is not independently recorded
+  in this entry -- it went straight into the A+B factorial design
+  below rather than being reported standalone; don't assume a value
+  for it.)
+
+Confirms the same pattern already seen elsewhere in this project:
+single-task positive results do not reliably generalize -- here not
+even in SIGN, not just magnitude. Any presentation of Approach B must
+lead with this task-dependence, not the task6 headline alone.
+
+## proactive_avoidance_oracle v1 (binary full-chunk override): negative
+result, root-caused as a "tug-of-war" failure mode (2026-08-24)
+
+First proactive (before-contact, not after-stuck) avoidance design:
+privileged 3D occluder position (`sim.data.geom_xpos[occluder_geom_ids]`),
+per-replan check of whether executing the upcoming 8-step chunk would
+bring the eef within a fixed safety margin (0.04m + occluder half-
+extent) of the occluder -- if so, override xyz to a fixed +Z lift
+(magnitude 0.5) for the rest of the chunk.
+
+**task1, n=20: baseline 35% -> v1 override 25% -- NEGATIVE.** Root
+cause: the fixed lift discards the VLA's own lateral/forward intent
+entirely; on the NEXT replan the policy tries to resume its original
+approach and immediately re-triggers. Repeated-firing episodes
+correlate strongly with failure (mean 3.2 corrections in successes vs.
+14.2 in failures) -- a real "tug-of-war" between the override and the
+policy's own persistent intent, not just an undertuned magnitude.
+Condition kept, unchanged, as `proactive_avoidance_oracle` for
+reproducibility of this negative result.
+
+## proactive_avoidance_cbf (v2): CBF/APF-style minimal-norm per-step
+correction -- redesigned per user request to fix v1's tug-of-war,
+statistically significant positive result on task1 (2026-08-24)
+
+Grounded in standard robotics safety-control theory: Artificial
+Potential Fields (Khatib, 1986) and Control Barrier Functions (Ames et
+al., 2019, "Control Barrier Function Based Quadratic Programs for
+Safety-Critical Systems"). Instead of a single trigger -> full-chunk
+override, computes PER STEP, for every step in the chunk, the minimal
+correction that keeps the predicted position outside the safety
+margin: only the action-velocity COMPONENT projecting into the
+occluder (dot product with the outward normal `n_hat`) is topped up to
+the minimum safe value `k*(margin-dist)`; the tangential component
+(the VLA's actual approach/reach direction) is left completely
+untouched. This is the closed-form solution to the single-constraint
+CBF-QP `min_a ||a-a_vla||^2 s.t. dot(a,n_hat) >= k*(margin-dist)`, not
+an approximation -- and because it's continuous and re-derived fresh
+every replan (not a frozen override), it directly targets v1's
+repeated-full-chunk-override tug-of-war mechanism.
+
+**task1, n=20: baseline 30% -> CBF v2 65%, chi2=5.14 (statistically
+significant), zero regressions** (every baseline success stayed a
+success under CBF). Baseline read as 30% here vs. v1's 35% baseline --
+consistent with this project's own separately-quantified non-
+determinism (repeated independent n=20 launches on the identical
+config varied up to ~5pt across launches; historical 35% -> a later
+independent rerun's 30% -> this run's 30%). Real, positive result --
+the first genuinely significant win in the proactive-avoidance thread.
+
+**Cross-task replication, n=20 (task6/task8), still Phase 1
+(privileged occluder position)**: modest, non-significant gains on
+both -- task6 30% -> 40%, task8 35% -> 40%. Smaller effect than CBF
+showed on task1, and much smaller than Approach B's task6 result (95%)
+-- CBF and Approach B are not interchangeable, and neither dominates
+the other across tasks.
+
+## Phase 2: real RGB-D + segmentation obstacle source, zero privileged
+information (2026-08-24, same day)
+
+Per explicit user request to remove Phase 1's remaining privilege
+(`sim.data.geom_xpos[occluder_geom_ids]`, the occluder's TRUE 3D
+position), Phase 2 (`proactive_avoidance_depth` condition) reuses
+CBF-v2's exact correction math unchanged -- only the obstacle SOURCE
+changes: a real RGB-D point cloud (agentview depth + segmentation),
+manually back-projected into world coordinates (not
+`robosuite.utils.camera_utils.transform_from_pixels_to_world` directly
+-- its batched-depth-map shape semantics were a poor fit; inlined
+equivalent math instead), each point treated as a near-zero-radius
+(0.01m) obstacle. No occluder identity/geometry used anywhere in this
+condition's path.
+
+**Real bug hit and fixed during smoke-testing** (caught before the
+real n=20 run, per this project's own established discipline): a
+stale LOCAL `from robosuite.utils.camera_utils import get_real_depth_map`
+statement deep inside `run_episode` (for an unrelated, older feature)
+made Python treat the name as local to the WHOLE function under
+Python's scoping rules, breaking the NEW depth-obstacle closure's
+access to the module-level import defined earlier --
+`UnboundLocalError`/free-variable error. Fixed by deleting the now-
+redundant local import.
+
+**task1, n=20: baseline 35% -> Phase 2 depth 45%, +10pt, not yet
+statistically significant.** Real, zero-privileged-information result,
+smaller than Phase 1's oracle-position CBF result (65%) but in the
+same direction -- consistent with Phase 2 carrying real but noisier
+signal than the privileged position it approximates.
+
+## Overfitting check for high-baseline tasks (task0/task4/task9,
+blank-agentview diagnostic), per explicit user instruction to verify
+BEFORE proceeding (2026-08-24)
+
+User's own hypothesis: baselines >=80% on these three tasks might
+reflect the policy having memorized a spatial/goal-suite shortcut
+(overfitting) rather than genuine occlusion robustness, and asked this
+be checked BEFORE any further task selection. Used the existing
+`--blank-agentview-diagnostic` flag (substitutes a flat mid-gray frame
+for the ENTIRE agentview input, not just the occluded region) as the
+test: if the policy still succeeds with a blanked-out agentview, that
+would indicate it isn't really using visual content (consistent with
+an overfit/shortcut explanation); if it collapses to near-zero, that
+confirms genuine vision-dependence.
+
+**Result: 0/5 success on all three tasks with agentview fully
+blanked** -- confirms all three ARE genuinely vision-dependent, not
+exhibiting the suspected overfitting/shortcut pattern. Directly
+answered the user's explicit "判断してから実行して欲しい" gate;
+proceeded with further task selection afterward.
+
+## Collision-severity metric, computed from existing logs
+(2026-08-24, per real professor/lab-meeting request for a "衝突度合いの
+指標")
+
+`contact_frac` (fraction of logged proprio-log steps in physical
+contact with the occluder) and `anomalous_contact_frac` (fraction of
+contact steps where contact involves a non-gripper-only robot body,
+e.g. forearm/upper-arm links, not just the gripper fingers) -- both
+computed directly from already-recorded `proprio_log` JSON fields
+(`occluder_contact`, `contact_robot_body_names`, `eef_to_occluder_dist`)
+without needing any new data collection.
+
+## Cross-check against a real, pasted professor/lab-meeting summary:
+flags an architecture mismatch (2026-08-24)
+
+The user's real lab-meeting minutes (labmate's presentation) describe
+the user's own thesis architecture as using a WORLD-MODEL-GENERATED
+predicted agentview image for occlusion completion. This is
+architecturally DIFFERENT from anything built or tested in this
+session's CBF/Approach-B/A+B-factorial work (no image generation at
+all) and also different from `composite_visual_only` (a real captured
+sprite composited in, not a generated image). Flagged explicitly to
+the user so the two are not conflated when reporting results back.
+
+## A+B factorial experiment: fully-specified 2x2 design, task1/task6/
+task8, n=20, single-process-per-task -- LAUNCHED 2026-08-25 01:34,
+STILL RUNNING as of this entry
+
+Per the user's own fully-specified prompt: combines Approach A
+(representation-alignment fine-tuned `vision_backbone`+`projector`
+weights, from `train_representation_alignment.py`, per-task adapters
+under `repr_align_task{1,6,8}_n{30,30,20}_steps100/vision_projector_weights.pt`)
+and Approach B (`scripted_recovery_after_stuck`) in a 2x2: `baseline`,
+`A_only`, `B_only`, `A_plus_B`. All 4 conditions run in ONE process per
+task (explicit requirement, since this project's own pi0.5-analog
+non-determinism findings mean separate launches of "the same" config
+can differ by several points -- keeping all 4 conditions in one
+process controls for at least process/session-level variance).
+`_set_vision_projector_weights(use_finetuned)` swaps in/out the
+Approach-A weights via `model.load_state_dict(..., strict=False)`
+against a captured base-model state dict, per condition.
+`stuck_velocity_trigger` is set for both `B_only` and `A_plus_B`.
+
+Pre-registered interpretation threshold (fixed BEFORE seeing results,
+per the user's own spec): call A+B "complementary" only if
+`A_plus_B >= max(A_only, B_only) + 10pt` AND a McNemar test on the
+A_plus_B-vs-max(A_only,B_only) discordant pairs shows `b < c`
+(more recoveries than regressions). Full command:
+
+```
+--task-ids {1,6,8} --n-episodes 20 --conditions baseline A_only B_only A_plus_B \
+  --vision-weights-a repr_align_task{N}_n{30,30,20}_steps100/vision_projector_weights.pt \
+  --stuck-cooldown-envsteps 64 --checkpoint checkpoints/openvla-7b-oft-libero10-vjepa \
+  --results-dir AB_factorial_task{N}_n20
+```
+
+**Status as of this entry: still running** (all 3 tasks launched in
+parallel, one process/GPU each, ~01:34 start). No A_only/B_only/
+A_plus_B results yet beyond an earlier n=2 smoke test. Results and the
+McNemar/complementary classification belong in the NEXT dated entry,
+once complete -- do not report a "complementary" verdict without
+having actually computed it from the real completed run.
+
+## V-JEPA conceptual scoping (2026-08-24/25): what would and wouldn't
+be a real V-JEPA integration here
+
+Series of feasibility questions from the user, answered against this
+project's actual existing components (not guessed):
+- The project's existing `VJEPA_LatentDynamicsPredictor` (from an
+  earlier, separate thread) is explicitly NOT a real self-supervised
+  V-JEPA -- it's a much narrower wrist-camera-only, mid-layer
+  FiLM(proprio)+cross-attention PATCH-COMPLETION module, trained only
+  on SYNTHETIC wrist occlusion. It is NOT the same thing as "Approach
+  B" (scripted stuck-recovery) -- the two are unrelated mechanisms.
+  Currently dormant in the loaded checkpoint unless explicitly
+  triggered.
+- V-JEPA + CBF is technically feasible in principle, but building a
+  genuine agentview V-JEPA predictor was flagged as low expected value
+  given this project's own oracle-ceiling data (the visual-completion
+  headroom the project has already characterized via
+  `composite_visual_only` doesn't obviously need a NEW generative
+  predictor on top).
+- A triple combo (Approach A + Approach B + V-JEPA) is technically
+  buildable but premature -- sequencing concern: finish + analyze the
+  currently-running A+B factorial FIRST, since stacking a third
+  untested component on top of two not-yet-fully-characterized ones
+  would make any result hard to attribute.
+- Wrist-view V-JEPA + A + B is comparatively MORE feasible than an
+  agentview version (the wrist-view predictor is already wired into
+  the loaded checkpoint's architecture), but the same unverified-
+  wrist-occlusion-fraction and synthetic-vs-real-generalization
+  caveats from the earlier V-JEPA thread still apply -- not yet
+  checked this session.
+- "V-JEPA + collision avoidance for optimal path search": clarified
+  that this project's V-JEPA module is not a real world model in the
+  planning sense, and proposed a training-free alternative instead
+  (Best-of-N action-chunk sampling scored by CBF's already-validated
+  obstacle-distance geometry) -- see the CBF-regularized MPC entry
+  below, which is the concrete result of following up on this.
+
+## Real V-JEPA 2 / V-JEPA 2-AC paper (arXiv:2506.09985, Meta) fetched
+and confirmed -- grounds the CBF-regularized MPC design below
+(2026-08-25)
+
+Per the user's explicit request to design a V-JEPA architecture "with
+reference to" this specific paper. Fetched via WebFetch (the PDF URL
+exceeded WebFetch's 10MB size limit; the HTML rendering
+`arxiv.org/html/2506.09985` succeeded). Confirmed real technical
+content, not assumed from the abstract alone:
+- Action-conditioned predictor: 300M-param transformer (24 layers, 16
+  heads, 1024 hidden dim), GELU, separate affine transforms for
+  actions/proprio-state/visual features, 3D RoPE on video patches +
+  temporal RoPE on action/pose tokens, block-causal attention, atop a
+  FROZEN V-JEPA 2 encoder (ViT-g, ~1B params, 16x16x1408 feature maps).
+  Post-trained on 62h of real Droid robot video.
+- Planning: MPC + CEM (Cross-Entropy Method) -- sample candidate action
+  sequences from a Gaussian, refine the sampling distribution toward
+  the top-k scoring candidates, receding-horizon control (execute the
+  first action(s), replan).
+- Scoring/energy function: L1 distance in LATENT space between the
+  predicted future state and a GOAL IMAGE's own encoded latent --
+  `E(a_1:T) = ||P(a_1:T; s_k, z_k) - z_g||_1`.
+  Task-varying horizon (4/10/4 steps for grasp/intermediate/place
+  sub-phases). Action bound: L1-ball radius 0.075 (~13cm/step).
+- **Confirmed explicitly: the paper has NO obstacle-avoidance or
+  dynamic-constraint-handling term anywhere in its planning/energy
+  function** -- only the fixed action-magnitude bound. Any "V-JEPA2 +
+  collision avoidance" claim is necessarily a NEW addition on top of
+  the paper's actual method, not something the paper itself provides.
+
+## proactive_avoidance_mpc: CBF-regularized sampling-based MPC,
+structurally inspired by V-JEPA2-AC's real CEM+energy-function
+planning loop -- implemented, smoke test QUEUED (not yet run)
+(2026-08-25)
+
+New condition in `run_libero_occluded_oracle_headroom.py`
+(`proactive_use_mpc` branch, in the same per-replan correction block
+as CBF-v2/Phase-2-depth). Explicitly NOT a reimplementation of
+V-JEPA2-AC -- this project has neither a trained world model nor a
+goal-image latent scorer, so both are substituted with already-
+validated, zero-training components:
+- **State prediction**: reuses the SAME analytic forward-kinematics
+  approximation as CBF-v2 (`predicted_pos += a_xyz * OSC_POSE_MAX_DELTA_M`),
+  not a learned predictor.
+- **"Goal" term**: fidelity-to-the-VLA's-own-anchor-chunk (mean squared
+  deviation from the VLA's own proposed action chunk) rather than
+  distance to a goal-image latent, since no such scorer exists here.
+- **Candidates**: the VLA's own anchor chunk (always candidate 0) plus
+  N-1 perturbations (default 16 total), each sharing ONE random xyz
+  offset applied across all T steps of that candidate (not independent
+  per-step noise, which would be jittery/physically nonsensical).
+- **Energy**: `E = w_safety*(worst-point margin violation across the
+  WHOLE T-step candidate trajectory)^2 + w_fidelity*(mean squared
+  deviation from the anchor)`. Lowest-energy candidate is executed.
+
+**Why this is a genuine addition beyond CBF-v2, not a reimplementation
+of it**: CBF-v2's per-step minimal-norm correction is the PROVABLY
+OPTIMAL closed-form solution for a single linear safety constraint,
+evaluated one step at a time -- a sampling search over that exact
+problem could only match it, never beat it. What sampling genuinely
+adds is WHOLE-CHUNK lookahead (scoring entire candidate trajectories
+by their worst point, not correcting reactively step by step) and
+graceful handling of irregular/multiple-obstacle geometry where no
+simple closed form exists -- closer in spirit to V-JEPA2-AC's actual
+receding-horizon replanning than CBF-v2's per-step reactive nudge.
+
+New CLI args: `--proactive-mpc-n-candidates` (16), `--proactive-mpc-
+noise-std` (0.15), `--proactive-mpc-w-safety` (50.0), `--proactive-mpc-
+w-fidelity` (1.0) -- all untuned defaults, same "first reasonable
+value, not swept" status as this project's other correction gains.
+Phase 1 only (privileged occluder position, like CBF-v1/v2 before
+their own Phase-2-depth follow-up) -- validate the sampling-MPC
+mechanism itself before adding real depth-estimation noise on top,
+matching the CBF thread's own v1->v2->depth sequencing.
+
+**Status: implemented and `py_compile`-clean, smoke test (n=2, task1,
+conditions `baseline proactive_avoidance_mpc`) is QUEUED behind task3's
+Approach-B run in a GPU-availability watcher, NOT YET RUN as of this
+entry.** No results exist yet for this condition -- don't cite an MPC
+success rate until a real run completes.
+
+## Repo prepared for cloning onto a second GPU server to run the
+queued task3 + MPC-smoke-test jobs (2026-08-25)
+
+Per user request ("他のGPUサーバーで今キューにあるものを実行するので...").
+This repo (`21Kevin22/Hoki` on GitHub, this project living at
+`occ_vla/thirdparty/openvla-oft/` inside it) already has real git
+history/remote -- the work was to commit the session's code changes,
+formalize what's vendored-not-committed, and document exact
+reproduction steps here so a fresh clone's session has everything
+needed without re-deriving it.
+
+**Committed this entry**: `scripts/run_libero_occluded_oracle_headroom.py`
+(all of Approach B, CBF v1/v2, Phase 2 depth, A+B factorial, and MPC
+changes above), `scripts/visualize_vjepa_correction.py`,
+`scripts/assemble_video.py` (new), `NUMBERS_REFERENCE.md`, this
+CLAUDE.md, and `occ_vla/.gitignore` (see below). Explicitly NOT
+committed: any `*_n20`/`*_n2`/results-dir output directories (in-
+progress or reproducible by rerunning, not meant to be diffed/frozen),
+the vendored `thirdparty/LIBERO/` (643MB) and `thirdparty/Libero-Occ/`
+(5.6MB) checkouts, the `checkpoints/` directory (15GB per checkpoint,
+already gitignored), and `.venv_openvla_oft` (11GB, already
+gitignored via a pattern that matches it even though not literally
+spelled out in `occ_vla/.gitignore` -- confirmed via `git status
+--ignored` rather than assumed).
+
+**Reproducing the environment on a fresh clone, in order:**
+1. `git clone git@github.com:21Kevin22/Hoki.git && cd Hoki`
+2. Vendored LIBERO + LIBERO-Occ: run the new
+   `occ_vla/scripts/setup_libero_occ_env.sh` -- clones
+   `Lifelong-Robot-Learning/LIBERO` pinned to `8f1084e3132a39270c3a13ebe37270a43ece2a01`
+   and `litsh/Libero-Occ` pinned to `25cc040025c5001d75a5bfb3fd3bae1759d887b0`
+   into `occ_vla/thirdparty/`, then runs Libero-Occ's own real
+   `scripts/setup/install_libero_occ_assets.sh` to copy the occluded-
+   suite bddl/init files into the fresh LIBERO checkout (this is the
+   documented prerequisite `register_libero_occ_suites.py` itself
+   already states in its own docstring -- not something invented for
+   this entry).
+3. Python env: `occ_vla/pyproject.toml` is already committed and
+   should reproduce `.venv_openvla_oft` via `uv` (this project's
+   established uv-managed-venv convention, matching the sibling pi0.5
+   project's `third_party/openpi/.venv` pattern) -- **not verified
+   working end-to-end this session** (no `uv.lock` exists, and the
+   exact `uv venv`/`uv sync` invocation used to originally build this
+   venv wasn't re-derived here). If `uv sync` doesn't reproduce it
+   cleanly, the reliable fallback is rsync/scp'ing the already-built
+   `occ_vla/.venv_openvla_oft` (11GB) directly from this machine
+   rather than debugging a fresh resolve.
+4. Checkpoints (`occ_vla/checkpoints/openvla-7b-oft-libero10-vjepa`,
+   ~15GB): this is a LOCALLY FINE-TUNED checkpoint from this project's
+   own earlier vjepa_predictor work, not available on any public hub
+   -- must be copied/rsynced from this machine, no automated
+   reproduction path exists or is claimed.
+5. Launch commands for the two currently-queued jobs (same as this
+   machine's watcher, `PYTHONPATH` must point at the fresh
+   `occ_vla/thirdparty/LIBERO`):
+   ```
+   # task3 Approach B
+   python3 -u scripts/run_libero_occluded_oracle_headroom.py \
+     --task-ids 3 --n-episodes 20 --conditions baseline scripted_recovery_after_stuck \
+     --checkpoint <path-to>/openvla-7b-oft-libero10-vjepa --results-dir replicate_task3_n20
+
+   # CBF-regularized MPC smoke test (n=2, task1)
+   python3 -u scripts/run_libero_occluded_oracle_headroom.py \
+     --task-ids 1 --n-episodes 2 --conditions baseline proactive_avoidance_mpc \
+     --checkpoint <path-to>/openvla-7b-oft-libero10-vjepa --results-dir smoke_mpc_task1_n2
+   ```
+
+**On THIS machine**, the same two jobs remain queued behind the
+currently-running A+B factorial experiment via
+`/tmp/launch_queue_task3_then_mpc.sh` (a GPU-availability watcher) --
+if the other server picks these up first, that local queue becomes
+redundant and can be killed rather than duplicating the run.
