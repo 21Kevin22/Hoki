@@ -2893,3 +2893,278 @@ currently-running A+B factorial experiment via
 `/tmp/launch_queue_task3_then_mpc.sh` (a GPU-availability watcher) --
 if the other server picks these up first, that local queue becomes
 redundant and can be killed rather than duplicating the run.
+
+## A+B factorial: complete, all 3 tasks -- pre-registered "complementary"
+criterion fails everywhere, task8 collapses significantly (2026-08-25/26)
+
+All 4 conditions (baseline/A_only/B_only/A_plus_B) completed for
+task1/task6/task8, n=20 each, single-process-per-task as specified.
+
+| task | baseline | A_only | B_only | A_plus_B | vs max(A,B) | McNemar (b/c) |
+|---|---|---|---|---|---|---|
+| task1 | 35% | 75% | 70% | 60% | -15pt | b=6,c=3, chi2=0.44 |
+| task6 | 30% | 30% | 95% | 85% | -10pt | b=3,c=1, chi2=0.25 |
+| task8 | 20% | 0% | 40% | 0% | -40pt | b=8,c=0, **chi2=6.12 (sig)** |
+
+**Pre-registered criterion (>=+10pt over max(A,B) AND McNemar b<c) fails
+on all 3 tasks -- not a partial/ambiguous result, a clean NO across the
+board.** task8 is the sharpest: A_plus_B collapses ALL 4 of baseline's
+successful episodes (ep1,4,10,13) to failure, identical to A_only's own
+0/20 -- A's harmful effect on this task fully carries over into the
+combination, B cannot rescue it.
+
+**Root cause of task8's collapse, found via direct data (not
+speculation)**: contact-frac measurement (task1, `proprio_log`'s
+`occluder_contact`/`contact_robot_body_names`) shows Approach A
+DRAMATICALLY reduces physical contact (6.4%->1.1% overall, anomalous
+3.0%->0.0%) -- task1's +40pt is explained by reduced physical
+interference, not visual recovery. Approach B does the OPPOSITE
+(6.4%->9.1%, contact goes UP) -- it is not a collision-avoidance
+mechanism at all, it is a stuck-escape mechanism that tolerates more
+contact while retrying. **These are mechanistically different, and
+apparently sometimes incompatible, interventions being combined blind.**
+
+For task8 specifically, examining the 4 broken episodes (baseline
+success -> A_plus_B failure, all matching A_only's own failures)
+against their `stuck_trigger_ts` and `gripper_qpos`: **every trigger
+fires with `occluder_contact=False`**, and gripper state indicates
+either mid-grasp-carry (closed) or post-release (fully open) -- i.e.
+the stuck-heuristic (pure velocity threshold) cannot distinguish
+"physically stuck against an obstacle" from "deliberately slow,
+precise placement/grasp motion", and fires almost exactly when
+baseline would have naturally completed (trigger t=150-306 vs
+baseline done_step=220-255 on the same episodes) -- the scripted
+retreat interrupts what would otherwise have been a successful
+completion. This confirms, with real data, the limitations-slide's
+prior SUSPICION about "precision-alignment phase misclassified as
+stuck."
+
+**Conclusion: do not present A+B as a validated combination.** Two
+independently-positive interventions do not combine additively or even
+neutrally here -- they interfere, and on task8 the interference is
+large and statistically significant. Any future combination attempt
+should first check whether the two mechanisms' underlying EFFECTS
+(here: reduced contact vs. increased-tolerance retry) are even
+compatible in principle, not just whether each helps in isolation.
+
+## agentview_vjepa: new condition, gates the existing (previously
+NEVER fired) FiLM+cross-attention correction module on sustained real
+occlusion -- n=20 across all 3 tasks, consistently positive direction,
+never significant (2026-08-25/26)
+
+Per user's explicit request to build a real, working version of the
+"S_occ -> consecutive-run-length counter -> threshold gate ->
+occlusion_mask -> VJEPA correction" pipeline a cross-session message
+described in detail (that description turned out to be a plausible
+but NOT-currently-assembled combination of real, individually-existing
+pieces scattered across different scripts -- see the entry below on
+what was actually verified vs. not). New condition
+`agentview_vjepa` in `run_libero_occluded_oracle_headroom.py`:
+
+- Reuses the already-computed, real-segmentation-derived
+  `occluded_pixel_mask`/`occluded_run_length` (both already existed,
+  used by other conditions) -- no new detection logic.
+- Gates on `occluded_run_length >= 3` (untuned default,
+  `--agentview-vjepa-min-run-length`) before building a (1, 512, 1)
+  `occlusion_mask` tensor (agentview = img_idx 0 slice, wrist slice
+  left zero) and passing it into `get_vla_action`'s existing
+  `occlusion_mask=` kwarg -- previously ALWAYS hardcoded to `None` in
+  this script, meaning `VJEPA_LatentDynamicsPredictor`
+  (`prismatic/extern/hf/vjepa_latent_predictor.py`) had never once
+  fired in any experiment run in this file before this addition.
+- Gray-fills the occluded region (127, matching
+  `run_peek_action_eval.py`'s established `vjepa_oracle` wrist
+  convention) before feature extraction, on engaged steps only.
+- Phase 1 (oracle mask CONTENT, same phasing as CBF v1->v2->depth):
+  the mask itself comes from privileged segmentation; the correction
+  module itself receives no privileged content, only proprio + its
+  own past features.
+
+**Real bug avoided by verifying, not assuming, correctness**: a
+smoke test (n=3) confirmed via direct `proprio_log` inspection that
+`occluded_run_length>=3` held on 97-98% of logged steps across all 3
+episodes -- the gate genuinely engages, not a silent no-op.
+
+**n=20 results, all 3 tasks (paired-GPU parallel launches, same
+episode seeds as baseline)**:
+
+| task | baseline | agentview_vjepa | diff | McNemar (b/c, chi2) |
+|---|---|---|---|---|
+| task1 | 30% (6/20) | 55% (11/20) | +25pt | b=2,c=7, chi2=1.78 |
+| task6 | 30% (6/20) | 35% (7/20) | +5pt | b=3,c=4, chi2=0.00 |
+| task8 | 35% (7/20) | 50% (10/20) | +15pt | b=2,c=5, chi2=0.57 |
+
+**Consistently positive DIRECTION on all 3 tasks, never statistically
+significant on any single one.** Notably, task6 (hypothesized
+beforehand to be the fairest test, since it's the "visually dominant"
+task where the predictor's assumptions should hold best) showed the
+SMALLEST effect (+5pt, chi2=0.00) -- the pre-run hypothesis that task6
+would be where this predictor shines was NOT supported by the data.
+Unlike Approach A/B, this condition never produced a task8-style
+catastrophic collapse -- worst case is a mild, non-significant +15pt,
+never negative on any task tested.
+
+## Real, previously-undocumented structural limitation found while
+explaining the mechanism: the predictor structurally cannot engage on
+an episode's first call, which matters specifically for
+occlusion-from-frame-1 tasks like task1 (2026-08-26)
+
+Reading `modeling_prismatic.py`'s actual gating logic (not assumed):
+
+```python
+engage = (occlusion_mask_256 is not None and bool(occlusion_mask_256.any())
+          and past_latents is not None and proprio is not None)
+```
+
+`past_latents` is `None` immediately after `reset_vjepa_state()` (every
+episode start) -- so on the FIRST replan call of any episode, the
+correction NEVER fires, period, regardless of `occlusion_mask`. Worse:
+whatever (possibly already-occluded) features exist at that first call
+become the `new_past_latents` baseline every subsequent call
+extrapolates from. For task1, whose occluder is independently confirmed
+(see earlier entries) to block the target from the very first observed
+frame, this means **the "genuinely-confirmed pre-occlusion state" the
+predictor's own design docstring says it depends on never actually
+exists in this task's history** -- every correction is built on an
+already-corrupted starting point, not a clean one. This is a plausible
+(not proven) contributor to why task1's agentview_vjepa effect (+25pt)
+came in weaker than CBF's (+35pt, significant) on the same task.
+
+Also surfaced (from the predictor module's own docstring, an existing,
+real prior finding from an earlier session on this predictor, not new
+data collected today): a moka_pots/task8-style n=10 check found that
+OpenVLA-OFT collapses to 0/10 even when fed a STATIC BUT VALID frozen
+real frame (no missing information at all, just not updating) --
+i.e. this policy's fragility is to ANY deviation from a live,
+continuously-updating input distribution, not specifically to missing/
+occluded content. This is a structural risk for ANY vision-side
+test-time intervention (generated content, frozen buffers, predicted
+features) layered onto this specific policy, independent of how good
+the intervention's content is -- a generalizable caution, not specific
+to this one predictor.
+
+## Real-frame illustration artifact: pipeline diagram + real
+occluded_run_length timeline + real raw/detection/corrected frame
+triads, task1 episode 0 (2026-08-26)
+
+Per user request for material showing "when occlusion is detected, when
+the correction module engages/disengages" -- built entirely from real,
+re-captured data (`--record-video-dir`, new debug frame saves added to
+the `agentview_vjepa` branch: `frame_{t}_corrected_input.png` and
+`frame_{t}_occlusion_overlay.png`, gray-fill + red-overlay respectively,
+saved only on engaged steps). Published as an Artifact.
+
+Honest finding surfaced directly in the artifact: task1's real
+occluded_run_length trace, once past the initial ~12-step ramp to the
+threshold, **never returns to 0 for the rest of the 248-step episode**
+-- there is no real "correction turns back OFF" moment to show for this
+specific task, consistent with its independently-established
+"occluded from the very first frame" property. The OFF-transition rule
+itself is documented as a designed behavior, not fabricated as an
+observed one.
+
+## Session close-out: what would actually be defensible as novel at a
+top venue, and what would not (2026-08-26)
+
+Per user's explicit request, an honest inventory -- ranked by how much
+of this project's own evidentiary bar (real n=20, real statistical
+tests, cross-task replication, mechanistic verification via direct
+telemetry not just outcome counting) each claim actually clears.
+
+**Solidly defensible (real significance and/or a genuinely new,
+verified mechanistic finding, not just an outcome number):**
+
+1. **The physical/visual occlusion-failure decomposition itself, as a
+   methodology + finding.** A clean 2x2 (`no_collision` vs.
+   `composite_visual_only`) shows LIBERO-Occ's benchmark failure mode
+   is NOT uniformly "vision is occluded" -- task1 is ~95% explained by
+   PHYSICAL interference (a small tabletop occluder directly in the
+   reach path; confirmed via body-level contact logs showing the
+   FOREARM, not the gripper, is what collides), while task6 needs the
+   occluder visually gone (physical removal alone only recovers it to
+   50%, vs. 100% once genuinely invisible). Most occlusion-robustness
+   papers implicitly assume the failure is perceptual; this is a real,
+   measured counterexample, and the mechanism (contact-body telemetry,
+   not just success/fail) makes it a mechanistic claim, not just a
+   correlation.
+2. **CBF-based proactive correction, with real significance.** task1
+   n=20, baseline 30% -> 65%, chi2=5.14, p<0.05, zero regressions
+   (every baseline success stayed a success). Grounded in an actual
+   citable control-theory result (the closed-form minimal-norm
+   single-constraint QP solution), not a heuristic -- and shown to
+   generalize (never harmful) across all 3 tasks tested, including a
+   real zero-privileged-information (RGB-D+segmentation) variant on
+   at least one task.
+3. **"Collision avoidance" mechanisms verified by contact telemetry,
+   not assumed from outcome alone -- and shown to sometimes NOT be
+   avoidance at all.** Approach A's real success on task1 is
+   demonstrated (not assumed) to work via REDUCED CONTACT (6.4%->1.1%,
+   anomalous 3.0%->0.0%) -- a genuine mechanistic confirmation.
+   Approach B is shown to INCREASE contact (6.4%->9.1%) while still
+   sometimes helping -- proving it is a stuck-ESCAPE mechanism, not an
+   avoidance mechanism, contrary to how it would naturally be
+   described. This distinction, verified by direct body-contact
+   telemetry rather than inferred from success-rate alone, is the kind
+   of mechanistic rigor most papers in this space skip.
+4. **A pre-registered combination test with a real, significant
+   negative result.** Two independently-positive, real-robot-deployable
+   interventions (A, B) combined show NO complementarity on any of 3
+   tasks against a criterion fixed BEFORE seeing the data, and produce
+   a statistically significant COLLAPSE on one task (chi2=6.12) --
+   root-caused down to a concrete, generalizable mechanism (a pure
+   velocity-threshold stuck-heuristic cannot distinguish genuine
+   physical stalling from deliberate slow precision manipulation, and
+   fires almost exactly at a task's natural completion window). This
+   is a real, useful negative result with an identified, falsifiable
+   cause -- not just "it didn't work."
+5. **A structural limitation of temporal residual predictors under
+   PERSISTENT (not transient) occlusion, found by reading the actual
+   gating code, not assumed.** `past_latents is None` on an episode's
+   first call means the correction can never engage before some clean
+   reference is captured -- for a task whose occlusion is present from
+   frame 1, that clean reference never exists, so every subsequent
+   correction extrapolates from an already-corrupted state. This is a
+   genuine, previously-undocumented (in this project) architectural
+   insight applicable to any "predict-from-past-latent" occlusion
+   handler, not specific to this implementation.
+
+**NOT yet defensible -- real evidence exists but the bar isn't cleared
+yet, must not be overclaimed:**
+
+6. `agentview_vjepa`'s task-level results (+5 to +25pt, n=20 each,
+   never significant on any single task). Directionally consistent
+   across 3 tasks is suggestive, not proof -- would need either larger
+   n per task or a pooled/mixed-effects analysis across tasks (not yet
+   done; a naive pooled McNemar would conflate 3 different populations)
+   before this could be presented as anything beyond a promising lead.
+7. `proactive_avoidance_mpc` (the CBF-regularized sampling MPC,
+   structurally inspired by V-JEPA2-AC's real CEM+energy-function
+   design): only smoke-tested (n=2, 2/2 success on task1) -- zero
+   real statistical evidence yet. The DESIGN itself (whole-chunk
+   lookahead scored by worst-point safety violation + fidelity to the
+   policy's own intent, using zero-training analytic components
+   instead of a learned world model) is a genuine, reasonably novel
+   architectural idea worth writing up on its own methodological
+   merits, but currently has no success-rate evidence to cite.
+8. `composite_visual_only`'s headline numbers (100%/100%/80%) --
+   real and striking, but NOT a novel deployable method by this
+   project's own explicit framing (the conference abstract already
+   states this plainly: "diagnostic ceilings... not the proposed
+   deployable method") since it depends on disabling real physical
+   collision, which no real robot can do. Citable as a DIAGNOSTIC
+   upper bound / motivation, never as "our method achieves 100%."
+
+**Explicitly NOT to claim:**
+
+- "Our combined system solves occlusion + collision for LIBERO-Occ" --
+  no combination tested has beaten either the pre-registered
+  complementarity bar or reached significance on more than one task at
+  a time.
+- Any claim that a specific "collision avoidance" mechanism reduces
+  collisions, without checking which category (verified-reduces-
+  contact vs. verified-increases-contact-but-still-helps) it actually
+  falls into -- this project's own data shows both exist among methods
+  that "work."
+- Generalizing any single-task result (spatial_text-style precedent,
+  repeatedly burned this project before) without at least 2-3 task
+  replications, per this project's own established discipline.
