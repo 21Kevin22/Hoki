@@ -483,7 +483,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  proactive_use_cbf=False, proactive_cbf_gain=2.0,
                  proactive_use_depth=False,
                  proactive_use_mpc=False, proactive_mpc_n_candidates=16, proactive_mpc_noise_std=0.15,
-                 proactive_mpc_w_safety=50.0, proactive_mpc_w_fidelity=1.0):
+                 proactive_mpc_w_safety=50.0, proactive_mpc_w_fidelity=1.0,
+                 agentview_vjepa=False, agentview_vjepa_min_run_length=3):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -1170,6 +1171,34 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 prevframe_step_buffer[not_occluded_now] = t
 
             occlusion_mask = None
+            agentview_vjepa_engaged_this_step = False
+            if agentview_vjepa and occluded_run_length >= agentview_vjepa_min_run_length and occluded_pixel_mask.any():
+                # occ_vla addition (2026-08-25, per user's agentview-V-JEPA
+                # request): gate the VJEPA FiLM+cross-attention correction
+                # module (prismatic/extern/hf/vjepa_latent_predictor.py,
+                # already wired into modeling_prismatic.py's forward() but
+                # NEVER fired by this script before this change --
+                # `occlusion_mask` was previously hardcoded to None
+                # unconditionally) on SUSTAINED occlusion only, not a
+                # single noisy frame -- matches the project's own stated
+                # rationale: the predictor's query depends on past_latents
+                # still holding a genuinely-confirmed pre-occlusion state,
+                # which a single-frame flicker doesn't invalidate anyway
+                # (no need to correct) but firing on every 1-frame blip
+                # would add pure perturbation with no compensating benefit.
+                # occluded_pixel_mask/occluded_run_length here are the SAME
+                # real-segmentation-derived signals already computed above
+                # for every other condition in this file (Phase 1: oracle
+                # mask CONTENT/timing, deployable correction MECHANISM --
+                # same phasing already used for CBF v1->v2->depth).
+                token_mask_256 = pixel_mask_to_token_mask_256(occluded_pixel_mask)
+                if token_mask_256.any():
+                    agentview_vjepa_engaged_this_step = True
+                    num_images_vjepa = getattr(model.vision_backbone, "num_images_in_input", 2)
+                    full_mask = np.zeros(num_images_vjepa * NUM_PATCHES_PER_IMAGE, dtype=bool)
+                    full_mask[0:NUM_PATCHES_PER_IMAGE] = token_mask_256  # agentview = img_idx 0, matches make_agentview_midlayer_splice_forward's own convention
+                    occlusion_mask = torch.from_numpy(full_mask).to(
+                        device=model.device, dtype=torch.bfloat16).reshape(1, -1, 1)
             # occ_vla addition (2026-08-19/20, per task1 NO-GO result):
             # optional gate on prevframe's own no-valid-history fraction --
             # when most of the occluded region was never once seen clean
@@ -1309,6 +1338,41 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 agentview_for_policy = (
                     np.full_like(agentview_color, 128) if blank_agentview else agentview_color
                 )
+                if agentview_vjepa_engaged_this_step:
+                    # occ_vla addition (2026-08-25): gray-fill just the
+                    # occluded region before the VJEPA correction module
+                    # adds its predicted delta on top -- matches
+                    # run_peek_action_eval.py's real, already-tested
+                    # `vjepa_oracle` wrist condition's own convention
+                    # (GRAY_FILL=127) exactly, rather than inventing a new
+                    # constant. Removes the confusing real occluder texture
+                    # from the base feature the correction gets added to,
+                    # without needing a privileged clean re-render.
+                    agentview_for_policy = agentview_for_policy.copy()
+                    agentview_for_policy[occluded_pixel_mask] = 127
+                    if record_video_dir is not None:
+                        # occ_vla addition (2026-08-26, per user request --
+                        # illustrative material showing the agentview
+                        # correction pipeline): save the gray-filled INPUT
+                        # actually fed to the policy this step (pairs with
+                        # the raw frame_{t:05d}.png saved above at the SAME
+                        # t) plus a red-highlighted overlay of
+                        # occluded_pixel_mask on the raw frame, so the
+                        # detected-region and the corrected-input can be
+                        # shown side by side for a real, non-illustrative
+                        # example. Cheap (2 PNG writes), only fires on
+                        # already-engaged steps, only used for
+                        # explanatory/small runs, not full n=20 batches.
+                        os.makedirs(record_video_dir, exist_ok=True)
+                        Image.fromarray(agentview_for_policy).save(
+                            os.path.join(record_video_dir, f"frame_{t:05d}_corrected_input.png"))
+                        overlay = agentview_color.copy()
+                        overlay[occluded_pixel_mask] = (
+                            0.5 * overlay[occluded_pixel_mask].astype(np.float32)
+                            + 0.5 * np.array([255, 0, 0], dtype=np.float32)
+                        ).astype(np.uint8)
+                        Image.fromarray(overlay).save(
+                            os.path.join(record_video_dir, f"frame_{t:05d}_occlusion_overlay.png"))
                 observation = {
                     "full_image": agentview_for_policy,
                     "wrist_image": wrist_img,
@@ -1990,6 +2054,12 @@ def main():
                               "from the VLA's own anchor chunk (the 'goal' term substitute -- see the "
                               "proactive_use_mpc branch's docstring for why, in the absence of a learned "
                               "goal-image latent scorer). Untuned.")
+    parser.add_argument("--agentview-vjepa-min-run-length", type=int, default=3,
+                         help="occ_vla addition 2026-08-25 (agentview_vjepa condition): minimum consecutive "
+                              "occluded env-steps (occluded_run_length) before the VJEPA FiLM+cross-attention "
+                              "correction module is allowed to fire on the agentview image. Untuned default "
+                              "(3), per the user's stated rationale that a single-frame occlusion blip needs "
+                              "no correction and firing on it would just add unnecessary feature perturbation.")
     parser.add_argument("--suite", default="10", choices=["10", "spatial", "object", "goal"],
                          help="occ_vla addition 2026-08-24, per user's cross-suite VIM-comparison request: "
                               "which LIBERO-Occ suite to evaluate against. Was previously hardcoded to "
@@ -2389,7 +2459,7 @@ def main():
             # detailed docstring/comments at the composite_visual_only
             # block for the exact mechanism and its known z-buffering
             # limitation).
-            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only", "ttc_area_blend", "scripted_recovery_after_stuck", "proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc"):
+            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only", "ttc_area_blend", "scripted_recovery_after_stuck", "proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc", "agentview_vjepa"):
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
@@ -2450,6 +2520,15 @@ def main():
             # occluder rendering stay fully intact, same contract as every other
             # proactive_avoidance_* condition.
             proactive_use_mpc = condition == "proactive_avoidance_mpc"
+            # occ_vla addition (2026-08-25): "agentview_vjepa" keeps real
+            # collision AND real occluder rendering fully intact -- same
+            # contract as every other proactive_avoidance_*/scripted_recovery_*
+            # condition. Uses real segmentation-derived occlusion timing
+            # (occluded_run_length, oracle CONTENT for now -- Phase 1, same
+            # phasing already used for CBF) to gate the VJEPA correction
+            # module; the module itself only ever sees proprio + its own
+            # past latents, never privileged clean pixels.
+            agentview_vjepa = condition == "agentview_vjepa"
             # occ_vla addition (2026-08-20, per user request -- mobility
             # sweep, top priority per their own reasoning: zero geometric
             # constraint, cheapest to implement, most directly tests the
@@ -2509,6 +2588,8 @@ def main():
                     proactive_mpc_noise_std=args.proactive_mpc_noise_std,
                     proactive_mpc_w_safety=args.proactive_mpc_w_safety,
                     proactive_mpc_w_fidelity=args.proactive_mpc_w_fidelity,
+                    agentview_vjepa=agentview_vjepa,
+                    agentview_vjepa_min_run_length=args.agentview_vjepa_min_run_length,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
