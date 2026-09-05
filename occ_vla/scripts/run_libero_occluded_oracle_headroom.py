@@ -149,7 +149,7 @@ _CfgStub = type("_CfgStub", (), {"center_crop": True})
 # matching stock libero_10 task's, by shared BDDL filename.
 # ---------------------------------------------------------------------------
 
-def get_libero_env_seg(task, resolution, camera_depths=False):
+def get_libero_env_seg(task, resolution, camera_depths=False, extra_camera=None):
     # occ_vla addition (2026-08-21), per user's Figure-A divergence-
     # analysis request: robosuite/LIBERO already support RGB-D rendering
     # via this one kwarg (confirmed real via env_wrapper.py/
@@ -157,11 +157,27 @@ def get_libero_env_seg(task, resolution, camera_depths=False):
     # Depth obs key becomes f"{cam_name}_depth" e.g. "agentview_depth"
     # (confirmed in robosuite/environments/robot_env.py). Default False,
     # zero behavior change for every existing caller.
+    # occ_vla addition (2026-08-31), per user's sharp methodological
+    # question about VIM's own experimental design (does an added image
+    # SLOT help regardless of content, not specifically the imagined-
+    # viewpoint content itself?): extra_camera, if given a real robosuite/
+    # MuJoCo camera name (e.g. "frontview" -- a real, distinct, standard
+    # robosuite arena camera, confirmed via env_wrapper.py's own
+    # render_camera="frontview" default, NOT the same position as
+    # agentview), adds it to camera_names so obs[f"{extra_camera}_image"]
+    # becomes available -- a genuinely different real viewpoint with zero
+    # generative/imagined content, for a clean "does ANY second view slot
+    # help, or does it need to be the wrist camera specifically" ablation.
+    # None (default) is the original ["agentview", "robot0_eye_in_hand"]
+    # behavior, byte for byte.
     task_bddl_file = os.path.join(get_libero_path("bddl_files"), task.problem_folder, task.bddl_file)
-    env = OffScreenRenderEnv(
+    kwargs = dict(
         bddl_file_name=task_bddl_file, camera_heights=resolution, camera_widths=resolution,
         camera_segmentations="instance", camera_depths=camera_depths,
     )
+    if extra_camera:
+        kwargs["camera_names"] = ["agentview", "robot0_eye_in_hand", extra_camera]
+    env = OffScreenRenderEnv(**kwargs)
     env.seed(0)
     return env
 
@@ -455,6 +471,285 @@ def make_agentview_midlayer_splice_forward(vision_backbone, split_frac, img_idx=
     return patched_forward
 
 
+def load_real_vjepa2(device):
+    """Loads the REAL Meta V-JEPA2-AC checkpoint (facebookresearch/vjepa2,
+    encoder ~1B params + AC predictor ~305M params, frozen, eval mode) --
+    NOT this project's own VJEPA_LatentDynamicsPredictor (unrelated, see
+    CLAUDE.md). Requires thirdparty/vjepa2 (cloned + locally patched, see
+    CLAUDE.md's "Real Meta V-JEPA2-AC" entry) to already be on sys.path."""
+    vjepa2_dir = os.path.normpath(os.path.join(SCRIPTS_DIR, "..", "thirdparty", "vjepa2"))
+    if vjepa2_dir not in sys.path:
+        sys.path.insert(0, vjepa2_dir)
+    from src.hub.backbones import vjepa2_ac_vit_giant
+    encoder, predictor = vjepa2_ac_vit_giant(pretrained=True)
+    encoder = encoder.to(device).eval()
+    predictor = predictor.to(device).eval()
+    for p in encoder.parameters():
+        p.requires_grad_(False)
+    for p in predictor.parameters():
+        p.requires_grad_(False)
+    return encoder, predictor
+
+
+def load_real_vjepa2_base(device):
+    """occ_vla addition (2026-08-31, per user's verified proposal): loads
+    the REAL BASE (non-action-conditioned) V-JEPA2 checkpoint
+    (vjepa2_vit_giant, a SEPARATE checkpoint file from the AC one --
+    different real weights, though same encoder ARCHITECTURE). This is
+    V-JEPA2's own actual self-supervised pretraining objective: predict
+    the representation of MASKED spatial patches from the UNMASKED
+    context, within a single frame -- no temporal history, no action
+    conditioning needed at all. Architecturally the right tool for a
+    scene that's occluded from frame 1 (unlike the AC predictor's
+    temporal rollout, which needs a real pre-occlusion observation to
+    seed from -- see CLAUDE.md's "agentview_vjepa2_temporal" entries for
+    why that mechanism structurally cannot help this specific case)."""
+    vjepa2_dir = os.path.normpath(os.path.join(SCRIPTS_DIR, "..", "thirdparty", "vjepa2"))
+    if vjepa2_dir not in sys.path:
+        sys.path.insert(0, vjepa2_dir)
+    from src.hub.backbones import vjepa2_vit_giant
+    encoder, predictor = vjepa2_vit_giant(pretrained=True)
+    encoder = encoder.to(device).eval()
+    predictor = predictor.to(device).eval()
+    for p in encoder.parameters():
+        p.requires_grad_(False)
+    for p in predictor.parameters():
+        p.requires_grad_(False)
+    return encoder, predictor
+
+
+def vjepa2_amodal_complete(encoder, predictor, clip, occluded_token_mask_256, device):
+    """occ_vla addition (2026-08-31): real V-JEPA2 spatial masked-patch
+    completion -- masks_x (context) = UNOCCLUDED token indices, masks_y
+    (target) = OCCLUDED token indices, matching the real predictor's own
+    (masks_x, masks_y) index-list API (src/models/predictor.py, src/
+    masks/utils.py's apply_masks). The encoder itself only ever processes
+    the UNOCCLUDED tokens (masks=[masks_x] passed straight into its own
+    public forward, which gathers via apply_masks BEFORE running any
+    self-attention block) -- the occluded region's real pixel content
+    never reaches the model's computation at all, by construction, not
+    merely by convention.
+
+    Returns a (256,1408) tensor: predicted content at occluded positions
+    (real model output), ZEROS elsewhere (irrelevant -- callers only ever
+    read this at the occluded positions, via the same token_mask_256
+    convention used throughout this file)."""
+    occluded_idx = np.flatnonzero(occluded_token_mask_256)
+    unoccluded_idx = np.flatnonzero(~occluded_token_mask_256)
+    if len(occluded_idx) == 0 or len(unoccluded_idx) == 0:
+        return torch.zeros(256, 1408, device=device)
+    masks_x = torch.from_numpy(unoccluded_idx).long().to(device).unsqueeze(0)  # (1,K_vis)
+    masks_y = torch.from_numpy(occluded_idx).long().to(device).unsqueeze(0)  # (1,K_occ)
+    with torch.no_grad():
+        context = encoder(clip, masks=[masks_x])  # (1,K_vis,1408) -- occluded pixels never seen
+        pred = predictor(context, masks_x=[masks_x], masks_y=[masks_y])  # (1,K_occ,1408)
+    out = torch.zeros(256, 1408, device=device, dtype=pred.dtype)
+    out[occluded_idx] = pred[0]
+    return out
+
+
+def vjepa2_local_adain(pred_at_occ, occluded_idx_np, z_real_full, unoccluded_idx_np, k=12):
+    """occ_vla addition (2026-08-31, per user's explicit engineering
+    request): a SPADE (Park et al., CVPR 2019)/AdaIN (Huang & Belongie,
+    ICCV 2017)-style LOCAL statistical rescaling of the real V-JEPA2
+    predictor's raw output. Diagnosed root cause: the predictor's raw
+    output collapses toward the mean (std ~23% of real context std) --
+    the textbook shrinkage bias of an L1/L2-regression-trained masked
+    predictor under real ambiguity (V-JEPA2's own paper confirms L1
+    regression loss). Rather than one GLOBAL mean/std correction (tried
+    first, worked numerically but still looked like a visually distinct
+    "different noise patch" from its surroundings), this rescales each
+    occluded token toward the mean/std of its own k SPATIALLY NEAREST
+    real unoccluded neighbor tokens (16x16 grid Euclidean distance) --
+    real scenes have spatially-varying local statistics (table vs.
+    cabinet vs. shadow), so a per-region reference blends far more
+    seamlessly, per the same principle these two real, established
+    papers are built on. Zero new training -- pure inference-time
+    post-processing of the real predictor's own output."""
+    coords = np.stack(np.meshgrid(np.arange(16), np.arange(16), indexing="ij"), axis=-1).reshape(-1, 2)
+    occ_coords = coords[occluded_idx_np]
+    unocc_coords = coords[unoccluded_idx_np]
+    real_context = z_real_full[unoccluded_idx_np]
+    dists = np.linalg.norm(occ_coords[:, None, :] - unocc_coords[None, :, :], axis=-1)
+    nn_idx = np.argsort(dists, axis=1)[:, :k]
+    src_mean = pred_at_occ.mean(dim=0)
+    src_std = pred_at_occ.std(dim=0) + 1e-6
+    out = pred_at_occ.clone()
+    for i in range(pred_at_occ.shape[0]):
+        neighbors = real_context[nn_idx[i]]
+        ref_mean = neighbors.mean(dim=0)
+        ref_std = neighbors.std(dim=0)
+        out[i] = (pred_at_occ[i] - src_mean) / src_std * ref_std + ref_mean
+    return out
+
+
+def vjepa2_confidence_mask(pred_at_occ_raw, occluded_idx_np, z_real_full, unoccluded_idx_np, k=12,
+                            threshold=0.0):
+    """occ_vla addition (2026-09-01), per user request ("パラメータで調整
+    できるテクニック... AI研究者としてリサーチして実装して"): a training-
+    free, inference-time confidence gate for `agentview_vjepa2_amodal`'s
+    per-token completion, grounded in the established anomaly-detection/
+    image-inpainting technique of using distance-to-nearest-real-content
+    as an implicit confidence/OOD score (e.g. patch-based inpainting
+    confidence propagation, Criminisi et al. 2004; nearest-neighbor
+    reconstruction-error anomaly scoring). Computed on the RAW predictor
+    output (BEFORE vjepa2_local_adain's rescaling -- rescaling pulls
+    every token toward locally-plausible statistics by construction, so
+    a post-rescale confidence signal would be uninformative regardless
+    of the underlying completion's real quality).
+
+    For each occluded token, cosine-similarity against the MEAN of its
+    own k spatially-nearest REAL (unoccluded) neighbor tokens is used as
+    the confidence proxy: a token whose raw completion is very dissimilar
+    from its real local surroundings is the signature already visually
+    confirmed for this project's "blob"/regression-to-the-mean failure
+    mode (CLAUDE.md's "MMaDA arm-free generation quality investigation"
+    documents the same category of failure for a different generative
+    model on a related task -- distance-from-real-context is the
+    common, reusable diagnostic). `threshold` is a real, tunable
+    parameter: -1.0 (permissive) keeps every token (byte-identical to no
+    gating at all); higher values (up to 1.0) progressively restrict
+    injection to only the most locally-consistent completions, falling
+    back to the REAL (occluded, unmodified) content at every position
+    that fails the gate -- this is a strictly more conservative fallback
+    than injecting a low-confidence completion, matching this project's
+    own repeatedly-validated "minimal intervention beats full
+    replacement" principle (CBF v1->v2, alpha=1.0->0.3).
+
+    Returns a boolean numpy array, shape (len(occluded_idx_np),) -- True
+    = confident enough to inject, False = skip (leave real content)."""
+    coords = np.stack(np.meshgrid(np.arange(16), np.arange(16), indexing="ij"), axis=-1).reshape(-1, 2)
+    occ_coords = coords[occluded_idx_np]
+    unocc_coords = coords[unoccluded_idx_np]
+    real_context = z_real_full[unoccluded_idx_np]
+    dists = np.linalg.norm(occ_coords[:, None, :] - unocc_coords[None, :, :], axis=-1)
+    nn_idx = np.argsort(dists, axis=1)[:, :k]
+    confident = np.zeros(len(occluded_idx_np), dtype=bool)
+    sims = np.zeros(len(occluded_idx_np), dtype=np.float32)
+    for i in range(pred_at_occ_raw.shape[0]):
+        ref_mean = real_context[nn_idx[i]].mean(dim=0)
+        sim = torch.nn.functional.cosine_similarity(
+            pred_at_occ_raw[i].unsqueeze(0).float(), ref_mean.unsqueeze(0).float()
+        ).item()
+        sims[i] = sim
+        confident[i] = sim >= threshold
+    if os.environ.get("VJEPA2_CONFGATE_DEBUG"):
+        print(f"    [conf-gate sim stats] min={sims.min():.3f} mean={sims.mean():.3f} "
+              f"max={sims.max():.3f} std={sims.std():.3f}")
+    return confident
+
+
+def quat2axisangle_vjepa2(quat):
+    """Same convention as openvla-oft's own proprio construction (see
+    experiments/robot/robot_utils.py's quat2axisangle), duplicated here
+    (not imported) to keep the V-JEPA2 addition self-contained and not
+    risk touching that shared utility's behavior for every other caller."""
+    quat = quat / (np.linalg.norm(quat) + 1e-8)
+    w, x, y, z = quat[3], quat[0], quat[1], quat[2]
+    angle = 2 * np.arccos(np.clip(w, -1.0, 1.0))
+    s = np.sqrt(max(1e-8, 1 - w * w))
+    axis = np.array([x, y, z]) / s if s > 1e-6 else np.array([1.0, 0.0, 0.0])
+    return axis * angle
+
+
+def make_agentview_vjepa2_temporal_splice_forward(vision_backbone, img_idx=0, blend_alpha=1.0):
+    """blend_alpha (occ_vla addition 2026-08-31, per user's engineering
+    request): 1.0 = original hard-replace behavior (byte-identical to
+    every prior test this session). A value < 1.0 alpha-BLENDS the
+    injected content with the model's own real (uncorrected) patch
+    tokens at the occluded positions, instead of a full overwrite --
+    grounded in the same "minimal intervention beats full replacement"
+    principle already validated repeatedly in this project (CBF's
+    minimal-norm correction, gated action blending) -- motivated by a
+    real observed regression under DUAL-camera evaluation (where the
+    model may already partially compensate via the real wrist camera,
+    so a full synthetic overwrite of agentview's occluded region can
+    remove real signal the model was already using, not just add
+    missing signal)."""
+    """occ_vla addition (2026-08-31, per user's explicit choice to build the
+    real-V-JEPA2 temporal-recovery direction): unlike
+    make_agentview_midlayer_splice_forward (which splices REAL re-rendered
+    clean pixels, run through the SAME featurizer blocks up to a split
+    layer), this splices content that isn't pixel-derived at all --
+    a real V-JEPA2-AC latent (rolled forward from the episode's own history
+    via real executed actions, see run_episode's per-step maintenance),
+    projected into this checkpoint's own DINO/SigLIP token dimensions via
+    NEW, UNTRAINED linear layers (vjepa2_proj_dino/_siglip -- explicitly
+    disclosed as untrained; no training data or step exists for them yet).
+
+    Design choice: overwrites the FINAL (full-depth) patch tokens, not a
+    mid-network splice -- there is no principled "run V-JEPA2 content
+    through DINO/SigLIP's own remaining blocks" operation (it was never
+    produced by those blocks in the first place), so late/output-level
+    substitution is the only architecturally coherent injection point for
+    non-pixel-derived content. This is the same category as this
+    project's own "L=N_effective" (late substitution) depth-sweep
+    endpoint, not L=0 or a true mid-layer splice.
+
+    Reads vision_backbone._diagnostic_vjepa2_dino_content /
+    _diagnostic_vjepa2_siglip_content (each (1,256,embed_dim) or None) and
+    _diagnostic_agentview_patch_mask_256 (reused from the agentview_vjepa
+    condition's own convention), set by the eval loop each step this
+    condition engages."""
+
+    def patched_forward(pixel_values, occlusion_mask=None, proprio_for_dynamics=None):
+        vision_backbone._diagnostic_forward_call_count = (
+            getattr(vision_backbone, "_diagnostic_forward_call_count", 0) + 1
+        )
+        assert vision_backbone.use_fused_vision_backbone
+        num_images = vision_backbone.num_images_in_input
+        dino_content = getattr(vision_backbone, "_diagnostic_vjepa2_dino_content", None)
+        siglip_content = getattr(vision_backbone, "_diagnostic_vjepa2_siglip_content", None)
+        patch_mask_256 = getattr(vision_backbone, "_diagnostic_agentview_patch_mask_256", None)
+
+        images = [pixel_values] if num_images == 1 else torch.split(pixel_values, [6] * num_images, dim=1)
+        all_patches = []
+        for idx, img in enumerate(images):
+            img_regular, img_fused = torch.split(img, [3, 3], dim=1)
+            patches = vision_backbone.featurizer(img_regular)
+            patches_fused = vision_backbone.fused_featurizer(img_fused)
+            if (idx == img_idx and dino_content is not None and siglip_content is not None
+                    and patch_mask_256 is not None and bool(patch_mask_256.any())):
+                vision_backbone._diagnostic_correction_applied_count = (
+                    getattr(vision_backbone, "_diagnostic_correction_applied_count", 0) + 1
+                )
+                # occ_vla bug fix (2026-08-31, caught by a real smoke-test
+                # shape-mismatch error, not by inspection): the PUBLIC
+                # vision_backbone.featurizer(img)/fused_featurizer(img) calls
+                # used here (unlike _run_vit_with_midlayer_splice's low-level
+                # per-block loop over the RAW internal sequence) already
+                # perform the checkpoint's own intermediate-layer extraction
+                # AND strip prefix/register tokens internally -- `patches`/
+                # `patches_fused` here are ALREADY pure (1,256,embed_dim)
+                # patch-only tensors, confirmed empirically (DINO's real
+                # output was 256, not 256+num_prefix_tokens; slicing
+                # `[:, num_prefix:]` again wrongly removed 5 real patch
+                # tokens, producing a 251-vs-256 mask mismatch). No further
+                # prefix slicing needed here.
+                mask = patch_mask_256.to(dtype=torch.bool, device=patches.device).reshape(1, -1, 1)
+                # occ_vla addition (2026-08-31): read a PER-STEP dynamic
+                # alpha if the caller set one (persistence-escalate design,
+                # same closed-form schedule already validated for CBF's
+                # v4-escalate persistence gate -- see run_episode's own
+                # computation), falling back to the fixed closure value
+                # (byte-identical to every prior test) if not set.
+                # occ_vla bug fix: the attribute is explicitly set to None
+                # (not deleted) when persistence-escalate is disabled, so
+                # getattr's own default would never trigger -- check None
+                # explicitly instead.
+                step_alpha = getattr(vision_backbone, "_diagnostic_vjepa2_blend_alpha", None)
+                if step_alpha is None:
+                    step_alpha = blend_alpha
+                blended_dino = step_alpha * dino_content.to(patches.dtype) + (1 - step_alpha) * patches
+                blended_siglip = step_alpha * siglip_content.to(patches_fused.dtype) + (1 - step_alpha) * patches_fused
+                patches = torch.where(mask, blended_dino, patches)
+                patches_fused = torch.where(mask, blended_siglip, patches_fused)
+            all_patches.append(torch.cat([patches, patches_fused], dim=2))
+        return torch.cat(all_patches, dim=1)
+
+    return patched_forward
+
+
 def build_pixel_values(agentview_img, wrist_img, processor, prompt, device, dtype):
     images = prepare_images_for_vla([agentview_img, wrist_img], _CfgStub())
     primary, wrist = images
@@ -484,7 +779,23 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                  proactive_use_depth=False,
                  proactive_use_mpc=False, proactive_mpc_n_candidates=16, proactive_mpc_noise_std=0.15,
                  proactive_mpc_w_safety=50.0, proactive_mpc_w_fidelity=1.0,
-                 agentview_vjepa=False, agentview_vjepa_min_run_length=3):
+                 agentview_vjepa=False, agentview_vjepa_min_run_length=3,
+                 save_distillation_pairs_dir=None,
+                 proactive_target_attractor_radius_m=0.0, proactive_target_attractor_decay=0.1,
+                 proactive_target_attractor_max_staleness=50,
+                 proactive_grasp_phase_radius_m=0.0, proactive_grasp_phase_gain_decay=1.0,
+                 proactive_persistence_window=0.0, proactive_persistence_min_gain_frac=0.2,
+                 proactive_persistence_mode="decay", blank_wrist=False, drop_wrist_image=False,
+                 second_view_camera="robot0_eye_in_hand",
+                 agentview_vjepa2_temporal=False, vjepa2_encoder=None, vjepa2_predictor=None,
+                 vjepa2_proj_dino=None, vjepa2_proj_siglip=None, vjepa2_splice_forward=None,
+                 agentview_vjepa2_amodal=False, vjepa2_base_encoder=None, vjepa2_base_predictor=None,
+                 vjepa2_blend_alpha_ceiling=1.0, vjepa2_blend_alpha_floor=0.0,
+                 vjepa2_blend_persistence_window=0, vjepa2_amodal_ema_decay=0.5,
+                 vjepa2_confidence_threshold=-1.0,
+                 ace_gate_enabled=False, ace_gate_scale_m=0.05, ace_gate_min_frac=0.15,
+                 attn_target_excl_enabled=False, attn_target_window=5, attn_target_gap_delta=0.0,
+                 object_centric_adapter_enabled=False):
     """log_action_diff/save_features_dir (occ_vla addition, 2026-08-18, per
     user request -- these logs must be added BEFORE the real n>=20 run,
     since the underlying data can't be recaptured after the fact):
@@ -578,14 +889,30 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
             find_segmentation_ids_for_bodies(env, sim, list(robot_geom_ids_set))
         ) if robot_geom_ids_set else set()
 
+    # occ_vla addition (2026-09-01): mutable, per-step-updated by the
+    # KNOWS-style attention target-identification block in the main replan
+    # loop below (assigned via plain `=` at the same nesting level as this
+    # variable's declaration, so `_depth_obstacle_points`'s closure below
+    # sees the CURRENT value at call time, not the value at definition
+    # time -- standard Python closure-over-enclosing-scope semantics, not a
+    # `nonlocal`/mutable-container workaround). None whenever
+    # attn_target_excl_enabled is False or no target was confidently
+    # identified this step -- zero effect on every existing condition.
+    attn_identified_target_id = None
+
     def _depth_obstacle_points(obs_dict, stride=6, max_range_m=1.2):
         """Real-sensor obstacle point cloud for this step: back-projects a
         downsampled agentview depth grid to 3D world points, excluding the
-        robot's own body (self-filter) and the task's own TARGET object
+        robot's own body (self-filter), the task's own TARGET object
         (target_seg_ids -- we want to avoid OTHER stuff, not the thing we're
-        supposed to reach for) and anything beyond max_range_m (MuJoCo scenes
-        include distant background geometry irrelevant to near-field
-        avoidance). No occluder-identity information used anywhere here."""
+        supposed to reach for), the CURRENT attention-identified target
+        object if KNOWS-style exclusion is active (attn_identified_target_id
+        -- addresses task9's diagnosed misfire, where CBF treats the
+        destination receptacle's own geometry as an obstacle even while the
+        policy is legitimately approaching it), and anything beyond
+        max_range_m (MuJoCo scenes include distant background geometry
+        irrelevant to near-field avoidance). No occluder-identity information
+        used anywhere here."""
         depth_key = "agentview_depth"
         if depth_key not in obs_dict:
             return np.zeros((0, 3))
@@ -601,6 +928,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         seg_sub = seg[rr, cc]
         depth_sub = depth_m[rr, cc]
         exclude_ids = robot_seg_ids_for_depth | set(target_seg_ids or [])
+        if attn_identified_target_id is not None:
+            exclude_ids = exclude_ids | {attn_identified_target_id}
         keep = np.isin(seg_sub, list(exclude_ids), invert=True) & (depth_sub > 1e-4) & (depth_sub < max_range_m)
         if not np.any(keep):
             return np.zeros((0, 3))
@@ -615,6 +944,165 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         cam_pts = np.stack([col * z, row * z, z, np.ones_like(z)], axis=-1)  # (N, 4)
         world_pts = (depth_cam2world @ cam_pts.T).T[:, :3]
         return world_pts
+
+    def _depth_target_centroid(obs_dict, stride=6, max_range_m=1.2):
+        """occ_vla addition (2026-08-29, per user's 'local attractor' proposal
+        for the margin-vs-target-proximity conflict diagnosed on
+        libero_object task7/task1/task4 -- see run notes): mirrors
+        _depth_obstacle_points's exact real-sensor back-projection, but keeps
+        ONLY the TARGET's own segmentation pixels (the opposite filter),
+        returning their mean 3D world position -- a zero-privileged (real
+        RGB-D + segmentation, no sim.data ground truth) estimate of where the
+        grasp target actually is this step. Returns None if the target isn't
+        visible in this frame at all (fully occluded / out of frame) -- the
+        caller must treat that as 'no attractor available this step', not
+        crash or silently reuse a stale value from a different function."""
+        depth_key = "agentview_depth"
+        if depth_key not in obs_dict or not target_seg_ids:
+            return None
+        depth_raw = np.asarray(obs_dict[depth_key])
+        if depth_raw.ndim == 3:
+            depth_raw = depth_raw[..., 0]
+        depth_m = get_real_depth_map(sim, np.clip(depth_raw, 0.0, 1.0))
+        seg = np.asarray(obs_dict.get(AGENTVIEW_SEG_KEY, np.zeros_like(depth_raw, dtype=int))).squeeze()
+        h, w = depth_m.shape[:2]
+        rows = np.arange(0, h, stride)
+        cols = np.arange(0, w, stride)
+        rr, cc = np.meshgrid(rows, cols, indexing="ij")
+        seg_sub = seg[rr, cc]
+        depth_sub = depth_m[rr, cc]
+        keep = np.isin(seg_sub, list(target_seg_ids)) & (depth_sub > 1e-4) & (depth_sub < max_range_m)
+        if not np.any(keep):
+            return None
+        z = depth_sub[keep].astype(float)
+        col = cc[keep].astype(float)
+        row = rr[keep].astype(float)
+        cam_pts = np.stack([col * z, row * z, z, np.ones_like(z)], axis=-1)
+        world_pts = (depth_cam2world @ cam_pts.T).T[:, :3]
+        return world_pts.mean(axis=0)
+
+    # occ_vla addition (2026-09-01), per user's explicit request to ground
+    # this in the real cited paper's actual method, not a from-scratch
+    # invention: KNOWS (arXiv:2606.09749, "Your Model Already Knows:
+    # Attention-Guided Safety Filter for Vision-Language-Action Models",
+    # Park et al., UCLA -- full PDF read, no code release found) identifies
+    # the object the policy is CURRENTLY approaching from a single
+    # action-query x vision-key attention head, then excludes it from the
+    # CBF's obstacle set (everything else stays a candidate obstacle).
+    # Directly targets task9's diagnosed failure mode (CBF treating the
+    # destination receptacle's own geometry as an obstacle to avoid,
+    # 286.6 corrections/episode despite ~0% baseline contact).
+    #
+    # Faithful-subset reimplementation (full fidelity -- YOLOE fine-tuning,
+    # per-object 3D ellipsoid fitting/tracking, the separating-hyperplane
+    # ellipsoid CBF-QP -- is out of scope given the user's stated 3-month
+    # thesis deadline, per CLAUDE.md's 2026-09-01 entry):
+    #   - Object candidates: reuse this project's own REAL per-pixel
+    #     segmentation (obs[AGENTVIEW_SEG_KEY], already used everywhere else
+    #     in this file) instead of fitting new 3D ellipsoids -- gives the
+    #     same "which object does this pixel belong to" information KNOWS'
+    #     own SAM-based masks provide, without a new perception model.
+    #   - Attention source: `get_vla_action(..., return_attn_map=True)`,
+    #     ALREADY-EXISTING infra (2026-08-21 addition, see
+    #     PrismaticForConditionalGeneration._compute_action_patch_attn_entropy
+    #     in modeling_prismatic.py) returning the LAST transformer layer's
+    #     action-query x vision-patch attention, mean-pooled over heads and
+    #     action-chunk positions -- NOT KNOWS' own profiled (layer 12, head 3
+    #     for pi0.5) single best unit; OpenVLA-OFT's own best layer/head has
+    #     not been profiled this session (their Sec 3.4 procedure -- log
+    #     per-(layer,head) mean attention mass on the phase-appropriate
+    #     object across several real episodes -- is a real, not-yet-done
+    #     next step if this coarser last-layer/all-heads version proves too
+    #     noisy).
+    #   - CBF integration: rather than porting KNOWS' ellipsoid-vs-ellipsoid
+    #     separating-hyperplane QP, the identified target's segmentation ID
+    #     is added to the EXISTING `_depth_obstacle_points` exclusion set for
+    #     that step, reusing this project's already-validated per-point
+    #     minimal-norm CBF correction unchanged.
+    #   - Attention extraction still goes through `output_attentions=True`
+    #     (not KNOWS' own hook-based, FlashAttention-kernel-untouched
+    #     extraction) -- this project's OWN documented 2026-08-19 finding
+    #     (SDPA->eager switch flips 8/20 episode outcomes when MIXING
+    #     output_attentions=True/False calls within a rollout) is worked
+    #     around the ALREADY-ESTABLISHED way (2026-08-12 CAUTION in
+    #     openvla_utils.py): force `--attn-implementation eager` for the
+    #     WHOLE rollout so every call is consistently eager, never mixed.
+    #     This is a real, different behavior from pure-SDPA baseline (a
+    #     controlled-variable comparison, not a zero-footprint one like
+    #     KNOWS' hook-based design) -- any baseline this condition is
+    #     compared against must ALSO run under --attn-implementation eager
+    #     for the comparison to be fair; do not compare against a
+    #     default-SDPA baseline number from elsewhere in this file.
+    attn_target_history = deque(maxlen=attn_target_window if attn_target_window > 0 else 1)
+
+    def _attention_target_id(attn_map_full, obs_dict):
+        """Returns (target_seg_id_or_None, debug_dict). attn_map_full: raw
+        (NUM_PATCHES,) from get_vla_action(return_attn_map=True); NUM_PATCHES
+        = per_image_patches * num_images_in_input, agentview patches come
+        FIRST (confirmed via openvla_utils.get_vla_action: `all_images =
+        [obs["full_image"]]` is appended before any wrist image) -- only the
+        agentview half is used here, matching KNOWS' third-person-camera
+        setup."""
+        if attn_map_full is None:
+            return None, {}
+        n_total = attn_map_full.shape[0]
+        n_per_image = n_total // max(1, cfg.num_images_in_input)
+        agent_map = attn_map_full[:n_per_image]
+        g = int(round(np.sqrt(n_per_image)))
+        if g * g != n_per_image:
+            return None, {"error": f"non-square patch grid ({n_per_image} patches)"}
+        agent_map_2d = agent_map.reshape(g, g)
+
+        seg = np.asarray(obs_dict.get(AGENTVIEW_SEG_KEY, np.zeros((resize_size, resize_size), dtype=int))).squeeze()
+        if seg.ndim == 3:
+            seg = seg[..., 0]
+        h, w = seg.shape[:2]
+        # candidate objects: every real segmentation id present in-frame,
+        # excluding robot/gripper -- matches KNOWS' "every manipulable
+        # object is a candidate obstacle until excluded" framing, using
+        # real segmentation instead of a new SAM-based detector.
+        candidate_ids = sorted(set(np.unique(seg).tolist()) - set(robot_seg_ids_for_depth or []) - {0})
+        if not candidate_ids:
+            return None, {}
+
+        # downsample each candidate's binary mask to the (g, g) patch grid
+        # via block-mean pooling (coverage fraction per patch, matching
+        # KNOWS' c_i(r,c) -- their eq. 2), accumulate mass/area into a
+        # per-episode sliding window (attn_target_history, maxlen=K).
+        rows_per_patch = h / g
+        cols_per_patch = w / g
+        step_masses, step_areas = {}, {}
+        for cid in candidate_ids:
+            mask = (seg == cid).astype(np.float32)
+            coverage = np.zeros((g, g), dtype=np.float32)
+            for r in range(g):
+                r0, r1 = int(round(r * rows_per_patch)), int(round((r + 1) * rows_per_patch))
+                for c in range(g):
+                    c0, c1 = int(round(c * cols_per_patch)), int(round((c + 1) * cols_per_patch))
+                    block = mask[r0:r1, c0:c1]
+                    coverage[r, c] = block.mean() if block.size else 0.0
+            step_masses[cid] = float((agent_map_2d * coverage).sum())
+            step_areas[cid] = float(coverage.sum())
+        attn_target_history.append((step_masses, step_areas))
+
+        agg_mass, agg_area = {}, {}
+        for masses, areas in attn_target_history:
+            for cid in masses:
+                agg_mass[cid] = agg_mass.get(cid, 0.0) + masses[cid]
+                agg_area[cid] = agg_area.get(cid, 0.0) + areas[cid]
+        densities = {cid: (agg_mass[cid] / agg_area[cid] if agg_area[cid] > 1e-8 else 0.0) for cid in agg_mass}
+        if not densities:
+            return None, {}
+        ranked = sorted(densities.items(), key=lambda kv: kv[1], reverse=True)
+        top_id, top_d = ranked[0]
+        second_d = ranked[1][1] if len(ranked) > 1 else 0.0
+        gap = top_d - second_d
+        debug = {"top_id": top_id, "top_density": top_d, "second_density": second_d, "gap": gap,
+                  "n_candidates": len(candidate_ids)}
+        if gap >= attn_target_gap_delta:
+            return top_id, debug
+        return None, debug
+
     # occ_vla addition (2026-08-20, per user request -- a physically-real,
     # geometry-free alternative to no_collision: instead of removing
     # collision, reduce the occluder's MASS and FRICTION so it can
@@ -818,6 +1306,24 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     prev_frac_occluded_for_ttc = None
     ttc_blend_log = []
     occluded_run_length = 0  # elapsed consecutive occluded steps -- resets to 0 the moment occlusion clears
+    # occ_vla addition (2026-08-31, agentview_vjepa2_temporal): per-episode
+    # running REAL V-JEPA2-AC latent estimate + bookkeeping for the
+    # step-by-step maintenance loop (see below, right after
+    # occluded_pixel_mask/frac_occluded_this_step are computed each step).
+    vjepa2_latent_state = None
+    vjepa2_prev_frame_tensor = None
+    vjepa2_last_action = None
+    # occ_vla addition (2026-08-31, per user's "find and fix weaknesses"
+    # request): temporal EMA buffer for agentview_vjepa2_amodal's
+    # completed content -- diagnosed weakness: the completion is
+    # recomputed independently every engaged replan step from the
+    # slightly-shifting current frame, with no temporal consistency
+    # constraint, which could itself be a distribution-deviation cost
+    # (this project's own established finding: this policy is fragile to
+    # ANY deviation from a live, continuously-updating, temporally
+    # coherent input -- not just to missing content). None = no history
+    # yet (first engaged step this episode).
+    vjepa2_amodal_ema = None
     # occ_vla addition (2026-08-20, per user request -- a REAL scripted
     # recovery motion, not the idealized collision-disable proxy): last
     # commanded gripper value (pre-process_action, raw model output range),
@@ -826,6 +1332,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # every time a real VLA action is popped from the queue.
     last_gripper_raw = 0.0  # LIBERO/OpenVLA raw convention before process_action's flip/normalize
     action_diff_log = []
+    distillation_manifest = []  # occ_vla addition (2026-08-27): (image, proprio, corrected-action) pairs for imitation-distillation of proactive_avoidance_depth
     # occ_vla addition (2026-08-19, per user request -- attention-entropy
     # gate signal validation): logged at EVERY replan step regardless of
     # occlusion or condition (unlike action_diff_log, which only fires
@@ -847,6 +1354,20 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # against eventual success/failure post-hoc.
     proprio_log = []
     prev_eef_pos = None
+    # occ_vla addition (2026-08-29, per user's "persist target position across
+    # occluded frames" proposal -- a simple state cache, NOT a learned
+    # memory/retrieval module): _depth_target_centroid returns None whenever
+    # the target isn't visible this exact step (occluded by the arm's own
+    # pose, out of frame, etc.). Without this cache, the target-proximity
+    # margin-decay fix silently disables itself during exactly the moments
+    # diagnosed as most likely to matter (see CLAUDE.md run notes). Cleared
+    # fresh each episode (module-level across episodes would leak state).
+    last_known_target_centroid = None
+    last_known_target_centroid_age = None
+    # occ_vla addition (2026-08-30): consecutive-replan-chunk streak of a
+    # margin violation persisting -- see the persistence-gate comment at
+    # its point of use below for the full rationale.
+    violation_streak = 0
     # occ_vla addition (2026-08-19, per user request -- another real-robot-
     # usable gate signal candidate, tried in parallel with proprioception):
     # input-perturbation ensemble disagreement. do_sample=False means the
@@ -858,6 +1379,21 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
     # run. Real cost: one extra forward pass per replan step.
     ensemble_disagreement_log = []
     rng_ensemble = np.random.default_rng(episode_idx if episode_idx is not None else 0)
+    # occ_vla addition (2026-09-01, per user's "VLA自身のアテンション/ACEでCBFの
+    # 介入をゲートする" request): reuse the already-existing, already-real-robot
+    # -safe ensemble_disagreement signal (perturbed-pixel re-forward-pass L2
+    # action distance -- NOT the attention-entropy signal, which is known
+    # (2026-08-19 entry above) to silently force output_attentions=True and
+    # flip 8/20 episode outcomes via an SDPA->eager attention-backend switch
+    # -- ensemble_disagreement has no such contamination, confirmed real-
+    # robot-usable, no output_attentions, no privileged info) as a candidate
+    # "how confident is the base policy right now" signal to GATE (not just
+    # log) the CBF's effective correction gain. Forcing it on whenever the
+    # gate is enabled, rather than requiring the caller to also pass
+    # --log-ensemble-disagreement separately.
+    if ace_gate_enabled:
+        log_ensemble_disagreement = True
+    disagreement = None  # populated every replan step once log_ensemble_disagreement fires; None until then
     # occ_vla addition (2026-08-19, per user's strategic pivot -- Stage A of
     # the mask/content decomposition, "pixel_prevframe"): last-known-clean-
     # pixel buffer, real-robot-deployable (no privileged sim re-render, no
@@ -890,7 +1426,28 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
 
     try:
         while t < max_steps + cfg.num_steps_wait:
-            wrist_img = get_libero_wrist_image(obs).copy()
+            # occ_vla addition (2026-08-31): second_view_camera lets the second
+            # image slot be filled by any real robosuite camera, not just the
+            # wrist -- default "robot0_eye_in_hand" reproduces the original
+            # get_libero_wrist_image(obs) behavior exactly (same key, same
+            # flip). A non-default value (e.g. "frontview") must have been
+            # requested at env-construction time too (get_libero_env_seg's
+            # extra_camera) or this KeyErrors -- caller's responsibility to
+            # keep the two in sync (main() does this via args.second_view_camera).
+            if second_view_camera == "robot0_eye_in_hand":
+                wrist_img = get_libero_wrist_image(obs).copy()
+            else:
+                wrist_img = obs[f"{second_view_camera}_image"][::-1, ::-1].copy()
+            # occ_vla addition (2026-08-30, per user's decisive test of the
+            # wrist-camera-bypass hypothesis, §3.7): blank the wrist camera
+            # (gray-fill, matching the agentview_vjepa convention) to test
+            # whether it is really the dominant channel letting baseline
+            # bypass agentview occlusion, rather than just plausible from
+            # qualitative frame inspection alone. Zero effect unless
+            # explicitly enabled -- every existing condition/caller
+            # untouched.
+            if blank_wrist:
+                wrist_img = np.full_like(wrist_img, 127)
             agentview_color, agentview_seg = get_agentview_frames(env, resize_size)
 
             if composite_visual_only and occluder_geom_ids:
@@ -928,6 +1485,13 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
             if record_video_dir is not None:
                 os.makedirs(record_video_dir, exist_ok=True)
                 Image.fromarray(agentview_color).save(os.path.join(record_video_dir, f"frame_{t:05d}.png"))
+                # occ_vla addition (2026-08-30, per user's "手首カメラのPOVダンプ
+                # 検証" request): also save the real wrist-camera frame at the
+                # SAME timestep, so agentview-occlusion vs. wrist-visibility
+                # can be directly compared side by side -- diagnostic only,
+                # same on/off condition (record_video_dir) as the existing
+                # agentview save, zero effect unless that's already enabled.
+                Image.fromarray(wrist_img).save(os.path.join(record_video_dir, f"frame_{t:05d}_wrist.png"))
 
             if clear_target_mask is None:
                 # Captured ONCE: agentview is a static camera (CLAUDE.md
@@ -990,6 +1554,47 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 occluded_run_length += 1
             else:
                 occluded_run_length = 0
+
+            # occ_vla addition (2026-08-31, agentview_vjepa2_temporal):
+            # maintain a running REAL V-JEPA2-AC latent every env step
+            # (not just replan steps). Trusts the real observed encoding
+            # whenever the target is currently unoccluded (same 0.05
+            # threshold as occluded_run_length above); otherwise
+            # propagates the last trusted latent forward ONE step via the
+            # real AC predictor, conditioned on the REAL action actually
+            # executed last step (pure state estimation, no planning/
+            # hypothetical actions -- this project's own CEM+MPC script,
+            # by contrast, DOES plan hypothetical actions; this is a
+            # different, simpler use of the same predictor). Untrained
+            # vjepa2_proj_dino/_siglip (see CLAUDE.md) mean the content
+            # this ultimately injects is not expected to be meaningful --
+            # this loop only tests correct wiring, not quality.
+            if agentview_vjepa2_temporal:
+                with torch.no_grad():
+                    vjepa2_device = next(vjepa2_encoder.parameters()).device
+                    frame_arr = np.asarray(Image.fromarray(agentview_color).resize((256, 256)))
+                    frame_norm = (frame_arr.astype(np.float32) / 255.0 - 0.5) / 0.5
+                    frame_t = torch.from_numpy(frame_norm).permute(2, 0, 1).to(vjepa2_device)
+                    if vjepa2_prev_frame_tensor is None:
+                        vjepa2_prev_frame_tensor = frame_t
+                    vjepa2_clip = torch.stack([vjepa2_prev_frame_tensor, frame_t], dim=1).unsqueeze(0)
+                    vjepa2_z_real = vjepa2_encoder(vjepa2_clip)[0]  # (256,1408)
+                    vjepa2_prev_frame_tensor = frame_t
+                    if frac_occluded_this_step <= 0.05 or vjepa2_latent_state is None:
+                        vjepa2_latent_state = vjepa2_z_real
+                    elif vjepa2_last_action is not None:
+                        vjepa2_a_t = torch.from_numpy(vjepa2_last_action).float().to(vjepa2_device).view(1, 1, 7)
+                        vjepa2_eef_pos = np.array(obs["robot0_eef_pos"], dtype=np.float32)
+                        vjepa2_eef_quat = np.array(obs["robot0_eef_quat"], dtype=np.float32)
+                        vjepa2_axang = quat2axisangle_vjepa2(vjepa2_eef_quat).astype(np.float32)
+                        vjepa2_gripper_qpos = np.array(obs["robot0_gripper_qpos"], dtype=np.float32)
+                        vjepa2_state_vec = np.concatenate(
+                            [vjepa2_eef_pos, vjepa2_axang, vjepa2_gripper_qpos[:1]]
+                        ).astype(np.float32)
+                        vjepa2_s_t = torch.from_numpy(vjepa2_state_vec).to(vjepa2_device).view(1, 1, 7)
+                        vjepa2_latent_state = vjepa2_predictor(
+                            vjepa2_latent_state.unsqueeze(0), vjepa2_a_t, vjepa2_s_t
+                        )[0]
 
             # occ_vla addition (2026-08-20, per user request -- reactive
             # recovery proxy, checked EVERY env step for the fastest
@@ -1373,6 +1978,184 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                         ).astype(np.uint8)
                         Image.fromarray(overlay).save(
                             os.path.join(record_video_dir, f"frame_{t:05d}_occlusion_overlay.png"))
+                        # occ_vla addition (2026-08-29, per user request --
+                        # "if there were no occlusion, what would this look
+                        # like"): a REAL re-render of the identical sim state,
+                        # occluder geoms alpha-zeroed then restored -- the
+                        # same technique this file already uses for
+                        # composite_visual_only/oracle content (see
+                        # sim.model.geom_rgba[occluder_geom_ids, 3] = 0.0
+                        # elsewhere in this function). Not a generated/
+                        # hallucinated image -- genuine MuJoCo geometry with
+                        # the occluder made invisible, real background behind
+                        # it. Only meaningful if occluder_geom_ids identifies
+                        # a real scene occluder (book/box/etc, not the arm
+                        # itself, which self-occludes via robot_geom_ids --
+                        # this doesn't hide the arm).
+                        if occluder_geom_ids:
+                            orig_alpha_illustrate = sim.model.geom_rgba[occluder_geom_ids, 3].copy()
+                            sim.model.geom_rgba[occluder_geom_ids, 3] = 0.0
+                            sim.forward()
+                            clean_reference, _ = get_agentview_frames(env, resize_size)
+                            sim.model.geom_rgba[occluder_geom_ids, 3] = orig_alpha_illustrate
+                            sim.forward()
+                            Image.fromarray(clean_reference).save(
+                                os.path.join(record_video_dir, f"frame_{t:05d}_clean_reference.png"))
+
+                # occ_vla addition (2026-08-31, agentview_vjepa2_temporal):
+                # same sustained-occlusion gate convention as agentview_vjepa
+                # (occluded_run_length >= threshold, not a single noisy
+                # frame), but injects the REAL V-JEPA2 latent (maintained
+                # every env step above) at the FINAL patch-token layer via
+                # vjepa2_splice_forward, instead of gray-filling pixels +
+                # relying on the (confirmed always-zero-output, untrained)
+                # FiLM+cross-attention module agentview_vjepa uses. Sets
+                # the diagnostic attributes vjepa2_splice_forward reads;
+                # cleared right after the policy call so they can't leak
+                # into any OTHER forward call this same step (e.g. the
+                # log_action_diff counterfactual, which explicitly swaps
+                # back to original_forward anyway, but this is a second,
+                # independent guard).
+                agentview_vjepa2_engaged_this_step = False
+                if agentview_vjepa2_temporal or agentview_vjepa2_amodal:
+                    # occ_vla note: unconditionally clear first, so a step
+                    # that doesn't re-engage never accidentally reuses a
+                    # STALE mask/content from a previous engaged step
+                    # (vjepa2_splice_forward is left active for the whole
+                    # episode, gated only by these attributes being
+                    # non-None -- see make_agentview_vjepa2_temporal_splice_forward).
+                    model.vision_backbone._diagnostic_vjepa2_dino_content = None
+                    model.vision_backbone._diagnostic_vjepa2_siglip_content = None
+                    model.vision_backbone._diagnostic_agentview_patch_mask_256 = None
+                    model.vision_backbone._diagnostic_vjepa2_blend_alpha = None
+                    # occ_vla addition (2026-08-31, per user's AI-researcher
+                    # diagnosis request): persistence-ESCALATE schedule for
+                    # blend_alpha -- diagnosed from real per-episode data
+                    # (all 5 dual-camera failures at alpha=1.0/0.3 showed
+                    # occluded_run_length pinned at its max for the WHOLE
+                    # episode, unlike successes' varying/lower values) --
+                    # same closed-form schedule already validated for CBF's
+                    # v4-escalate persistence gate: start at a LOW floor
+                    # (trust the fabricated content least right when
+                    # occlusion just began, since the model may still be
+                    # using real wrist-camera compensation at that point)
+                    # and escalate toward the target ceiling only if
+                    # occlusion genuinely PERSISTS.
+                    if vjepa2_blend_persistence_window > 0:
+                        f_t = min(1.0, occluded_run_length / vjepa2_blend_persistence_window)
+                        dynamic_alpha = vjepa2_blend_alpha_floor + f_t * (
+                            vjepa2_blend_alpha_ceiling - vjepa2_blend_alpha_floor
+                        )
+                        model.vision_backbone._diagnostic_vjepa2_blend_alpha = dynamic_alpha
+                if (agentview_vjepa2_temporal and occluded_run_length >= agentview_vjepa_min_run_length
+                        and occluded_pixel_mask.any() and vjepa2_latent_state is not None):
+                    token_mask_256_v2 = pixel_mask_to_token_mask_256(occluded_pixel_mask)
+                    if token_mask_256_v2.any():
+                        agentview_vjepa2_engaged_this_step = True
+                        with torch.no_grad():
+                            dino_content = vjepa2_proj_dino(
+                                vjepa2_latent_state.to(torch.bfloat16)
+                            ).unsqueeze(0)
+                            siglip_content = vjepa2_proj_siglip(
+                                vjepa2_latent_state.to(torch.bfloat16)
+                            ).unsqueeze(0)
+                        model.vision_backbone._diagnostic_vjepa2_dino_content = dino_content
+                        model.vision_backbone._diagnostic_vjepa2_siglip_content = siglip_content
+                        model.vision_backbone._diagnostic_agentview_patch_mask_256 = torch.from_numpy(
+                            token_mask_256_v2
+                        ).to(model.device)
+                # occ_vla addition (2026-08-31, per user's engineering
+                # request): agentview_vjepa2_amodal -- real V-JEPA2 SPATIAL
+                # masked-patch completion (base, non-AC predictor, no
+                # temporal history needed at all -- sidesteps the
+                # persistent-occlusion-since-frame-1 problem that
+                # agentview_vjepa2_temporal structurally cannot solve),
+                # followed by SPADE/AdaIN-style local statistical
+                # rescaling (see vjepa2_local_adain's own docstring for
+                # the diagnosed regression-to-the-mean root cause and why
+                # local, not global, rescaling was chosen).
+                if (agentview_vjepa2_amodal and occluded_run_length >= agentview_vjepa_min_run_length
+                        and occluded_pixel_mask.any()):
+                    token_mask_256_v3 = pixel_mask_to_token_mask_256(occluded_pixel_mask)
+                    if token_mask_256_v3.any() and (~token_mask_256_v3).any():
+                        agentview_vjepa2_engaged_this_step = True
+                        with torch.no_grad():
+                            vjepa2_device_amodal = next(vjepa2_base_encoder.parameters()).device
+                            frame_arr_amodal = np.asarray(Image.fromarray(agentview_color).resize((256, 256)))
+                            frame_norm_amodal = (frame_arr_amodal.astype(np.float32) / 255.0 - 0.5) / 0.5
+                            frame_t_amodal = torch.from_numpy(frame_norm_amodal).permute(2, 0, 1).to(vjepa2_device_amodal)
+                            clip_amodal = torch.stack([frame_t_amodal, frame_t_amodal], dim=1).unsqueeze(0)
+                            z_real_full_amodal = vjepa2_base_encoder(clip_amodal)[0]
+                            completed_amodal = vjepa2_amodal_complete(
+                                vjepa2_base_encoder, vjepa2_base_predictor, clip_amodal,
+                                token_mask_256_v3, vjepa2_device_amodal,
+                            )
+                            occluded_idx_amodal_full = np.flatnonzero(token_mask_256_v3)
+                            unoccluded_idx_amodal = np.flatnonzero(~token_mask_256_v3)
+                            pred_at_occ_amodal_full = completed_amodal[occluded_idx_amodal_full]
+                            # occ_vla addition (2026-09-01): confidence-gated
+                            # selective injection -- see vjepa2_confidence_mask's
+                            # own docstring. Computed on the RAW (pre-AdaIN)
+                            # completion, since rescaling would otherwise make
+                            # every token look locally plausible regardless of
+                            # its real underlying quality. threshold=-1.0
+                            # (default) keeps every token, byte-identical to
+                            # every prior test of this condition.
+                            if vjepa2_confidence_threshold > -1.0:
+                                confident_mask = vjepa2_confidence_mask(
+                                    pred_at_occ_amodal_full, occluded_idx_amodal_full,
+                                    z_real_full_amodal, unoccluded_idx_amodal,
+                                    threshold=vjepa2_confidence_threshold,
+                                )
+                            else:
+                                confident_mask = np.ones(len(occluded_idx_amodal_full), dtype=bool)
+                            if vjepa2_confidence_threshold > -1.0:
+                                print(f"    [conf-gate debug] t={t} kept={int(confident_mask.sum())}/{len(confident_mask)}")
+                            occluded_idx_amodal = occluded_idx_amodal_full[confident_mask]
+                            pred_at_occ_amodal = pred_at_occ_amodal_full[confident_mask]
+                            token_mask_256_v3 = np.zeros_like(token_mask_256_v3)
+                            token_mask_256_v3[occluded_idx_amodal] = True
+                            full_amodal_latent = torch.zeros(256, 1408, device=vjepa2_device_amodal, dtype=torch.float32)
+                            if len(occluded_idx_amodal) > 0:
+                                rescaled_amodal = vjepa2_local_adain(
+                                    pred_at_occ_amodal, occluded_idx_amodal, z_real_full_amodal, unoccluded_idx_amodal,
+                                )
+                                full_amodal_latent[occluded_idx_amodal] = rescaled_amodal
+                            # occ_vla addition (2026-08-31): temporal EMA
+                            # smoothing (decay=0.5, a reasonable untuned
+                            # first value, not swept) at the currently-
+                            # occluded positions, against the running
+                            # per-episode buffer -- reduces step-to-step
+                            # flicker in the injected content itself,
+                            # independent of its underlying quality.
+                            # occ_vla addition (2026-09-01): made this a real
+                            # parameter (vjepa2_amodal_ema_decay), default
+                            # 0.5 unchanged -- per user hypothesis that EMA
+                            # staleness during a fast dynamic grasp-approach
+                            # phase (Goal task7's severe regression) may be
+                            # forcing a temporally-inconsistent (ghost-
+                            # position) completion onto the policy; decay=0.0
+                            # degenerates to the pure instantaneous value
+                            # (no history mixed in at all) for this ablation.
+                            ema_decay = vjepa2_amodal_ema_decay
+                            if vjepa2_amodal_ema is None:
+                                vjepa2_amodal_ema = full_amodal_latent.clone()
+                            else:
+                                smoothed = torch.zeros_like(full_amodal_latent)
+                                smoothed[occluded_idx_amodal] = (
+                                    ema_decay * vjepa2_amodal_ema[occluded_idx_amodal]
+                                    + (1 - ema_decay) * full_amodal_latent[occluded_idx_amodal]
+                                )
+                                vjepa2_amodal_ema[occluded_idx_amodal] = smoothed[occluded_idx_amodal]
+                                full_amodal_latent = vjepa2_amodal_ema
+                            dino_content = vjepa2_proj_dino(full_amodal_latent.to(torch.bfloat16)).unsqueeze(0)
+                            siglip_content = vjepa2_proj_siglip(full_amodal_latent.to(torch.bfloat16)).unsqueeze(0)
+                        model.vision_backbone._diagnostic_vjepa2_dino_content = dino_content
+                        model.vision_backbone._diagnostic_vjepa2_siglip_content = siglip_content
+                        model.vision_backbone._diagnostic_agentview_patch_mask_256 = torch.from_numpy(
+                            token_mask_256_v3
+                        ).to(model.device)
+
                 observation = {
                     "full_image": agentview_for_policy,
                     "wrist_image": wrist_img,
@@ -1526,27 +2309,99 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     except Exception as e:
                         print(f"    [divergence-extract] WARNING: attn map extraction failed at t={t}: {e}")
 
-                if log_attn_entropy:
-                    # occ_vla addition (2026-08-19): get_vla_action's return
-                    # shape changes when return_attn_entropy=True (tuple,
-                    # not a bare action list) -- see its own tail dispatch.
-                    actions, step_attn_entropy = get_vla_action(
-                        cfg, model, processor, observation, task_description,
-                        action_head=action_head, proprio_projector=proprio_projector,
-                        noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
-                        return_attn_entropy=True,
-                    )
-                    attn_entropy_log.append({
-                        "t": t, "occluded_run_length": occluded_run_length,
-                        "frac_occluded": float(frac_occluded_this_step),
-                        "attn_entropy": float(step_attn_entropy) if step_attn_entropy is not None else None,
-                    })
-                else:
-                    actions = get_vla_action(
-                        cfg, model, processor, observation, task_description,
-                        action_head=action_head, proprio_projector=proprio_projector,
-                        noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
-                    )
+                # occ_vla addition (2026-08-30, per user's explicit request
+                # for a methodologically cleaner "agentview-only" test than
+                # blank_wrist's gray-fill OOD input): drop_wrist_image
+                # genuinely removes the wrist image from the model's input
+                # entirely (cfg.num_images_in_input=1 -> get_vla_action's
+                # own `if cfg.num_images_in_input > 1` check skips the wrist
+                # image altogether; model.vision_backbone's own
+                # num_images_in_input is toggled the same way, since its
+                # forward() splits pixel_values by this count) rather than
+                # feeding an anomalous uniform-gray frame the checkpoint was
+                # never trained to expect. Both are restored immediately
+                # after the call so no other condition/step in this episode
+                # is affected -- this state is otherwise process-global
+                # (shared model object, shared cfg object across all calls).
+                if drop_wrist_image:
+                    cfg.num_images_in_input = 1
+                    model.vision_backbone.set_num_images_in_input(1)
+                try:
+                    if log_attn_entropy:
+                        # occ_vla addition (2026-08-19): get_vla_action's return
+                        # shape changes when return_attn_entropy=True (tuple,
+                        # not a bare action list) -- see its own tail dispatch.
+                        actions, step_attn_entropy = get_vla_action(
+                            cfg, model, processor, observation, task_description,
+                            action_head=action_head, proprio_projector=proprio_projector,
+                            noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
+                            return_attn_entropy=True,
+                        )
+                        attn_entropy_log.append({
+                            "t": t, "occluded_run_length": occluded_run_length,
+                            "frac_occluded": float(frac_occluded_this_step),
+                            "attn_entropy": float(step_attn_entropy) if step_attn_entropy is not None else None,
+                        })
+                    elif attn_target_excl_enabled:
+                        # occ_vla addition (2026-09-01), KNOWS-style
+                        # (arXiv:2606.09749) attention-based target
+                        # identification -- see _attention_target_id's
+                        # docstring above for the full grounding/caveats.
+                        # Same call as the plain branch below, just also
+                        # requesting the raw per-patch attention map (no
+                        # extra forward pass -- computed from the SAME
+                        # output_attentions=True call).
+                        actions, step_attn_map = get_vla_action(
+                            cfg, model, processor, observation, task_description,
+                            action_head=action_head, proprio_projector=proprio_projector,
+                            noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
+                            return_attn_map=True,
+                        )
+                        attn_identified_target_id, attn_target_debug = _attention_target_id(step_attn_map, obs)
+                        if os.environ.get("ATTN_TARGET_DEBUG"):
+                            print(f"    [attn-target-debug] t={t} identified_target={attn_identified_target_id} "
+                                  f"{attn_target_debug}")
+                    else:
+                        object_mask_t = None
+                        if object_centric_adapter_enabled:
+                            # occ_vla addition (2026-09-03, Month 2): build the
+                            # real per-patch object-of-interest mask fresh every
+                            # replan step, same grid convention/segmentation
+                            # source (target_seg_ids, agentview_seg) already
+                            # used to SAVE this same mask during training-data
+                            # collection -- see run_libero_occluded_oracle_headroom.py's
+                            # save_distillation_pairs_dir block.
+                            target_pixel_mask = (
+                                np.isin(agentview_seg, target_seg_ids) if target_seg_ids
+                                else np.zeros_like(agentview_seg, dtype=bool)
+                            )
+                            agent_mask_256 = pixel_mask_to_token_mask_256(target_pixel_mask).astype(np.float32)
+                            # occ_vla fix (2026-09-03, per user's VIM-style
+                            # agentview-only request): when drop_wrist_image
+                            # is active, cfg.num_images_in_input==1, so
+                            # projected_features only has 256 real tokens --
+                            # a 512-length object_mask would leave 256
+                            # "phantom" key/value positions in the adapter's
+                            # cross-attention with no corresponding real
+                            # visual token. Match the mask length to the
+                            # real token count instead of always assuming 2
+                            # images.
+                            if drop_wrist_image:
+                                object_mask_np = agent_mask_256[:, None]
+                            else:
+                                wrist_mask_256 = np.zeros_like(agent_mask_256)
+                                object_mask_np = np.concatenate([agent_mask_256, wrist_mask_256])[:, None]
+                            object_mask_t = torch.tensor(object_mask_np, device=model.device, dtype=torch.bfloat16).unsqueeze(0)
+                        actions = get_vla_action(
+                            cfg, model, processor, observation, task_description,
+                            action_head=action_head, proprio_projector=proprio_projector,
+                            noisy_action_projector=None, use_film=cfg.use_film, occlusion_mask=occlusion_mask,
+                            object_mask=object_mask_t,
+                        )
+                finally:
+                    if drop_wrist_image:
+                        cfg.num_images_in_input = 2
+                        model.vision_backbone.set_num_images_in_input(2)
 
                 if log_action_diff and real_oracle_correction_this_call and original_forward is not None and splice_forward is not None:
                     # Counterfactual: identical observation, forward swapped
@@ -1662,6 +2517,11 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                 # BEFORE any of it runs, rather than reacting after the arm
                 # is already stuck (scripted_recovery_after_stuck's own
                 # approach, complementary not replaced by this).
+                chunk_correction_fired = False  # occ_vla addition (2026-08-27): set True in whichever branch below actually modifies `actions`, read by the distillation-pairs save hook after this block
+                if os.environ.get("CBF_DEBUG"):
+                    print(f"    [cbf-debug] t={t} gate_check: proactive_avoidance_oracle={proactive_avoidance_oracle} "
+                          f"occluder_geom_ids={bool(occluder_geom_ids)} proactive_use_depth={proactive_use_depth} "
+                          f"proactive_use_mpc={proactive_use_mpc} proactive_use_cbf={proactive_use_cbf}")
                 if proactive_avoidance_oracle and (occluder_geom_ids or proactive_use_depth or proactive_use_mpc):
                     OSC_POSE_MAX_DELTA_M = 0.05  # confirmed via robosuite.controllers.load_controller_config(default_controller="OSC_POSE") -- this env never overrides controller_configs
                     if proactive_use_depth:
@@ -1671,6 +2531,8 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                         # 0.01m -- a small margin for the point-sampling itself, not an
                         # object-size estimate, since individual points have no "size").
                         occ_centers = _depth_obstacle_points(obs)
+                        if os.environ.get("CBF_DEBUG"):
+                            print(f"    [cbf-debug] t={t} n_depth_obstacle_pts={len(occ_centers)}")
                         occ_radii = np.full(len(occ_centers), 0.01)
                         if len(occ_centers) == 0:
                             occ_centers = np.zeros((1, 3)) + 1e6  # no real obstacle seen this step -> push "nearest" far away, never triggers
@@ -1815,6 +2677,166 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                         # frozen fixed-lift override -- directly targeting the
                         # v1 tug-of-war mechanism (repeated full-chunk
                         # overrides), not just a smaller lift magnitude.
+                        # occ_vla addition (2026-08-29, per user's "local
+                        # attractor" proposal): a real, zero-privileged
+                        # (depth+segmentation, not sim ground truth) estimate
+                        # of the target's own 3D position, computed ONCE per
+                        # chunk -- diagnosed root cause (see run notes on
+                        # libero_object task1/task4/task7): the target itself
+                        # is already correctly excluded from occ_centers
+                        # (_depth_obstacle_points already filters
+                        # target_seg_ids out), so this is NOT a
+                        # target-misclassified-as-obstacle bug -- it's that a
+                        # fixed safety margin around REAL nearby obstacle
+                        # geometry (e.g. a wine rack shelf) can geometrically
+                        # overlap the space the gripper must occupy to reach a
+                        # target sitting right next to/inside that geometry.
+                        # Disabled by default (radius=0.0) -- zero effect on
+                        # every existing condition/caller unless explicitly
+                        # enabled.
+                        # occ_vla addition (2026-08-29, per user's follow-up
+                        # "persist target position across occluded frames"
+                        # proposal): a plain state cache (NOT a learned
+                        # memory/retrieval module -- "MemoryVLA++"-style
+                        # architectures are out of scope, see CLAUDE.md run
+                        # notes) so the attractor doesn't silently disable
+                        # itself the instant the target drops out of view for
+                        # one frame. Bounded by max_staleness (replan cycles,
+                        # not env-steps) so an old estimate isn't trusted
+                        # forever if the target could plausibly have moved
+                        # (e.g. once actually grasped and being carried).
+                        target_centroid_for_attractor = None
+                        in_grasp_phase = False
+                        if proactive_use_depth and proactive_target_attractor_radius_m > 0:
+                            fresh_centroid = _depth_target_centroid(obs)
+                            if fresh_centroid is not None:
+                                last_known_target_centroid = fresh_centroid
+                                last_known_target_centroid_age = 0
+                            elif last_known_target_centroid is not None and last_known_target_centroid_age is not None:
+                                last_known_target_centroid_age += 1
+                            if (last_known_target_centroid is not None and
+                                    (proactive_target_attractor_max_staleness <= 0 or
+                                     last_known_target_centroid_age is None or
+                                     last_known_target_centroid_age <= proactive_target_attractor_max_staleness)):
+                                target_centroid_for_attractor = last_known_target_centroid
+                                # occ_vla addition, per user's "task-phase
+                                # dependent dynamic margin" proposal (simplified:
+                                # a real distance-to-target proxy for "grasp
+                                # phase" instead of a learned 3D-scene-graph
+                                # phase classifier, which doesn't exist in this
+                                # project): once the (real, zero-privileged)
+                                # end-effector is within this radius of the
+                                # target, soften the WHOLE chunk's correction
+                                # gain, not just the per-point decay near the
+                                # target below -- the two mechanisms compound.
+                                d_eef_to_target = float(np.linalg.norm(predicted_pos - target_centroid_for_attractor))
+                                in_grasp_phase = d_eef_to_target < proactive_grasp_phase_radius_m
+
+                        effective_cbf_gain = (
+                            proactive_cbf_gain * proactive_grasp_phase_gain_decay
+                            if in_grasp_phase else proactive_cbf_gain
+                        )
+
+                        # occ_vla addition (2026-09-01, per user's ACE-gate
+                        # request): scale the CBF gain by the base policy's
+                        # OWN ensemble_disagreement this step -- the working
+                        # hypothesis (task9's real diagnosed mechanism,
+                        # 286.6 corrections/episode with baseline contact
+                        # rate ~0%) is that CBF misfires specifically when
+                        # the base policy is already confident/stable (low
+                        # disagreement under pixel perturbation), i.e. it is
+                        # NOT the policy that's uncertain -- the geometric
+                        # detector alone is wrong. ace_scale=1.0 (full CBF
+                        # trust) once disagreement reaches ace_gate_scale_m;
+                        # linearly down to ace_gate_min_frac (never fully
+                        # zero -- a real geometric violation should still get
+                        # SOME correction even if the policy looks confident)
+                        # as disagreement -> 0. ace_gate_scale_m is a raw
+                        # normalized-action-space L2 distance, NOT calibrated
+                        # yet -- default 0.05 is a first guess pending a real
+                        # calibration pass (see scripts_figures/ or CLAUDE.md
+                        # for the calibration run this default should be
+                        # replaced from).
+                        if ace_gate_enabled and disagreement is not None:
+                            ace_frac = min(1.0, disagreement / ace_gate_scale_m) if ace_gate_scale_m > 0 else 1.0
+                            ace_scale = ace_gate_min_frac + (1.0 - ace_gate_min_frac) * ace_frac
+                            effective_cbf_gain = effective_cbf_gain * ace_scale
+                            if os.environ.get("ACE_GATE_DEBUG"):
+                                print(f"    [ace-gate-debug] t={t} disagreement={disagreement:.5f} "
+                                      f"ace_frac={ace_frac:.3f} ace_scale={ace_scale:.3f} "
+                                      f"effective_cbf_gain={effective_cbf_gain:.4f}")
+
+                        # occ_vla addition (2026-08-30, per user's "continuous
+                        # proximity / persistence-gated correction" proposal --
+                        # implemented as a hand-crafted geometric heuristic
+                        # rather than a learned discriminator, per the user's
+                        # own choice of the higher-generalization option: with
+                        # only ~40 task-level labeled examples available from
+                        # the full sweep, a learned classifier risks
+                        # overfitting to those specific tasks, whereas this
+                        # needs zero training data and applies zero-shot via
+                        # the same real depth+segmentation signals already
+                        # used everywhere else in this file).
+                        #
+                        # Root cause being targeted (see CLAUDE.md's
+                        # libero_object task7 run notes): the diagnosed
+                        # failure signature is NOT one bad correction -- it's
+                        # the SAME margin violation re-triggering across many
+                        # consecutive replans without ever resolving (t=82-230
+                        # in one logged episode). That recurrence is itself
+                        # evidence the correction is fighting an intrinsic
+                        # near-target geometry (reaching for something sitting
+                        # right next to the occluder) rather than resolving a
+                        # genuine one-off collision risk -- correct-perturb-
+                        # re-trigger-escalate is the loop already diagnosed as
+                        # the failure mechanism. So: a violation that resolves
+                        # within a replan or two keeps full gain (streak==0 ->
+                        # scale==1.0, byte-identical to prior behavior). A
+                        # violation that keeps re-triggering for many replans
+                        # in a row is a signal the correction isn't working --
+                        # trust in it DECAYS the longer it persists, rather
+                        # than escalating, directly breaking that loop instead
+                        # of feeding it. Disabled by default (window<=0) --
+                        # zero effect on every existing condition/caller
+                        # unless explicitly enabled.
+                        # occ_vla addition (2026-08-30, v3 result follow-up):
+                        # v3 (decay-with-persistence, above) tested at n=10 on
+                        # task7 and came back BYTE-IDENTICAL to v1/v2 (same
+                        # 2/10, same 2 episodes) -- because every episode's
+                        # FIRST correction necessarily fires at streak=0 (full,
+                        # undecayed gain; a persistence gate can only detect
+                        # persistence AFTER a violation has already recurred),
+                        # so if the trajectory-derailing damage happens at that
+                        # first correction, no later decay can undo it. Added
+                        # `proactive_persistence_mode="escalate"` as the
+                        # opposite polarity to test that hypothesis directly:
+                        # start at the LOW floor gain unconditionally (so a
+                        # first-encounter, possibly-brief-and-safe proximity is
+                        # barely corrected at all) and ramp UP toward full gain
+                        # only once the same violation has genuinely persisted
+                        # for --proactive-persistence-window replans in a row.
+                        # "decay" (default) preserves the original v3 behavior
+                        # exactly -- zero change to already-reported results.
+                        if proactive_persistence_window > 0:
+                            frac = min(1.0, violation_streak / proactive_persistence_window)
+                            if proactive_persistence_mode == "escalate":
+                                persistence_scale = proactive_persistence_min_gain_frac + frac * (1.0 - proactive_persistence_min_gain_frac)
+                            else:
+                                persistence_scale = 1.0 - frac * (1.0 - proactive_persistence_min_gain_frac)
+                        else:
+                            persistence_scale = 1.0
+                        effective_cbf_gain = effective_cbf_gain * persistence_scale
+
+                        # Update the streak for the NEXT chunk based on
+                        # whether THIS chunk's original (pre-correction)
+                        # trajectory already violates the margin at its start
+                        # position -- a lightweight, chunk-level proxy
+                        # consistent with how corrections are already tracked
+                        # per-chunk elsewhere in this function.
+                        dists0 = np.linalg.norm(occ_centers - predicted_pos[None, :], axis=1) - occ_radii
+                        chunk_would_violate = bool(np.any(dists0 < PROACTIVE_SAFETY_MARGIN_M))
+                        violation_streak = violation_streak + 1 if chunk_would_violate else 0
+
                         n_corrected_this_chunk = 0
                         for step_i in range(len(actions_arr)):
                             a_xyz = actions_arr[step_i, :3]
@@ -1827,7 +2849,19 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                                 to_robot_norm = float(np.linalg.norm(to_robot))
                                 n_hat = (to_robot / to_robot_norm) if to_robot_norm > 1e-6 else np.array([0.0, 0.0, 1.0])
                                 v_normal = float(np.dot(a_xyz, n_hat))
-                                v_min_normal = proactive_cbf_gain * (PROACTIVE_SAFETY_MARGIN_M - dist)  # >0, scales with penetration depth
+                                v_min_normal = effective_cbf_gain * (PROACTIVE_SAFETY_MARGIN_M - dist)  # >0, scales with penetration depth; softened chunk-wide if in_grasp_phase
+                                if target_centroid_for_attractor is not None:
+                                    # Linear decay: full strength (factor=1.0) at
+                                    # distance >= R from the target, decaying to
+                                    # proactive_target_attractor_decay AT the
+                                    # target's own position (distance=0). Only
+                                    # weakens the correction near a real,
+                                    # confirmed-visible target -- never near
+                                    # occluder geometry the target isn't next to.
+                                    d_to_target = float(np.linalg.norm(candidate_pos - target_centroid_for_attractor))
+                                    frac = min(1.0, d_to_target / proactive_target_attractor_radius_m)
+                                    decay_factor = proactive_target_attractor_decay + (1.0 - proactive_target_attractor_decay) * frac
+                                    v_min_normal *= decay_factor
                                 if v_normal < v_min_normal:
                                     deficit = v_min_normal - v_normal
                                     a_xyz = a_xyz + deficit * n_hat  # only the unsafe normal component is topped up; tangential intent untouched
@@ -1837,13 +2871,67 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                             # so later steps in the chunk see where the corrected trajectory
                             # actually goes, not the original uncorrected one.
                             predicted_pos = predicted_pos + a_xyz * OSC_POSE_MAX_DELTA_M
+                        if os.environ.get("CBF_DEBUG"):
+                            print(f"    [cbf-debug] t={t} cbf-v2 per-chunk loop done: n_corrected_this_chunk={n_corrected_this_chunk} "
+                                  f"occ_centers[0]={occ_centers[0] if len(occ_centers) else None} nearest_dist0={float(np.linalg.norm(occ_centers - predicted_pos[None,:], axis=1).min() - occ_radii[0]) if len(occ_centers) else None}")
                         if n_corrected_this_chunk > 0:
                             actions = actions_arr
                             proactive_correction_applied_count += n_corrected_this_chunk
                             proactive_correction_ts.append(t)
+                            chunk_correction_fired = True
                             print(f"    [proactive-avoidance-cbf] chunk at t={t}: minimal-norm safety "
                                   f"correction applied to {n_corrected_this_chunk}/{len(actions_arr)} steps "
-                                  f"(gain={proactive_cbf_gain})")
+                                  f"(gain={effective_cbf_gain}{'  [grasp-phase-softened]' if in_grasp_phase else ''}"
+                                  f"{f'  [persistence-{proactive_persistence_mode}-streak={violation_streak} scale={persistence_scale:.2f}]' if proactive_persistence_window > 0 else ''})")
+
+                # occ_vla addition (2026-08-27, per user's explicit "no
+                # privileged information" requirement): save
+                # (real agentview image, proprio state, FINAL corrected
+                # action chunk) pairs for a later imitation-learning
+                # distillation of proactive_avoidance_depth's real-RGB-D
+                # correction back into the policy itself -- gated on
+                # proactive_use_depth specifically (NOT plain CBF, which
+                # uses privileged sim.data.geom_xpos) so the "teacher"
+                # signal collected here is itself real-robot-deployable,
+                # not just the final distilled policy. Saves every
+                # replan step (not just corrected ones) -- when no
+                # correction fires, `actions` already equals the VLA's
+                # own original chunk, which is itself a valid (label ==
+                # input) imitation target, not a gap in the data.
+                if save_distillation_pairs_dir is not None and proactive_use_depth:
+                    os.makedirs(save_distillation_pairs_dir, exist_ok=True)
+                    uid = f"task{task_id}_ep{episode_idx}_t{t:05d}"
+                    Image.fromarray(agentview_color).save(
+                        os.path.join(save_distillation_pairs_dir, f"{uid}_agentview.png"))
+                    Image.fromarray(wrist_img).save(
+                        os.path.join(save_distillation_pairs_dir, f"{uid}_wrist.png"))
+                    # occ_vla addition (2026-09-03, Month 2): also save the real
+                    # per-patch target-object coverage mask (same
+                    # pixel_mask_to_token_mask_256 grid convention already used
+                    # throughout this file for occlusion_mask), for
+                    # ObjectCentricZeroInitAdapter training -- built from real
+                    # agentview segmentation (target_seg_ids), zero new
+                    # perception dependency. Wrist slot left all-zero (target
+                    # object grounding is an agentview-side concept here,
+                    # matching this project's own established occlusion_mask
+                    # convention of gating a single camera's 256-token block).
+                    target_pixel_mask = (
+                        np.isin(agentview_seg, target_seg_ids) if target_seg_ids
+                        else np.zeros_like(agentview_seg, dtype=bool)
+                    )
+                    object_token_mask_256 = pixel_mask_to_token_mask_256(target_pixel_mask)
+                    mask_path = f"{uid}_objmask.npy"
+                    np.save(os.path.join(save_distillation_pairs_dir, mask_path), object_token_mask_256)
+                    distillation_manifest.append({
+                        "uid": uid, "task_id": task_id, "episode": episode_idx, "t": t,
+                        "agentview_path": f"{uid}_agentview.png", "wrist_path": f"{uid}_wrist.png",
+                        "object_mask_path": mask_path,
+                        "object_mask_coverage_frac": float(object_token_mask_256.mean()),
+                        "state": np.concatenate((obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]),
+                                                  obs["robot0_gripper_qpos"])).tolist(),
+                        "action_corrected": np.asarray(actions[0], dtype=float).tolist(),
+                        "correction_applied_this_chunk": chunk_correction_fired,
+                    })
 
                 action_queue.extend(actions)
 
@@ -1877,6 +2965,14 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
                     "ttc_value": ttc_value, "alpha": ttc_alpha,
                 })
             prev_frac_occluded_for_ttc = frac_occluded_this_step
+
+            if agentview_vjepa2_temporal:
+                # occ_vla addition (2026-08-31): capture the REAL action
+                # about to be executed (pre-process_action, same raw
+                # 7-dim normalized convention used throughout this
+                # condition's own state/action vectors) -- consumed by
+                # the NEXT loop iteration's latent-propagation step above.
+                vjepa2_last_action = np.asarray(action, dtype=np.float32).copy()
 
             action = process_action(action, cfg.model_family)
             obs, reward, done, info = env.step(action.tolist())
@@ -1932,6 +3028,7 @@ def run_episode(cfg, env, task_description, model, processor, action_head, propr
         "action_trace": action_trace,
         "proprio_log": proprio_log,
         "ensemble_disagreement_log": ensemble_disagreement_log,
+        "distillation_manifest": distillation_manifest,
     }
 
 
@@ -1996,6 +3093,24 @@ def main():
                               "step (any condition, occluded or not) -- candidate gate signal: does "
                               "baseline's own attention entropy predict eventual episode "
                               "success/failure, per user request 2026-08-19.")
+    parser.add_argument("--load-object-centric-adapter", default=None,
+                         help="occ_vla addition 2026-09-03 (Month 2): path to a directory containing "
+                              "object_centric_adapter_weights.pt, saved by "
+                              "scripts/train_object_centric_adapter.py -- attaches a trained "
+                              "ObjectCentricZeroInitAdapter (base model 100% untouched otherwise, "
+                              "unlike --load-distillation-lora). Evaluate WITHOUT any "
+                              "proactive_avoidance_* condition active, same convention as "
+                              "--load-distillation-lora -- the object_mask is built fresh every "
+                              "replan step from real segmentation (target_seg_ids), gated on this flag "
+                              "being set, regardless of which `condition` string is running.")
+    parser.add_argument("--load-distillation-lora", default=None,
+                         help="occ_vla addition 2026-08-27: path to a directory containing "
+                              "distillation_weights.pt, saved by scripts/train_distillation_imitation.py "
+                              "(imitation distillation of proactive_avoidance_depth's zero-privileged "
+                              "correction into language_model LoRA + action_head). Evaluate this WITHOUT "
+                              "any proactive_avoidance_* condition active -- the point is to test whether "
+                              "avoidance behavior now emerges intrinsically, not to stack it on top of the "
+                              "same CBF safety layer used to generate its training data.")
     parser.add_argument("--load-vision-weights", default=None,
                          help="occ_vla addition 2026-08-22, per user's request to evaluate "
                               "train_representation_alignment.py's output in a real rollout: path to "
@@ -2037,6 +3152,132 @@ def main():
                               "in the minimal-norm safety correction v_min_normal = k*(margin-dist) -- how "
                               "hard to push away per meter of margin penetration. Untuned; same order of "
                               "magnitude as other correction gains in this file.")
+    parser.add_argument("--proactive-target-attractor-radius-m", type=float, default=0.0,
+                         help="occ_vla addition 2026-08-29, per user's 'local attractor' proposal for the "
+                              "libero_object task1/task4/task7 degradation: radius (meters) around the "
+                              "target's own real (depth+segmentation, zero-privileged) position within which "
+                              "the CBF safety margin is progressively decayed, since a fixed margin around "
+                              "real nearby obstacle geometry can otherwise overlap the space needed to reach "
+                              "a target sitting close to it. 0.0 (default) disables this entirely -- zero "
+                              "effect on any existing run/condition unless explicitly set.")
+    parser.add_argument("--proactive-target-attractor-decay", type=float, default=0.1,
+                         help="occ_vla addition 2026-08-29: minimum decay factor applied to the safety-margin "
+                              "correction strength AT the target's own position (candidate_pos distance=0 from "
+                              "target centroid) -- e.g. 0.1 means the correction is reduced to 10% strength "
+                              "right at the target, linearly ramping back to 100% at "
+                              "--proactive-target-attractor-radius-m away. Only takes effect if that radius > 0.")
+    parser.add_argument("--proactive-target-attractor-max-staleness", type=int, default=50,
+                         help="occ_vla addition 2026-08-29: max number of REPLAN CYCLES (not env-steps) a "
+                              "cached last-known target position (from a prior step where the target WAS "
+                              "visible) is trusted for the attractor decay, once the target drops out of "
+                              "view. <=0 means never expire (trust forever, risky once the target might have "
+                              "moved e.g. after being grasped). Only relevant if "
+                              "--proactive-target-attractor-radius-m > 0.")
+    parser.add_argument("--proactive-grasp-phase-radius-m", type=float, default=0.0,
+                         help="occ_vla addition 2026-08-29, per user's '3DSG task-phase-dependent dynamic "
+                              "margin' proposal, simplified to a distance-to-target proxy (no learned scene "
+                              "graph/phase classifier exists in this project): once the end-effector is "
+                              "within this radius of the (possibly cached, see max-staleness) target "
+                              "position, --proactive-grasp-phase-gain-decay is applied to the CBF gain for "
+                              "the WHOLE chunk, not just points near the target (compounds with the separate "
+                              "--proactive-target-attractor-radius-m per-point decay). 0.0 (default) disables.")
+    parser.add_argument("--proactive-grasp-phase-gain-decay", type=float, default=1.0,
+                         help="occ_vla addition 2026-08-29: multiplier applied to proactive_cbf_gain for the "
+                              "whole chunk once in the grasp phase (see --proactive-grasp-phase-radius-m). "
+                              "1.0 (default) = no effect.")
+    parser.add_argument("--attn-target-excl", action="store_true",
+                         help="occ_vla addition 2026-09-01, faithful-subset reimplementation of KNOWS "
+                              "(arXiv:2606.09749, 'Your Model Already Knows: Attention-Guided Safety Filter "
+                              "for VLA Models', Park et al., UCLA -- no code release found): identifies the "
+                              "object the policy is CURRENTLY attending to (action-query x vision-key "
+                              "attention, last transformer layer, mean-pooled over heads/chunk positions -- "
+                              "this project's own OpenVLA-OFT checkpoint has not been profiled for a "
+                              "specific best (layer,head) the way KNOWS profiled pi0.5's layer 12/head 3) "
+                              "and EXCLUDES it from the CBF's real depth-based obstacle set every replan "
+                              "step -- directly targets task9's diagnosed misfire (CBF treating the "
+                              "destination receptacle as an obstacle). REQUIRES --attn-implementation eager "
+                              "for the whole rollout (this project's own 2026-08-19 finding: mixing "
+                              "output_attentions=True/False calls within an episode silently flips 8/20 "
+                              "outcomes via an SDPA->eager switch) -- any baseline compared against this "
+                              "condition must ALSO run under --attn-implementation eager.")
+    parser.add_argument("--attn-target-window", type=int, default=5,
+                         help="occ_vla addition 2026-09-01: sliding window (replan steps) over which "
+                              "per-object attention mass/area are accumulated before computing density, "
+                              "matching KNOWS' own K parameter (their exact value was in an appendix not "
+                              "captured by this session's fetch -- 5 is a reasonable first guess, not "
+                              "calibrated against real data yet).")
+    parser.add_argument("--attn-target-gap-delta", type=float, default=0.0,
+                         help="occ_vla addition 2026-09-01: minimum density lead the top-ranked object "
+                              "must have over the second-ranked one to be confirmed as the target (KNOWS' "
+                              "own delta, gap threshold, exact value also in their appendix, not captured). "
+                              "0.0 (default) = always pick the argmax, i.e. no 'not confident enough, "
+                              "exclude nothing' fallback yet -- a real calibration pass against this "
+                              "project's own attention-density distribution is needed before trusting a "
+                              "nonzero value.")
+    parser.add_argument("--ace-gate", action="store_true",
+                         help="occ_vla addition 2026-09-01, per user's 'VLA自身のアテンション/ACEでCBFの介入を"
+                              "ゲートする' request: scale the CBF correction gain by the base policy's OWN "
+                              "ensemble_disagreement (perturbed-pixel re-forward-pass L2 action distance -- "
+                              "real-robot-safe, no output_attentions, no privileged info; NOT attention "
+                              "entropy, which is known to contaminate the rollout by forcing eager attention, "
+                              "see the --attn-implementation entry above). Automatically forces "
+                              "log_ensemble_disagreement=True. Working hypothesis: CBF misfires (task9: 286.6 "
+                              "corrections/episode, ~0% baseline contact) specifically when the base policy is "
+                              "already confident (low disagreement) -- trust CBF less in that regime, more "
+                              "when the policy itself looks uncertain.")
+    parser.add_argument("--ace-gate-scale-m", type=float, default=0.05,
+                         help="occ_vla addition 2026-09-01: normalized-action-space L2 disagreement value at "
+                              "which --ace-gate reaches full CBF trust (ace_scale=1.0). NOT yet calibrated "
+                              "against real disagreement values -- run a calibration pass first (see CLAUDE.md).")
+    parser.add_argument("--ace-gate-min-frac", type=float, default=0.15,
+                         help="occ_vla addition 2026-09-01: floor multiplier for --ace-gate as disagreement -> 0 "
+                              "(never fully zero -- a real geometric violation should still get some correction "
+                              "even when the policy looks confident).")
+    parser.add_argument("--proactive-persistence-window", type=float, default=0.0,
+                         help="occ_vla addition 2026-08-30, per user's 'continuous proximity / persistence-"
+                              "gated correction' proposal for the libero_object task7 degradation (implemented "
+                              "as a hand-crafted geometric heuristic, chosen over a learned discriminator for "
+                              "higher generalization with the ~40 task-level labeled examples available -- see "
+                              "CLAUDE.md): number of consecutive REPLAN CHUNKS a margin violation must persist "
+                              "across before its correction gain is decayed toward "
+                              "--proactive-persistence-min-gain-frac, targeting the diagnosed correct-perturb-"
+                              "re-trigger-escalate failure loop (a violation that resolves within a replan or "
+                              "two keeps full gain; one that keeps re-triggering for many replans in a row is "
+                              "trusted less, not more). <=0.0 (default) disables -- zero effect on any existing "
+                              "run/condition unless explicitly set.")
+    parser.add_argument("--proactive-persistence-min-gain-frac", type=float, default=0.2,
+                         help="occ_vla addition 2026-08-30: floor multiplier applied to the CBF gain once a "
+                              "margin violation has persisted for >= --proactive-persistence-window consecutive "
+                              "replan chunks. Only takes effect if that window > 0.")
+    parser.add_argument("--proactive-persistence-mode", default="decay", choices=["decay", "escalate"],
+                         help="occ_vla addition 2026-08-30, per v3's n=10 task7 result (byte-identical to v1/v2 "
+                              "-- see CLAUDE.md): 'decay' (default, original v3) starts at full gain and decays "
+                              "toward the floor as a violation persists. 'escalate' is the opposite polarity, "
+                              "testing the hypothesis that v3's null result is because the FIRST correction in "
+                              "an episode necessarily fires at full gain (before any decay can matter) -- starts "
+                              "at the floor gain and ramps UP toward full only once the violation has genuinely "
+                              "persisted for --proactive-persistence-window replans. Only relevant if "
+                              "--proactive-persistence-window > 0.")
+    parser.add_argument("--drop-wrist-image", action="store_true",
+                         help="occ_vla addition 2026-08-31, per user request: orthogonal to --conditions -- "
+                              "genuinely removes the wrist image from the model's input (num_images_in_input "
+                              "2->1 for the duration of each get_vla_action call, restored after) for EVERY "
+                              "condition in this run, not just a dedicated 'agentview_only_true' condition. "
+                              "Lets any existing condition (baseline, proactive_avoidance_depth/CBF, "
+                              "agentview_vjepa, etc.) be evaluated under the true single-camera protocol "
+                              "confirmed to collapse baseline to 0/90 across all 9 LIBERO-10 tasks -- see "
+                              "CLAUDE.md. Default False, zero effect on every existing run unless passed.")
+    parser.add_argument("--second-view-camera", default="robot0_eye_in_hand",
+                         help="occ_vla addition (2026-08-31), per user's methodological question about "
+                              "whether an added image SLOT helps regardless of its content (vs. needing "
+                              "the wrist camera's specific near-field content): which real robosuite "
+                              "camera feeds the model's SECOND image input slot. Default "
+                              "'robot0_eye_in_hand' (the real wrist camera, original behavior, byte for "
+                              "byte). Pass e.g. 'frontview' (a real, standard, distinct robosuite arena "
+                              "camera) to test whether a content-uninformative-but-structurally-present "
+                              "second view recovers any success under agentview occlusion, WITHOUT "
+                              "--drop-wrist-image (that flag controls whether the slot is used at all; "
+                              "this controls WHICH camera fills it when it is used).")
     parser.add_argument("--proactive-mpc-n-candidates", type=int, default=16,
                          help="occ_vla addition 2026-08-25 (proactive_avoidance_mpc condition): number of "
                               "candidate chunks scored per replan, including the VLA's own anchor chunk "
@@ -2054,12 +3295,58 @@ def main():
                               "from the VLA's own anchor chunk (the 'goal' term substitute -- see the "
                               "proactive_use_mpc branch's docstring for why, in the absence of a learned "
                               "goal-image latent scorer). Untuned.")
+    parser.add_argument("--vjepa2-blend-alpha", type=float, default=1.0,
+                         help="occ_vla addition 2026-08-31: alpha-blend fraction for "
+                              "agentview_vjepa2_temporal/_amodal's injected content vs. the real "
+                              "(uncorrected) patch tokens at occluded positions. 1.0 (default) = "
+                              "full hard replace, byte-identical to every prior test. <1.0 blends "
+                              "with real content -- a real, motivated fix for a regression observed "
+                              "under dual-camera evaluation (full overwrite may remove real signal "
+                              "the model was already using via the wrist camera).")
+    parser.add_argument("--vjepa2-blend-alpha-floor", type=float, default=0.0,
+                         help="occ_vla addition 2026-08-31: persistence-escalate floor for "
+                              "--vjepa2-blend-alpha, only used when --vjepa2-blend-persistence-window > 0.")
+    parser.add_argument("--vjepa2-blend-persistence-window", type=int, default=0,
+                         help="occ_vla addition 2026-08-31: replan-step window over which "
+                              "vjepa2_blend_alpha escalates from --vjepa2-blend-alpha-floor to "
+                              "--vjepa2-blend-alpha as occluded_run_length grows -- same "
+                              "closed-form schedule as CBF's own v4-escalate persistence gate. "
+                              "0 (default) disables this -- --vjepa2-blend-alpha is used as a "
+                              "fixed value every engaged step, byte-identical to every prior test.")
+    parser.add_argument("--vjepa2-amodal-ema-decay", type=float, default=0.5,
+                         help="occ_vla addition 2026-09-01: EMA decay for agentview_vjepa2_amodal's "
+                              "temporal smoothing of the completed content (0.5 = original default, "
+                              "unchanged). 0.0 degenerates to the pure instantaneous completion each "
+                              "step (no history mixed in) -- an ablation for the hypothesis that EMA "
+                              "staleness during a fast dynamic phase (e.g. Goal task7's grasp approach) "
+                              "forces a temporally-inconsistent completion onto the policy.")
+    parser.add_argument("--vjepa2-confidence-threshold", type=float, default=-1.0,
+                         help="occ_vla addition 2026-09-01: confidence-gated selective injection for "
+                              "agentview_vjepa2_amodal (see vjepa2_confidence_mask's docstring). "
+                              "-1.0 (default) keeps every completed token, byte-identical to every "
+                              "prior test. Higher values (up to 1.0, cosine-similarity scale) require "
+                              "the raw completion to be more locally consistent with real neighboring "
+                              "content before injecting it -- positions that fail the gate fall back "
+                              "to the real (occluded, unmodified) content instead.")
+    parser.add_argument("--vjepa2-projection-weights", default=None,
+                         help="occ_vla addition 2026-08-31: directory containing trained "
+                              "proj_dino.pt/proj_siglip.pt (see scripts/train_vjepa2_bridge_projections.py) "
+                              "for agentview_vjepa2_temporal's bridging projections. None (default) leaves "
+                              "them at their random (untrained) init.")
     parser.add_argument("--agentview-vjepa-min-run-length", type=int, default=3,
                          help="occ_vla addition 2026-08-25 (agentview_vjepa condition): minimum consecutive "
                               "occluded env-steps (occluded_run_length) before the VJEPA FiLM+cross-attention "
                               "correction module is allowed to fire on the agentview image. Untuned default "
                               "(3), per the user's stated rationale that a single-frame occlusion blip needs "
                               "no correction and firing on it would just add unnecessary feature perturbation.")
+    parser.add_argument("--save-distillation-pairs-dir", default=None,
+                         help="occ_vla addition 2026-08-27: directory to save (agentview image, wrist image, "
+                              "proprio state, proactive_avoidance_depth-corrected action) pairs for a later "
+                              "imitation-learning distillation of the zero-privileged depth-based CBF correction "
+                              "back into the policy itself. Only active for the proactive_avoidance_depth "
+                              "condition -- plain proactive_avoidance_cbf uses privileged occluder position and "
+                              "is deliberately NOT used as the distillation teacher, per the user's explicit "
+                              "no-privileged-information requirement for this thread.")
     parser.add_argument("--suite", default="10", choices=["10", "spatial", "object", "goal"],
                          help="occ_vla addition 2026-08-24, per user's cross-suite VIM-comparison request: "
                               "which LIBERO-Occ suite to evaluate against. Was previously hardcoded to "
@@ -2243,6 +3530,50 @@ def main():
         assert applied_correctly, "some trained vision weights were NOT applied -- check param name mismatch"
     proprio_projector = get_proprio_projector(cfg, model.llm_dim, proprio_dim=8)
     action_head = get_action_head(cfg, model.llm_dim)
+
+    if args.load_distillation_lora:
+        # occ_vla addition (2026-08-27): loads the LoRA(language_model
+        # attention projections) + action_head weights saved by
+        # scripts/train_distillation_imitation.py -- the imitation-
+        # learning distillation of proactive_avoidance_depth's
+        # zero-privileged real-RGB-D CBF correction back into the
+        # policy itself. Reconstructs the SAME LoraConfig used at
+        # training time (rank read from the saved state dict's own
+        # lora_A tensor shape, not hardcoded, so this stays correct if
+        # a future training run uses a different rank) before loading.
+        from peft import LoraConfig, get_peft_model
+        print(f"  [distillation-lora] loading LoRA+action_head weights from {args.load_distillation_lora}")
+        state_dict = torch.load(
+            os.path.join(args.load_distillation_lora, "distillation_weights.pt"), map_location="cpu")
+        lora_a_shapes = [v.shape for k, v in state_dict.items() if "lora_A" in k]
+        assert lora_a_shapes, "no lora_A tensors found in the saved state dict -- was this really saved by train_distillation_imitation.py?"
+        inferred_rank = lora_a_shapes[0][0]
+        lora_config = LoraConfig(
+            r=inferred_rank, lora_alpha=inferred_rank * 2, lora_dropout=0.05,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], task_type=None,
+        )
+        model.language_model = get_peft_model(model.language_model, lora_config)
+        lm_state = {k[len("language_model."):]: v for k, v in state_dict.items() if k.startswith("language_model.")}
+        ah_state = {k[len("action_head."):]: v for k, v in state_dict.items() if k.startswith("action_head.")}
+        missing_lm, unexpected_lm = model.language_model.load_state_dict(lm_state, strict=False)
+        missing_ah, unexpected_ah = action_head.load_state_dict(ah_state, strict=False)
+        assert len(unexpected_lm) == 0, f"LoRA load found keys not in the model: {unexpected_lm[:5]}"
+        assert len(unexpected_ah) == 0, f"action_head load found keys not in the model: {unexpected_ah[:5]}"
+        print(f"  [distillation-lora] loaded {len(lm_state)} LoRA tensors (rank={inferred_rank}) + "
+              f"{len(ah_state)} action_head tensors")
+
+    if args.load_object_centric_adapter:
+        # occ_vla addition (2026-09-03, Month 2): attach a trained
+        # ObjectCentricZeroInitAdapter -- base model/action_head untouched.
+        from prismatic.extern.hf.modeling_prismatic import ObjectCentricZeroInitAdapter
+        print(f"  [object-centric-adapter] loading from {args.load_object_centric_adapter}")
+        adapter_state = torch.load(
+            os.path.join(args.load_object_centric_adapter, "object_centric_adapter_weights.pt"), map_location="cpu")
+        model.object_centric_adapter = ObjectCentricZeroInitAdapter(model.llm_dim).to(model.device, dtype=torch.bfloat16)
+        missing_oc, unexpected_oc = model.object_centric_adapter.load_state_dict(adapter_state, strict=True)
+        print(f"  [object-centric-adapter] loaded {len(adapter_state)} tensors, "
+              f"missing={len(missing_oc)} unexpected={len(unexpected_oc)} (both should be 0)")
+
     processor = get_processor(cfg)
     check_unnorm_key(cfg, model)
     resize_size = get_image_resize_size(cfg)
@@ -2259,6 +3590,57 @@ def main():
 
     original_forward = model.vision_backbone.forward
     splice_forward = make_agentview_midlayer_splice_forward(model.vision_backbone, args.midlayer_split_frac, img_idx=0)
+
+    # occ_vla addition (2026-08-31, per user's explicit choice to build the
+    # real-V-JEPA2 temporal-recovery direction): only load the real,
+    # separate ~1.3B-param V-JEPA2-AC checkpoint (see CLAUDE.md) if a
+    # condition that actually needs it was requested -- zero cost/behavior
+    # change for every other run of this script.
+    vjepa2_encoder = vjepa2_predictor = vjepa2_proj_dino = vjepa2_proj_siglip = None
+    vjepa2_splice_forward = None
+    vjepa2_base_encoder = vjepa2_base_predictor = None
+    if any(c in args.conditions for c in ("agentview_vjepa2_amodal", "agentview_vjepa2_amodal_plus_depth")):
+        # occ_vla addition (2026-08-31): the REAL base (non-AC) V-JEPA2
+        # checkpoint, separate weights from the AC one (see
+        # load_real_vjepa2_base's docstring) -- needed for spatial
+        # masked-patch completion (no temporal history).
+        print("[vjepa2] loading real BASE (non-AC) V-JEPA2 checkpoint (encoder + predictor)...")
+        vjepa2_base_encoder, vjepa2_base_predictor = load_real_vjepa2_base(model.device)
+        print("[vjepa2] base checkpoint loaded")
+    if any(c in args.conditions for c in ("agentview_vjepa2_temporal", "agentview_vjepa2_amodal", "agentview_vjepa2_amodal_plus_depth")):
+        if "agentview_vjepa2_temporal" in args.conditions:
+            print("[vjepa2] loading real V-JEPA2-AC checkpoint (encoder + AC predictor)...")
+            vjepa2_encoder, vjepa2_predictor = load_real_vjepa2(model.device)
+        dino_dim = model.vision_backbone.featurizer.embed_dim
+        siglip_dim = model.vision_backbone.fused_featurizer.embed_dim
+        # occ_vla note: these two projections are NEW and UNTRAINED (random
+        # init, seeded) -- explicitly disclosed in CLAUDE.md. They map
+        # V-JEPA2's own 1408-dim latent into this checkpoint's DINO/SigLIP
+        # token dimensions so the shapes are at least compatible; no claim
+        # the resulting content is meaningful in those representation
+        # spaces without real training data for this bridge.
+        torch.manual_seed(0)
+        vjepa2_proj_dino = torch.nn.Linear(1408, dino_dim).to(model.device, dtype=torch.bfloat16)
+        vjepa2_proj_siglip = torch.nn.Linear(1408, siglip_dim).to(model.device, dtype=torch.bfloat16)
+        vjepa2_splice_forward = make_agentview_vjepa2_temporal_splice_forward(
+            model.vision_backbone, img_idx=0, blend_alpha=args.vjepa2_blend_alpha
+        )
+        if args.vjepa2_projection_weights:
+            # occ_vla addition (2026-08-31, per user request): load
+            # trained bridging projections (scripts/train_vjepa2_
+            # bridge_projections.py, plain MSE regression against real
+            # DINO/SigLIP targets on already-saved frames -- no rollout
+            # needed) instead of leaving them at random init.
+            vjepa2_proj_dino.load_state_dict(
+                torch.load(os.path.join(args.vjepa2_projection_weights, "proj_dino.pt"), map_location=model.device)
+            )
+            vjepa2_proj_siglip.load_state_dict(
+                torch.load(os.path.join(args.vjepa2_projection_weights, "proj_siglip.pt"), map_location=model.device)
+            )
+            print(f"[vjepa2] loaded TRAINED bridging projections from {args.vjepa2_projection_weights}")
+        else:
+            print(f"[vjepa2] loaded. dino_dim={dino_dim} siglip_dim={siglip_dim} "
+                  f"(untrained bridging projections initialized)")
 
     # occ_vla addition (2026-08-19, per user request -- systematic fix after
     # a real incident: today's "current"-depth runs silently used a
@@ -2324,12 +3706,44 @@ def main():
         print(f"\n=== task_id={task_id} '{task_description}' (stock_suite={args.use_stock_suite}) ===")
 
         # occ_vla addition (2026-08-24, Phase 2 proactive avoidance): also enable
-        # depth rendering when "proactive_avoidance_depth" is among the requested
-        # conditions -- that condition needs a real RGB-D obstacle point cloud,
-        # not the privileged occluder_geom_ids used by proactive_avoidance_oracle/cbf.
+        # depth rendering when any requested condition needs a real RGB-D
+        # obstacle point cloud (not the privileged occluder_geom_ids used by
+        # proactive_avoidance_oracle/cbf alone). occ_vla bug fix (2026-09-01,
+        # found while debugging why the new `stuck_recovery_plus_depth`
+        # combined condition never fired a single CBF correction across a
+        # whole episode): this used to check ONLY the literal string
+        # "proactive_avoidance_depth" in args.conditions -- every other
+        # depth-needing condition added since then
+        # (agentview_vjepa_plus_depth, agentview_vjepa2_amodal_plus_depth,
+        # stuck_recovery_plus_depth, proactive_avoidance_mpc when combined
+        # with proactive_use_depth) silently got camera_depths=False, so
+        # "agentview_depth" was never in obs_dict and
+        # _depth_obstacle_points() short-circuited to zero points on EVERY
+        # step, EVERY episode -- not a depth-detection failure, an env-
+        # construction gap that made depth detection impossible from the
+        # start. Now matches the same condition set used everywhere else in
+        # this file to decide proactive_use_depth.
+        _DEPTH_NEEDING_CONDITIONS = {
+            "proactive_avoidance_depth", "agentview_vjepa_plus_depth",
+            "agentview_vjepa2_amodal_plus_depth", "stuck_recovery_plus_depth",
+            # occ_vla bug fix (2026-09-02): these two conditions (added
+            # 2026-09-01) both set proactive_use_depth=True elsewhere in
+            # this file but were never added here -- same missing-
+            # registration pattern as the bug documented above, now
+            # recurring for the ace_gate/attn_excl conditions. Confirmed
+            # via real data: EVERY episode of ace_gate_task6_n10's
+            # "proactive_avoidance_depth_ace_gated" condition showed
+            # proactive_correction_applied_count==0 (10/10 episodes),
+            # while the plain (correctly-depth-enabled)
+            # "proactive_avoidance_depth" condition on the same task fires
+            # in 50/50 episodes (n50_libero10_task6) -- camera_depths was
+            # False the whole time, not a real gating outcome.
+            "proactive_avoidance_depth_ace_gated", "proactive_avoidance_depth_attn_excl",
+        }
         env = get_libero_env_seg(
             task, resolution=resize_size,
-            camera_depths=bool(args.divergence_extract_dir) or "proactive_avoidance_depth" in args.conditions,
+            camera_depths=bool(args.divergence_extract_dir) or any(c in _DEPTH_NEEDING_CONDITIONS for c in args.conditions),
+            extra_camera=(args.second_view_camera if args.second_view_camera != "robot0_eye_in_hand" else None),
         )
         env.seed(0)
         env.reset()  # obj_of_interest is only populated on the env AFTER reset (not on the Task
@@ -2388,7 +3802,13 @@ def main():
             # interaction alongside the already-measured baseline
             # (occluded+collision), L=0 (clean+collision), and
             # no_collision (occluded+no-collision) cells.
-            model.vision_backbone.forward = splice_forward if condition in ("oracle", "oracle_no_collision") else original_forward
+            model.vision_backbone.forward = (
+                splice_forward if condition in ("oracle", "oracle_no_collision")
+                else vjepa2_splice_forward if condition in ("agentview_vjepa2_temporal", "agentview_vjepa2_amodal", "agentview_vjepa2_amodal_plus_depth")
+                else original_forward
+            )
+            agentview_vjepa2_temporal = condition == "agentview_vjepa2_temporal"
+            agentview_vjepa2_amodal = condition in ("agentview_vjepa2_amodal", "agentview_vjepa2_amodal_plus_depth")
             # occ_vla addition (2026-08-24, per user's Approach-A+B factorial
             # request): "A_only"/"A_plus_B" swap in the fine-tuned
             # (representation-alignment) vision_backbone+projector weights;
@@ -2459,7 +3879,7 @@ def main():
             # detailed docstring/comments at the composite_visual_only
             # block for the exact mechanism and its known z-buffering
             # limitation).
-            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only", "ttc_area_blend", "scripted_recovery_after_stuck", "proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc", "agentview_vjepa"):
+            if condition in ("no_collision",) + REACTIVE_CONDITIONS + ("low_mobility", "composite_visual_only", "ttc_area_blend", "scripted_recovery_after_stuck", "proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc", "agentview_vjepa", "agentview_vjepa_plus_depth", "blank_wrist", "agentview_only_true"):
                 run_episode_condition = "baseline"
             elif condition == "oracle_no_collision":
                 run_episode_condition = "oracle"
@@ -2491,27 +3911,56 @@ def main():
             # above, all of which require disable_collision_geom_ids ==
             # occluder_geom_ids). Trigger + recovery motion are computed
             # purely from obs["robot0_eef_pos"] inside run_episode.
-            stuck_velocity_trigger = condition in ("scripted_recovery_after_stuck", "B_only", "A_plus_B")
+            stuck_velocity_trigger = condition in ("scripted_recovery_after_stuck", "B_only", "A_plus_B", "stuck_recovery_plus_depth")
             # occ_vla addition (2026-08-24): "proactive_avoidance_oracle" also
             # keeps real collision AND real occluder rendering fully intact --
             # it needs occluder_geom_ids for the PRIVILEGED true-3D-position
             # lookup (Phase 1 proof-of-concept only; a real depth-camera/
             # segmentation-based version is the planned Phase 2 if this shows
             # value), but does not disable collision/rendering itself.
-            proactive_avoidance_oracle = condition in ("proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc")
+            proactive_avoidance_oracle = condition in ("proactive_avoidance_oracle", "proactive_avoidance_cbf", "proactive_avoidance_depth", "proactive_avoidance_mpc", "agentview_vjepa_plus_depth", "stuck_recovery_plus_depth", "proactive_avoidance_depth_ace_gated", "proactive_avoidance_depth_attn_excl")
             # occ_vla addition (2026-08-24, v2): "proactive_avoidance_cbf" reuses
             # the exact same trigger/plumbing as proactive_avoidance_oracle (same
             # privileged occluder-position lookup, same "keeps real collision AND
             # real occluder rendering intact" contract) -- only the correction
             # MATH differs (per-step minimal-norm CBF/APF nudge vs. v1's hard
             # full-chunk override to a fixed lift), selected via proactive_use_cbf.
-            proactive_use_cbf = condition in ("proactive_avoidance_cbf", "proactive_avoidance_depth")
+            proactive_use_cbf = condition in ("proactive_avoidance_cbf", "proactive_avoidance_depth", "agentview_vjepa_plus_depth", "stuck_recovery_plus_depth", "proactive_avoidance_depth_ace_gated", "proactive_avoidance_depth_attn_excl")
             # occ_vla addition (2026-08-24, Phase 2): "proactive_avoidance_depth"
             # reuses proactive_avoidance_cbf's exact correction math -- the ONLY
             # difference is where occ_centers/occ_radii come from (real RGB-D
             # obstacle point cloud vs. privileged occluder_geom_ids). No occluder
             # identity/geometry is used anywhere in this condition's path.
-            proactive_use_depth = condition == "proactive_avoidance_depth"
+            proactive_use_depth = condition in ("proactive_avoidance_depth", "agentview_vjepa_plus_depth", "agentview_vjepa2_amodal_plus_depth", "stuck_recovery_plus_depth", "proactive_avoidance_depth_ace_gated", "proactive_avoidance_depth_attn_excl")
+            # occ_vla addition (2026-09-01), per user's "VLA自身のアテンション/
+            # ACEでCBFの介入をゲートする" request: "proactive_avoidance_depth_
+            # ace_gated" is byte-identical to proactive_avoidance_depth except
+            # the CBF correction gain is scaled by the base policy's own
+            # ensemble_disagreement each step (see run_episode's ace_gate_*
+            # params). --ace-gate also allows enabling this on top of any
+            # condition string via the global CLI flag, for ad hoc combination
+            # with other proactive_avoidance_* variants without inventing a
+            # new condition name for every combination.
+            ace_gate_enabled = args.ace_gate or condition == "proactive_avoidance_depth_ace_gated"
+            # occ_vla addition (2026-09-01): KNOWS-style attention-based
+            # target exclusion (see run_episode's attn_target_excl_enabled
+            # docstring / _attention_target_id for the full grounding).
+            attn_target_excl_enabled = args.attn_target_excl or condition == "proactive_avoidance_depth_attn_excl"
+            # occ_vla addition (2026-09-01), per user request ("事前回避+
+            # 遮蔽耐性のあるbaselineからの差分はないですか？"): "stuck_recovery_
+            # plus_depth" combines TWO independently-already-validated, zero-
+            # vision-correction mechanisms -- proactive_avoidance_depth's
+            # real, zero-privileged (RGB-D+segmentation) per-step minimal-
+            # norm CBF correction (genuinely PREDICTIVE: computed BEFORE
+            # executing the action, from the upcoming safety-margin
+            # violation) and scripted_recovery_after_stuck's proprioceptive
+            # stuck-detection + scripted retreat (REACTIVE: fires only once
+            # already stalled). Neither alone is both predictive AND
+            # occlusion-robust with confirmed significance on the same task
+            # (CBF's own validated evidence is a 39-task aggregate switching
+            # rule; Approach B's is a single-task McNemar-significant
+            # result) -- this combination is the natural next test, not yet
+            # run anywhere in this project.
             # occ_vla addition (2026-08-25): "proactive_avoidance_mpc" uses the
             # SAME privileged occluder-position lookup as proactive_avoidance_oracle/
             # proactive_avoidance_cbf (Phase 1 -- validate the sampling-based MPC
@@ -2528,7 +3977,41 @@ def main():
             # phasing already used for CBF) to gate the VJEPA correction
             # module; the module itself only ever sees proprio + its own
             # past latents, never privileged clean pixels.
-            agentview_vjepa = condition == "agentview_vjepa"
+            # occ_vla addition (2026-08-30, per user request): "agentview_
+            # vjepa_plus_depth" combines VJEPA (perception-side, corrects the
+            # model's INPUT vision tokens for the occluded region) with the
+            # zero-privileged depth-based CBF correction (action-side,
+            # corrects the model's OUTPUT action chunk) -- the two mechanisms
+            # touch disjoint parts of the pipeline (vision-token patching vs.
+            # post-hoc action correction) so are composable without any new
+            # interaction logic; this condition just enables both flags
+            # simultaneously via the same real, already-computed occlusion/
+            # depth signals each condition uses independently elsewhere in
+            # this file. Motivation: task9's 84%->0% CBF-alone collapse (see
+            # CLAUDE.md) -- testing whether giving the model VJEPA's
+            # perception-side occlusion fill ALSO reduces reliance on/
+            # need for the action-side correction that caused the collapse.
+            agentview_vjepa = condition in ("agentview_vjepa", "agentview_vjepa_plus_depth")
+            # occ_vla addition (2026-08-30): "blank_wrist" keeps real
+            # agentview occlusion identical to baseline -- ONLY the wrist
+            # camera is additionally gray-filled -- to decisively test
+            # whether the wrist camera is the dominant channel behind
+            # baseline's high success rate under agentview occlusion (§3.7).
+            blank_wrist = condition == "blank_wrist"
+            # occ_vla addition (2026-08-30, per user's explicit request):
+            # "agentview_only_true" is the methodologically cleaner sibling
+            # of "blank_wrist" -- instead of gray-filling the wrist image
+            # (a real but out-of-distribution input this checkpoint was
+            # never trained to expect), it removes the wrist image from
+            # the model's input ENTIRELY (num_images_in_input: 2 -> 1 for
+            # the duration of each get_vla_action call, then restored),
+            # matching the real LIBERO-Occ paper's likely own single-camera
+            # evaluation protocol (per docs/evaluation.md's framing of
+            # PERSPECTIVE_OBS_KEY as "debug/reference" only) far more
+            # closely than an anomalous gray frame does. Agentview's own
+            # real occlusion is left completely unchanged, same contract
+            # as blank_wrist.
+            drop_wrist_image = condition == "agentview_only_true" or args.drop_wrist_image
             # occ_vla addition (2026-08-20, per user request -- mobility
             # sweep, top priority per their own reasoning: zero geometric
             # constraint, cheapest to implement, most directly tests the
@@ -2582,6 +4065,24 @@ def main():
                     blank_agentview=args.blank_agentview_diagnostic,
                     proactive_use_cbf=proactive_use_cbf,
                     proactive_cbf_gain=args.proactive_cbf_gain,
+                    proactive_target_attractor_radius_m=args.proactive_target_attractor_radius_m,
+                    proactive_target_attractor_decay=args.proactive_target_attractor_decay,
+                    proactive_target_attractor_max_staleness=args.proactive_target_attractor_max_staleness,
+                    proactive_grasp_phase_radius_m=args.proactive_grasp_phase_radius_m,
+                    proactive_grasp_phase_gain_decay=args.proactive_grasp_phase_gain_decay,
+                    proactive_persistence_window=args.proactive_persistence_window,
+                    proactive_persistence_min_gain_frac=args.proactive_persistence_min_gain_frac,
+                    proactive_persistence_mode=args.proactive_persistence_mode,
+                    ace_gate_enabled=ace_gate_enabled,
+                    ace_gate_scale_m=args.ace_gate_scale_m,
+                    ace_gate_min_frac=args.ace_gate_min_frac,
+                    attn_target_excl_enabled=attn_target_excl_enabled,
+                    attn_target_window=args.attn_target_window,
+                    attn_target_gap_delta=args.attn_target_gap_delta,
+                    object_centric_adapter_enabled=bool(args.load_object_centric_adapter),
+                    blank_wrist=blank_wrist,
+                    drop_wrist_image=drop_wrist_image,
+                    second_view_camera=args.second_view_camera,
                     proactive_use_depth=proactive_use_depth,
                     proactive_use_mpc=proactive_use_mpc,
                     proactive_mpc_n_candidates=args.proactive_mpc_n_candidates,
@@ -2590,6 +4091,18 @@ def main():
                     proactive_mpc_w_fidelity=args.proactive_mpc_w_fidelity,
                     agentview_vjepa=agentview_vjepa,
                     agentview_vjepa_min_run_length=args.agentview_vjepa_min_run_length,
+                    save_distillation_pairs_dir=args.save_distillation_pairs_dir,
+                    agentview_vjepa2_temporal=agentview_vjepa2_temporal,
+                    vjepa2_encoder=vjepa2_encoder, vjepa2_predictor=vjepa2_predictor,
+                    vjepa2_proj_dino=vjepa2_proj_dino, vjepa2_proj_siglip=vjepa2_proj_siglip,
+                    vjepa2_splice_forward=vjepa2_splice_forward,
+                    agentview_vjepa2_amodal=agentview_vjepa2_amodal,
+                    vjepa2_base_encoder=vjepa2_base_encoder, vjepa2_base_predictor=vjepa2_base_predictor,
+                    vjepa2_blend_alpha_ceiling=args.vjepa2_blend_alpha,
+                    vjepa2_blend_alpha_floor=args.vjepa2_blend_alpha_floor,
+                    vjepa2_blend_persistence_window=args.vjepa2_blend_persistence_window,
+                    vjepa2_amodal_ema_decay=args.vjepa2_amodal_ema_decay,
+                    vjepa2_confidence_threshold=args.vjepa2_confidence_threshold,
                 )
                 # occ_vla addition (2026-08-18): report the TRUE global
                 # init_states index, not the loop-local `ep` -- otherwise a
@@ -2613,6 +4126,23 @@ def main():
             with open(os.path.join(args.results_dir, f"task{task_id}.json"), "w") as f:
                 json.dump({"task_id": task_id, "task_description": task_description,
                            "occluder_names": occluder_names, "results": task_results}, f, indent=2)
+
+            # occ_vla addition (2026-08-27): flatten every episode's
+            # distillation_manifest (populated only under
+            # proactive_avoidance_depth) into one combined manifest.json
+            # in save_distillation_pairs_dir -- rewritten after each
+            # condition so a crash partway through doesn't lose earlier
+            # conditions'/tasks' already-collected pairs.
+            if args.save_distillation_pairs_dir:
+                combined_manifest = []
+                for cond_results in task_results.values():
+                    for ep_res in cond_results:
+                        combined_manifest.extend(ep_res.get("distillation_manifest", []))
+                if combined_manifest:
+                    os.makedirs(args.save_distillation_pairs_dir, exist_ok=True)
+                    with open(os.path.join(args.save_distillation_pairs_dir, "manifest.json"), "w") as f:
+                        json.dump(combined_manifest, f)
+                    print(f"    [distillation-pairs] {len(combined_manifest)} pairs saved to {args.save_distillation_pairs_dir}/manifest.json")
 
         model.vision_backbone.forward = original_forward
 

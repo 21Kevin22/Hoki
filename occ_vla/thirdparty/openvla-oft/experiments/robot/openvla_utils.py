@@ -872,6 +872,7 @@ def get_vla_action(
     noisy_action_projector: Optional[torch.nn.Module] = None,
     use_film: bool = False,
     occlusion_mask: Optional[torch.Tensor] = None,
+    object_mask: Optional[torch.Tensor] = None,
     return_hidden_states: bool = False,
     return_attn_entropy: bool = False,
     return_attn_map: bool = False,
@@ -977,6 +978,7 @@ def get_vla_action(
                 action_head=action_head,
                 use_film=use_film,
                 occlusion_mask=occlusion_mask,
+                object_mask=object_mask,
                 output_attentions=return_attn_entropy,
                 output_attn_map=return_attn_map,
             )
