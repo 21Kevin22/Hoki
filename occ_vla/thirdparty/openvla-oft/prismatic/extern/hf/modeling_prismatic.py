@@ -454,6 +454,51 @@ class PrismaticProjector(nn.Module):
         return projected_features
 
 
+class ObjectCentricZeroInitAdapter(nn.Module):
+    """occ_vla addition (2026-09-03, Month 2 of the occlusion/collision-
+    robustness thesis plan -- see CLAUDE.md's "Month 2 design" entry for
+    the full rationale). ControlVLA-style (arXiv:2506.16211) zero-
+    initialized additive cross-attention adapter, wrapping
+    `PrismaticProjector`'s OUTPUT (not touching the projector's own
+    frozen fc1/fc2/fc3 weights, or any other pretrained weight).
+
+    Conditions the post-projector, patch-aligned visual token stream on
+    a real per-patch object-of-interest coverage mask (from real
+    robosuite/LIBERO instance segmentation via the same grid-alignment
+    convention `run_libero_occluded_oracle_headroom.py`'s
+    `occlusion_mask` construction already uses -- NOT SAM2 or any other
+    new perception dependency).
+
+    `out_proj`'s weight AND bias are zero-initialized, so
+    `forward(projected_features, patch_mask)` returns EXACTLY
+    `projected_features` (verified byte-identical, not just
+    approximately, via `scripts/test_zero_init_adapter_smoke.py`) the
+    moment this module is constructed -- the frozen base model's
+    behavior is reproduced exactly at step 0, and training can only
+    ever ADD a bounded residual correction, never directly overwrite
+    the base representation the way Month 1's LoRA-SFT did (see the
+    "Month 1 CLOSEOUT" entry in CLAUDE.md for why that mattered: the
+    higher a task's natural CBF-correction density, the faster LoRA-SFT
+    catastrophically forgot the base grasping representation)."""
+
+    def __init__(self, llm_dim: int, n_heads: int = 8):
+        super().__init__()
+        self.mask_embed = nn.Linear(1, llm_dim)
+        self.cross_attn = nn.MultiheadAttention(llm_dim, n_heads, batch_first=True)
+        self.out_proj = nn.Linear(llm_dim, llm_dim)
+        nn.init.zeros_(self.out_proj.weight)
+        nn.init.zeros_(self.out_proj.bias)
+
+    def forward(self, projected_features: torch.Tensor, patch_mask: torch.Tensor) -> torch.Tensor:
+        """projected_features: (B, N_patches_total, llm_dim) -- PrismaticProjector's
+        real output, already concatenated across all input images.
+        patch_mask: (B, N_patches_total, 1) -- real per-patch object-of-interest
+        coverage fraction, same dtype/device as projected_features."""
+        kv = self.mask_embed(patch_mask.to(projected_features.dtype))
+        attn_out, _ = self.cross_attn(query=projected_features, key=kv, value=kv)
+        return projected_features + self.out_proj(attn_out)
+
+
 # === Main HF Class Definitions ===
 @dataclass
 class PrismaticCausalLMOutputWithPast(ModelOutput):
@@ -568,6 +613,14 @@ class PrismaticForConditionalGeneration(PrismaticPreTrainedModel):
         self.pad_token_id = config.pad_token_id
         self.llm_dim = config.text_config.hidden_size
 
+        # occ_vla addition (2026-09-03, Month 2): optional zero-init object-
+        # centric adapter, None by default -- zero effect on any existing
+        # caller unless explicitly attached via
+        # `model.object_centric_adapter = ObjectCentricZeroInitAdapter(...)`
+        # (not part of the checkpoint's own saved state_dict; trained/loaded
+        # separately, same pattern as `--load-distillation-lora`).
+        self.object_centric_adapter = None
+
         # HF Boilerplate =>> initializes weights via `_init_weights()` and sets gradient checkpointing
         self.post_init()
 
@@ -654,6 +707,7 @@ class PrismaticForConditionalGeneration(PrismaticPreTrainedModel):
         use_film=False,
         occlusion_mask=None,
         proprio_for_dynamics=None,
+        object_mask=None,
     ):
         """Process vision features with optional FiLM conditioning. The
         V-JEPA-style in-place occlusion overwrite (mid-layer splice + trained
@@ -672,6 +726,12 @@ class PrismaticForConditionalGeneration(PrismaticPreTrainedModel):
                 the same raw proprioception the caller already has (e.g. the
                 `proprio` argument already threaded through `predict_action`),
                 handed to vision_backbone's predictors as a dynamics cue.
+            object_mask: occ_vla addition (2026-09-03, Month 2) -- None, or
+                (bsz, 256 * num_images, 1) float tensor, real per-patch
+                object-of-interest coverage fraction. Only has any effect if
+                `self.object_centric_adapter` is also set (not None) --
+                applied AFTER the projector, per `ObjectCentricZeroInitAdapter`'s
+                own docstring. None (default) is fully backward-compatible.
         """
         if use_film:
             # FiLM: Infuse language inputs into visual features
@@ -682,7 +742,12 @@ class PrismaticForConditionalGeneration(PrismaticPreTrainedModel):
             )  # (bsz, 256 * num_images, D)
 
         # Project patch embeddings into language embedding space
-        return self.projector(patch_features)
+        projected = self.projector(patch_features)
+
+        if self.object_centric_adapter is not None and object_mask is not None:
+            projected = self.object_centric_adapter(projected, object_mask)
+
+        return projected
 
     def reset_vjepa_state(self):
         """Call at the start of each rollout/episode so the dynamics
@@ -1271,6 +1336,7 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         noisy_action_projector=None,
         use_film: bool = False,
         occlusion_mask=None,
+        object_mask=None,
         output_attentions: bool = False,
         output_attn_map: bool = False,
         **kwargs: str,
@@ -1351,6 +1417,7 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
             use_film,
             occlusion_mask=occlusion_mask,
             proprio_for_dynamics=proprio_tensor_for_dynamics,
+            object_mask=object_mask,
         )
 
         # Add proprioceptive features if provided
