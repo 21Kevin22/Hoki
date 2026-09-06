@@ -189,3 +189,38 @@ wrist_occlusion_scan_*.json
 covariate_shift.png
 vjepa_correction_qual_goal_task0.mp4
 vjepa_correction_qual_goal_task0.png
+
+# occ_vla additions (2026-09-06): large binaries and sprawling per-run
+# experiment-output directories should never enter git history -- transfer
+# large checkpoints out-of-band instead. Backup-clutter files (auto-created
+# every time a script patches config.json before loading a checkpoint) are
+# pure noise, never read back by any script.
+*.safetensors
+*_checkpoint.pt
+object_centric_adapter_weights.pt
+lora_weights.pt
+config.json.back.*
+*.py.back.*
+lora_adapter/
+month2_collect_task*/
+month2_v2_*_task*/
+object_centric_adapter_task*/
+object_centric_adapter_weights_task*/
+factorial_*_n[0-9]*/
+video_*_physical*/
+video_task2_*/
+rollout_task2_*/
+contact_survey_*_remaining/
+probe_task2_*/
+paired_task2_*/
+task[0-9]_*n[0-9]*/
+task[0-9][0-9]_*n[0-9]*/
+step[0-9]*/
+finetuned_eval_task*/
+smoke_*/
+force_oracle_task*/
+mobility_sweep_task*/
+nonreg_stock_oracle_task*/
+scripted_recovery_task*/
+ttc_area_blend_task*/
+composite_visual_only_task*/

@@ -7,6 +7,7 @@ but exactly replicate the logic in `prismatic.models.vlms.prismatic.py`.
 """
 
 import logging
+import math
 import os
 from dataclasses import dataclass
 from functools import partial
@@ -462,41 +463,146 @@ class ObjectCentricZeroInitAdapter(nn.Module):
     `PrismaticProjector`'s OUTPUT (not touching the projector's own
     frozen fc1/fc2/fc3 weights, or any other pretrained weight).
 
-    Conditions the post-projector, patch-aligned visual token stream on
-    a real per-patch object-of-interest coverage mask (from real
-    robosuite/LIBERO instance segmentation via the same grid-alignment
-    convention `run_libero_occluded_oracle_headroom.py`'s
-    `occlusion_mask` construction already uses -- NOT SAM2 or any other
-    new perception dependency).
+    occ_vla redesign (2026-09-06), per a literature check against the
+    REAL ControlVLA paper (fetched directly, not assumed from memory --
+    see CLAUDE.md's "先行研究を調べた" entry): the original (2026-09-03)
+    version of this class deviated from ControlVLA's actual design in
+    three ways that plausibly explain the "Month 2 CRITICAL FINDING"
+    causal-confusion result (the adapter learning a position-independent
+    aggregate-coverage bias, not genuine object-location tracking):
 
-    `out_proj`'s weight AND bias are zero-initialized, so
-    `forward(projected_features, patch_mask)` returns EXACTLY
-    `projected_features` (verified byte-identical, not just
-    approximately, via `scripts/test_zero_init_adapter_smoke.py`) the
-    moment this module is constructed -- the frozen base model's
-    behavior is reproduced exactly at step 0, and training can only
-    ever ADD a bounded residual correction, never directly overwrite
-    the base representation the way Month 1's LoRA-SFT did (see the
-    "Month 1 CLOSEOUT" entry in CLAUDE.md for why that mattered: the
-    higher a task's natural CBF-correction density, the faster LoRA-SFT
-    catastrophically forgot the base grasping representation)."""
+    1. **Object representation.** ControlVLA conditions on ONE feature
+       vector PER OBJECT, `z = [z_pos, z_geo]` -- `z_pos` is a sinusoidal
+       positional encoding of the object mask's CENTROID, `z_geo` is a
+       CNN feature over the masked region's actual content. The prior
+       version instead fed a per-patch SCALAR coverage value (0/1-ish)
+       through one shared `nn.Linear(1, llm_dim)` -- background patches
+       all map to near-identical K/V vectors regardless of shape, and
+       there is no real visual content in the conditioning signal at
+       all, only a coverage count.
+    2. **Where zero-init lives.** ControlVLA zero-initializes the K/V
+       PROJECTION weights (`W_z, B_z`) themselves, not a downstream
+       output projection -- confirmed via their own stated gradient
+       `dL/dW_z = sum(dL/dV_z) . Z^T`, which is directly proportional to
+       the real object feature Z from step 0. The prior version instead
+       zero-initialized `out_proj` while leaving `cross_attn`'s own
+       internal Q/K/V projections randomly initialized -- the gradient
+       signal reaching the true object feature had to pass through an
+       extra, untrained random projection first.
+    3. Combined, these two changes give a small, low-dimensional,
+       richer conditioning signal (centroid position + region content)
+       a much more direct path into a learnable K/V projection than the
+       prior per-patch-scalar-through-a-randomly-initialized-attention
+       design.
 
-    def __init__(self, llm_dim: int, n_heads: int = 8):
+    This redesign keeps QUERY = the post-projector vision PATCH tokens
+    (not an action-generation query, unlike ControlVLA's own diffusion-
+    action-expert setup) because OpenVLA-OFT's action head is a plain
+    MLP-ResNet regression head with no cross-attention structure of its
+    own to inject into -- there is no clean analogue of "condition the
+    action query directly" in this architecture, so the injection point
+    stays at the vision-token stream, as in the original Month 2 design.
+
+    Disclosed approximation vs. the real paper: `z_geo` here is a small
+    CNN over the RESHAPED (1, 16, 16) per-patch MASK itself (a shape
+    descriptor: extent/aspect-ratio/etc.), not a CNN over the actual
+    masked RGB pixel crop -- wiring in real RGB content would need a new
+    plumbing path through `predict_action`/`get_vla_action`/every caller
+    that doesn't currently pass raw pixels this deep, a larger change
+    out of scope for this pass. The mask's own spatial SHAPE (not just a
+    scalar coverage count) is still strictly richer information than the
+    prior per-patch-scalar design.
+
+    Zero-init-at-construction guarantee preserved: `kv_proj`'s weight AND
+    bias are zero-initialized, so K=V=0 for every sample regardless of
+    the real object feature Z, and `forward(projected_features,
+    patch_mask)` returns EXACTLY `projected_features` (the attention
+    output is `softmax(...) @ V = softmax(...) @ 0 = 0` identically,
+    independent of the attention weights) -- no separate zeroed output
+    projection is needed, matching ControlVLA's own stated design
+    ("query projections... remain unchanged")."""
+
+    GRID_SIDE = 16  # matches run_libero_occluded_oracle_headroom.py's own 16x16 patch-grid convention
+
+    def __init__(self, llm_dim: int, pos_dim: int = 64, geo_dim: int = 64, n_heads: int = 8):
         super().__init__()
-        self.mask_embed = nn.Linear(1, llm_dim)
-        self.cross_attn = nn.MultiheadAttention(llm_dim, n_heads, batch_first=True)
-        self.out_proj = nn.Linear(llm_dim, llm_dim)
-        nn.init.zeros_(self.out_proj.weight)
-        nn.init.zeros_(self.out_proj.bias)
+        # n_heads accepted for backward-compatibility with existing call
+        # sites (train_object_centric_adapter.py passes --n-heads) but is
+        # a no-op here -- a single per-sample object token makes
+        # multi-head attention degenerate (softmax over a length-1 key
+        # sequence is always 1.0), so there is nothing for extra heads
+        # to differentiate.
+        self.pos_dim = pos_dim
+        self.geo_dim = geo_dim
+        self.geo_cnn = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(32, geo_dim),
+        )
+        z_dim = pos_dim + geo_dim
+        # occ_vla fix (2026-09-06): zero-init moved here (the K/V
+        # projection itself), matching ControlVLA's real W_z/B_z design
+        # -- see class docstring for why this gives a more direct
+        # gradient signal than zero-initing a downstream output
+        # projection instead.
+        self.kv_proj = nn.Linear(z_dim, 2 * llm_dim)
+        nn.init.zeros_(self.kv_proj.weight)
+        nn.init.zeros_(self.kv_proj.bias)
+
+    def _sinusoidal_pe(self, coord: torch.Tensor, dim: int) -> torch.Tensor:
+        """coord: (B,) in [0, 1]. Returns (B, dim), standard transformer-style
+        sinusoidal positional encoding (Vaswani et al.) applied to a
+        continuous scalar coordinate rather than an integer index."""
+        half = max(dim // 2, 1)
+        device = coord.device
+        freqs = torch.exp(-torch.arange(half, device=device, dtype=torch.float32) * (math.log(10000.0) / max(half - 1, 1)))
+        args = coord.unsqueeze(-1).float() * freqs.unsqueeze(0) * (2 * math.pi)
+        return torch.cat([torch.sin(args), torch.cos(args)], dim=-1).to(coord.dtype if coord.is_floating_point() else torch.float32)
+
+    def _object_feature(self, agent_mask_256: torch.Tensor) -> torch.Tensor:
+        """agent_mask_256: (B, 256) real per-patch object-of-interest coverage,
+        AGENTVIEW ONLY (the first 256 of the 512 total patch-mask entries --
+        matches this project's own convention that the wrist half is always
+        zero-filled in this manifest). Returns z: (B, pos_dim + geo_dim)."""
+        b = agent_mask_256.shape[0]
+        grid = agent_mask_256.float().view(b, self.GRID_SIDE, self.GRID_SIDE)
+        rows = torch.linspace(0.0, 1.0, self.GRID_SIDE, device=grid.device)
+        cols = torch.linspace(0.0, 1.0, self.GRID_SIDE, device=grid.device)
+        mass = grid.sum(dim=(1, 2)).clamp(min=1e-6)
+        # weighted centroid (row, col) in [0, 1]; falls back to the grid
+        # center when the mask is entirely zero (e.g. corrected=False
+        # steps, or a stock/non-occluded scene with no target mask).
+        row_c = (grid.sum(dim=2) * rows.unsqueeze(0)).sum(dim=1) / mass
+        col_c = (grid.sum(dim=1) * cols.unsqueeze(0)).sum(dim=1) / mass
+        pos_half = max(self.pos_dim // 2, 2)
+        z_pos = torch.cat([self._sinusoidal_pe(row_c, pos_half), self._sinusoidal_pe(col_c, pos_half)], dim=-1)
+        # centroid math above stays in float32 for precision; the CNN's own
+        # params may be bf16 (module cast via .to(dtype=...) by the caller),
+        # so match its weight dtype here rather than forcing float32 through it.
+        conv_dtype = self.geo_cnn[0].weight.dtype
+        z_geo = self.geo_cnn(grid.unsqueeze(1).to(conv_dtype))
+        return torch.cat([z_pos.to(conv_dtype), z_geo], dim=-1)
 
     def forward(self, projected_features: torch.Tensor, patch_mask: torch.Tensor) -> torch.Tensor:
         """projected_features: (B, N_patches_total, llm_dim) -- PrismaticProjector's
         real output, already concatenated across all input images.
         patch_mask: (B, N_patches_total, 1) -- real per-patch object-of-interest
-        coverage fraction, same dtype/device as projected_features."""
-        kv = self.mask_embed(patch_mask.to(projected_features.dtype))
-        attn_out, _ = self.cross_attn(query=projected_features, key=kv, value=kv)
-        return projected_features + self.out_proj(attn_out)
+        coverage fraction; only the first 256 (agentview) entries are used."""
+        agent_mask_256 = patch_mask[:, :256, 0]
+        z = self._object_feature(agent_mask_256).to(projected_features.dtype)
+        kv = self.kv_proj(z)  # (B, 2*llm_dim) -- exactly 0 at construction
+        llm_dim = projected_features.shape[-1]
+        k, v = kv[:, :llm_dim], kv[:, llm_dim:]
+        k = k.unsqueeze(1)  # (B, 1, llm_dim) -- ONE object token per sample
+        v = v.unsqueeze(1)
+        attn_logits = torch.einsum("bnd,bkd->bnk", projected_features, k) / (llm_dim ** 0.5)
+        attn_weights = torch.softmax(attn_logits, dim=-1)  # (B, N, 1) -- trivially all-ones (single key)
+        attn_out = torch.einsum("bnk,bkd->bnd", attn_weights, v)  # broadcasts v to every patch position
+        return projected_features + attn_out
 
 
 # === Main HF Class Definitions ===

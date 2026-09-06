@@ -1,4 +1,6 @@
 __pycache__/
+*.log
+logs/
 *.pyc
 .pytest_cache/
 *.egg-info/
@@ -70,3 +72,54 @@ thirdparty/openvla-oft/exp*_task*/
 thirdparty/openvla-oft/smoke_*/
 thirdparty/openvla-oft/replicate_task*/
 thirdparty/openvla-oft/blank_libero10_*/
+
+# occ_vla additions (2026-09-06): the actual checkpoint/tokenizer files that
+# every eval script loads live under checkpoints/, not here — these are
+# stray/duplicate copies plus per-run experiment output that accumulated
+# directly under scripts/ (an older convention, separate from the
+# thirdparty/openvla-oft/*_n[0-9]*/ pattern above which covers newer runs).
+# Large binaries: transfer out-of-band, never commit.
+scripts/*.safetensors
+scripts/*_checkpoint.pt
+scripts/object_centric_adapter_weights.pt
+scripts/lora_adapter/
+scripts/step[0-9]*/
+scripts/config.json.back.*
+scripts/*.py.back.*
+scripts/object_centric_adapter_task*/
+scripts/month2_collect_task*/
+scripts/rollout_task2_*/
+scripts/video_task2_*/
+scripts/video_*_physical*/
+scripts/paired_task2_*/
+scripts/probe_task2_*/
+scripts/factorial_*_n[0-9]*/
+scripts/contact_survey_*_remaining/
+
+# occ_vla additions (2026-09-06): stray checkpoint-directory copies. HF's
+# trust_remote_code loading sometimes copies the model's own source/config
+# files alongside the checkpoint weights it loads from -- these are stale
+# duplicates of files that are properly tracked under
+# thirdparty/openvla-oft/prismatic/extern/hf/ and checkpoints/, not a second
+# source of truth (confirmed 2026-09-06: the scripts/ copy of
+# modeling_prismatic.py predates the ControlVLA-redesign edit and does not
+# contain it).
+scripts/modeling_prismatic.py
+scripts/configuration_prismatic.py
+scripts/processing_prismatic.py
+scripts/vjepa_latent_predictor.py
+scripts/config.json
+scripts/generation_config.json
+scripts/preprocessor_config.json
+scripts/processor_config.json
+scripts/special_tokens_map.json
+scripts/tokenizer.json
+scripts/tokenizer.model
+scripts/tokenizer_config.json
+scripts/added_tokens.json
+scripts/dataset_statistics.json
+scripts/model.safetensors.index.json
+scripts/.gitattributes
+scripts/README.md
+scripts/loss_log.json
+scripts/factorial_libero10_remaining_*/

@@ -15,8 +15,16 @@ import os
 import cv2
 
 
-def assemble_one(frame_dir, out_path, fps=15):
-    frames = sorted(glob.glob(os.path.join(frame_dir, "frame_*.png")))
+def assemble_one(frame_dir, out_path, fps=15, suffix_glob="frame_[0-9][0-9][0-9][0-9][0-9].png"):
+    # occ_vla fix (2026-09-06): the original "frame_*.png" glob also
+    # matched frame_NNNNN_wrist.png (added later, 2026-08-30, for the
+    # wrist-camera-bypass check) and, lexicographically, "00001." sorts
+    # before "00001_", so the two cameras' frames interleaved into one
+    # video instead of being written separately. Default pattern now
+    # matches ONLY the plain 5-digit agentview frame; pass
+    # suffix_glob="frame_[0-9][0-9][0-9][0-9][0-9]_wrist.png" explicitly
+    # to assemble the wrist-camera video instead.
+    frames = sorted(glob.glob(os.path.join(frame_dir, suffix_glob)))
     if not frames:
         return None
     first = cv2.imread(frames[0])
@@ -49,6 +57,11 @@ def main():
             print(f"{sub}: {n} frames -> {out_path}")
         else:
             print(f"{sub}: no frames found, skipped")
+        wrist_out_path = os.path.join(out_dir, f"{sub}_wrist.mp4")
+        n_wrist = assemble_one(subpath, wrist_out_path, fps=args.fps,
+                                suffix_glob="frame_[0-9][0-9][0-9][0-9][0-9]_wrist.png")
+        if n_wrist:
+            print(f"{sub} (wrist): {n_wrist} frames -> {wrist_out_path}")
 
 
 if __name__ == "__main__":

@@ -3103,6 +3103,15 @@ def main():
                               "--load-distillation-lora -- the object_mask is built fresh every "
                               "replan step from real segmentation (target_seg_ids), gated on this flag "
                               "being set, regardless of which `condition` string is running.")
+    parser.add_argument("--load-object-centric-adapter-lora", default=None,
+                         help="occ_vla addition 2026-09-06 (Month 2 priority (3)): path to a directory "
+                              "containing object_centric_adapter_weights.pt AND lora_weights.pt, saved "
+                              "by scripts/train_object_centric_adapter_with_lora.py -- attaches the "
+                              "trained ObjectCentricZeroInitAdapter AND a narrow LoRA on the first 1-2 "
+                              "language_model layers immediately downstream of the injection point "
+                              "(layer indices/rank inferred from the saved lora_weights.pt keys/shapes, "
+                              "not hardcoded). Mutually exclusive with --load-object-centric-adapter "
+                              "(this flag loads both pieces together).")
     parser.add_argument("--load-distillation-lora", default=None,
                          help="occ_vla addition 2026-08-27: path to a directory containing "
                               "distillation_weights.pt, saved by scripts/train_distillation_imitation.py "
@@ -3573,6 +3582,44 @@ def main():
         missing_oc, unexpected_oc = model.object_centric_adapter.load_state_dict(adapter_state, strict=True)
         print(f"  [object-centric-adapter] loaded {len(adapter_state)} tensors, "
               f"missing={len(missing_oc)} unexpected={len(unexpected_oc)} (both should be 0)")
+
+    if args.load_object_centric_adapter_lora:
+        # occ_vla addition (2026-09-06, Month 2 priority (3)): attach BOTH
+        # the trained ObjectCentricZeroInitAdapter AND the narrow LoRA on
+        # the first 1-2 language_model layers, saved by
+        # train_object_centric_adapter_with_lora.py. Layer indices and
+        # rank are inferred from the saved lora_weights.pt itself (its own
+        # key names encode the layer index, its own lora_A tensor shape
+        # encodes the rank) rather than hardcoded, mirroring the existing
+        # --load-distillation-lora precedent's own "infer, don't hardcode"
+        # convention above.
+        from prismatic.extern.hf.modeling_prismatic import ObjectCentricZeroInitAdapter
+        from peft import LoraConfig, get_peft_model
+        print(f"  [object-centric-adapter+lora] loading from {args.load_object_centric_adapter_lora}")
+        adapter_state = torch.load(
+            os.path.join(args.load_object_centric_adapter_lora, "object_centric_adapter_weights.pt"), map_location="cpu")
+        model.object_centric_adapter = ObjectCentricZeroInitAdapter(model.llm_dim).to(model.device, dtype=torch.bfloat16)
+        missing_oc, unexpected_oc = model.object_centric_adapter.load_state_dict(adapter_state, strict=True)
+        print(f"  [object-centric-adapter+lora] loaded {len(adapter_state)} adapter tensors, "
+              f"missing={len(missing_oc)} unexpected={len(unexpected_oc)} (both should be 0)")
+
+        lora_state = torch.load(
+            os.path.join(args.load_object_centric_adapter_lora, "lora_weights.pt"), map_location="cpu")
+        lora_a_shapes = [v.shape for k, v in lora_state.items() if "lora_A" in k]
+        assert lora_a_shapes, "no lora_A tensors found -- was this really saved by train_object_centric_adapter_with_lora.py?"
+        inferred_rank = lora_a_shapes[0][0]  # lora_A.default.weight shape is (r, in_features)
+        lora_layer_idxs = sorted({int(k.split(".layers.")[1].split(".")[0]) for k in lora_state if ".layers." in k})
+        lora_config = LoraConfig(
+            r=inferred_rank, lora_alpha=inferred_rank * 2, lora_dropout=0.0,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            layers_to_transform=lora_layer_idxs, layers_pattern="layers",
+            task_type=None,
+        )
+        model.language_model = get_peft_model(model.language_model, lora_config)
+        missing_lm, unexpected_lm = model.language_model.load_state_dict(lora_state, strict=False)
+        assert len(unexpected_lm) == 0, f"LoRA load found keys not in the model: {unexpected_lm[:5]}"
+        print(f"  [object-centric-adapter+lora] loaded {len(lora_state)} LoRA tensors "
+              f"(layers={lora_layer_idxs}, rank={inferred_rank})")
 
     processor = get_processor(cfg)
     check_unnorm_key(cfg, model)
@@ -4079,7 +4126,7 @@ def main():
                     attn_target_excl_enabled=attn_target_excl_enabled,
                     attn_target_window=args.attn_target_window,
                     attn_target_gap_delta=args.attn_target_gap_delta,
-                    object_centric_adapter_enabled=bool(args.load_object_centric_adapter),
+                    object_centric_adapter_enabled=bool(args.load_object_centric_adapter or args.load_object_centric_adapter_lora),
                     blank_wrist=blank_wrist,
                     drop_wrist_image=drop_wrist_image,
                     second_view_camera=args.second_view_camera,

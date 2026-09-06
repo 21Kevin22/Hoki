@@ -7965,3 +7965,1010 @@ Adapter) is task-dependent, not a uniform win. **Explicitly flagged to the
 user as a real limitation for the thesis**: no cross-task generalization
 test exists yet (e.g., applying task2's trained adapter directly to task6
 without retraining) -- only per-task from-scratch training has been tried.
+
+## Month 2 CRITICAL FINDING (2026-09-06, fresh environment/session):
+task2's +15pt result is real, but NOT caused by object-location
+conditioning -- the adapter learned a position-independent constant bias
+("causal confusion", de Haan/Jayaraman/Levine, NeurIPS 2019,
+arXiv:1905.11979), confirmed by two independent tests, not by generalizing
+to task8
+
+**Context**: on a fresh environment (checkpoint/LIBERO/thirdparty re-synced
+from `adam` after this repo's own `.gitignore`d working dirs were lost to a
+merge), re-verified task2's step300 result (9/10, matching the recorded
+87.5%/n=40) and then tried extending Month 2 to task8 (the next-best
+candidate per baseline SR=46%/contact_frac=4.0%, chosen over task0/5/9
+which have near-zero contact_frac and are ceiling-limited). **task8 result:
+adapter (step150 AND step300) reproduced the undistilled baseline's success
+pattern byte-for-byte on 3/10 paired episodes (0 discordant pairs at
+step150; 1-vs-1 at step300)** -- i.e. no measurable effect at all, not even
+a task-specific regression.
+
+**This prompted an ablation the original Month 2 design never ran**:
+retrain the SAME architecture on the SAME task2 data, but with the
+per-patch object_mask replaced by a constant zero (or independent random
+noise) at every training step -- `train_object_centric_adapter.py`'s new
+`--ablation-mask-mode {zero,random}` flag (real/default unchanged,
+byte-for-byte prior behavior). **Result: the zero-mask ablation reached
+80% (8/10) at BOTH step150 and step300** -- statistically indistinguishable
+from the real-mask run's 90%. The object-location signal was not necessary
+to reproduce most of the effect.
+
+**Root cause, confirmed directly (not just inferred from the ablation) via
+a counterfactual test on the REAL (unablated) trained adapter**
+(`scripts/test_causal_mask_sensitivity.py`, one fixed held-out frame,
+`torch.no_grad()`, fully deterministic -- real1 vs real2 with the IDENTICAL
+input gave `||diff||=0.00000`, a clean zero noise floor to compare
+against): feeding the adapter the SAME real mask **rolled to the opposite
+side of the 16x16 patch grid** (same total coverage/statistics, wrong
+location) produced an **IDENTICAL action to the true mask, `||shifted -
+real|| = 0.00000`** -- zero difference, not just "small". Zeroing the mask
+entirely moved the output by 0.00784; random noise by 0.00119 -- both
+larger than the (zero) noise floor, but the SHIFTED case (same content,
+wrong place) is the one that isolates SPATIAL information specifically,
+and it produced literally no change at all. **`mask_embed`
+(`nn.Linear(1, llm_dim)`) has a bias term, so even a content-invariant
+statistic (not zero, not fully ignored) can pass through the adapter
+without the network ever needing to resolve WHERE in the mask the nonzero
+entries are** -- consistent with the model reading (something like) the
+mask's aggregate coverage level, never its spatial layout.
+
+**This directly matches the textbook causal-confusion failure mode**: a
+behavior-cloned policy can reproduce a training-distribution-average
+correction without ever using the nominally-causal input variable, and
+worse, this can look identical to (or even outperform, if the truly-causal
+signal is noisier) the correctly-conditioned policy ON THE TRAINING
+DISTRIBUTION's own held-out split -- exactly why task2's original n=40
+paired significance test (which only ever tested held-out EPISODES of the
+SAME task, never a shifted/relocated object) could not have caught this.
+**Corrects the earlier interpretation of task8's null result**: it does
+NOT mean "task8's object coverage was too low" or "task8's CBF data was
+less learnable" -- those still may be true, but are secondary. Task2's own
+success was never conditioned on object location the way the Month 2
+narrative assumed, so there was never a "spatial avoidance skill" for
+task8 to fail to inherit in the first place.
+
+**What ControlVLA's own paper (the architecture this design is explicitly
+based on, arXiv:2506.16211, re-confirmed real) actually validates, that
+this Month 2 reproduction never did**: generalization to **novel objects
+(70.0% SR)** and **unseen backgrounds (60.0% SR)** after 10-20-demo
+training -- i.e. they test whether the object-centric conditioning tracks
+a genuinely different object/scene, not just held-out episodes of an
+unchanged one. This project's task2 evaluation only ever used held-out
+EPISODES of the identical task/scene, which a position-independent bias
+can trivially pass.
+
+**Fix attempted, adapted from de Haan et al.'s own proposed remedy**
+(their paper's fix is targeted intervention / counterfactual data
+augmentation -- forcing the model to see cases where the causal variable's
+value actually changes the correct label; not directly transplantable here
+since we have no ground-truth "what would the CBF have output with the
+object elsewhere" without re-running the simulator on a moved object):
+added an explicit **mask-sensitivity contrastive regularizer** to
+`train_object_centric_adapter.py` (`--causal-sensitivity-weight`, default
+0 = fully backward-compatible) -- on `correction_applied_this_chunk=True`
+steps (where the object's location should plausibly matter), an extra
+forward pass is run with the SAME sample's mask rolled to a random shift,
+and a hinge loss `max(0, margin - ||f(real_mask) - f(shifted_mask)||)` is
+added to the main action loss, explicitly penalizing the network for
+producing near-identical outputs under a real-vs-relocated mask. This
+does not need new simulator data -- it directly targets the exact failure
+mode measured above (shifted producing zero output change) using data
+already collected. **Status: implemented, not yet retrained/re-verified
+via the same causal_mask_sensitivity test + a real rollout check -- do not
+cite this fix as working until both are confirmed.**
+
+## Causal-sensitivity fix, take 2: found the real architectural cause
+(missing positional encoding on cross-attention K/V), fixed it, but
+sensitivity regularizer alone still doesn't produce clean spatial
+tracking -- weight sweep in progress (2026-09-06, same thread)
+
+Per user's explicit follow-up ("先行研究リサーチして、重み以外に何か方法が
+ないか、そもそも学習自体を根底からみなおして"), root-caused WHY the
+`--causal-sensitivity-weight` regularizer (weight=1.0, then 10.0) never
+produced a real fix: `ObjectCentricZeroInitAdapter`'s cross-attention K/V
+is built as `mask_embed(patch_mask)` -- a per-patch SCALAR passed through
+one shared `nn.Linear(1, llm_dim)`, with **no positional encoding
+anywhere in the K/V construction**. Standard `nn.MultiheadAttention` is
+mathematically **exactly permutation-invariant** over an unordered K/V
+sequence when two K/V vectors are identical (as any two patches with the
+same scalar mask value are, by construction here) -- softmax-weighted
+pooling over a multiset cannot distinguish which position held which
+value. This exactly explains the earlier finding's precision
+(`||shifted-real||=0.00000`, not just small): it is a mathematical
+identity of the architecture, not a training/hyperparameter shortfall.
+Compared this design against ControlNet's own zero-init mechanism
+(Zhang et al.) -- ControlNet avoids this failure mode by construction,
+since its zero-init residual is a position-ALIGNED additive term (same
+spatial index in, same spatial index out), never a pooling attention
+over an unordered set.
+
+**Fix implemented**: added a learned positional embedding,
+`self.pos_embed = nn.Parameter(torch.zeros(1, n_patches, llm_dim))`
+(`nn.init.normal_(std=0.02)`, standard ViT/BERT-style init), added to
+`mask_embed(patch_mask)` before the cross-attention call in
+`ObjectCentricZeroInitAdapter.forward` (`modeling_prismatic.py`). This
+breaks the permutation invariance: two patches with the identical mask
+value now have DIFFERENT K/V vectors (their own position's embedding
+added), so the network has, for the first time, the information needed
+to resolve WHERE the mask says the object is, not just how much of it
+there is.
+
+**Result so far, `test_causal_mask_sensitivity.py` (same fixed held-out
+frame, `task2_ep14_t00018`, `corrected=True`), 3 configurations
+retrained on the identical task2 data (300 steps, lr=2e-5, warmup=60,
+grad-clip=1.0, weight-decay-excluded out_proj -- the v2-fixed recipe)**:
+
+| config | shifted | zero | random | noise floor |
+|---|---|---|---|---|
+| original (no pos_embed, causal_weight=0) | **0.00000 (exact)** | 0.00784 | 0.00119 | 0.00000 |
+| pos_embed only (causal_weight=0) | 0.00091 | 0.00051 | 0.00165 | 0.00000 |
+| pos_embed + causal_weight=1.0 | 0.00110 | 0.00133 | 0.00148 | 0.00000 |
+
+**Positional embedding alone genuinely breaks the mathematical
+invariance** (0.00000 -> nonzero in both later rows) -- this is real,
+confirmed progress on the ARCHITECTURAL side of the problem. **But
+neither configuration shows the signature that would indicate genuine
+spatial tracking** (shifted clearly LARGER than both zero and random,
+since shifted preserves the same aggregate mask statistics and only
+moves WHERE the signal is -- if the network used location, moving it
+to the wrong place should hurt more than a different-but-equally-
+"real-looking" perturbation). In both tested rows, `shifted` is the
+SMALLEST or comparable to zero/random, not the largest. **Interpretation:
+the network is no longer mathematically forced to ignore location, but
+what it has actually learned to react to (after only 300 steps on 679
+pairs, with only ~18.9% of steps ever being `corrected=True`, the only
+steps the causal-sensitivity loss even applies to) still looks more
+like an aggregate/statistical response to the mask than a genuine
+spatial-tracking one.**
+
+A third run, `causal_weight=5.0` (higher regularizer strength, now
+retrained on top of the ALREADY-fixed pos_embed architecture rather than
+the original invariant one -- this matters because at weight=1.0/10.0
+on the OLD architecture, the regularizer's gradient was fighting a
+mathematical identity and could never really move anything; on the new
+architecture the gradient has a real, non-degenerate signal to work
+with for the first time) is running -- result not yet known, see the
+next entry once it completes.
+
+**Not yet done, if weight=5.0 also fails to show a clean shifted-largest
+pattern**: (a) a real rollout success-rate check on the pos_embed-only
+checkpoint (still pending regardless of the sensitivity-test outcome,
+since success rate is the metric that actually matters for the thesis,
+and this project's own repeated lesson is that a proxy metric like this
+counterfactual test does not always predict rollout behavior either
+way); (b) accepting that 679 pairs / 300 steps / 18.9% corrected-rate
+may simply be too little real signal for genuine spatial learning to
+emerge regardless of architecture, and that the task2 result's real,
+statistically-confirmed +15pt success-rate improvement (McNemar
+p<0.05, n=40) may need to be described honestly in the thesis as "a
+real, validated behavioral improvement whose causal mechanism is NOT
+demonstrated to be object-location tracking" -- a scientifically
+honest, still-publishable finding (a real intervention effect with an
+open, flagged question about mechanism), not a null result.
+
+## Causal-sensitivity fix, take 2: closed out -- weight sweep does not
+converge on genuine spatial tracking, decision made to stop tuning and
+report task2's result honestly as "real effect, mechanism unresolved"
+(2026-09-06, same thread)
+
+Completed the weight sweep on top of the pos_embed-fixed architecture:
+
+| causal_weight | shifted | zero | random |
+|---|---|---|---|
+| 0 (pos_embed only) | 0.00091 | 0.00051 | 0.00165 |
+| 1.0 | 0.00110 | 0.00133 | 0.00148 |
+| 5.0 | **0.00019** | 0.00064 | 0.00180 |
+
+**Non-monotonic, no convergence toward the expected signature**
+(shifted clearly largest). Going from weight=1.0 to weight=5.0 made
+`shifted` SMALLER, not larger -- the opposite of what a working
+sensitivity regularizer should do (more weight should push
+real-vs-shifted apart, not together). Two candidate explanations,
+neither confirmed: (a) training's sensitivity loss uses a RANDOM shift
+each occurrence (`np.random.randint(32, 224)`), while the eval script
+tests one FIXED shift (128) -- the network could plausibly become more
+sensitive to shifts *on average* while this one specific shift value
+happens to land somewhere it still responds weakly to; (b) with only
+~18.9% of the 679 training pairs ever `corrected=True` (the only
+condition where this loss applies at all), effectively ~35-55 samples
+per 300-step run actually exercise this loss -- likely too few and too
+noisy for a stable, generalizing effect at any tested weight.
+
+**Decision: stop tuning this regularizer's weight further.** Three
+weight values tried (0/1/5), all on the corrected (pos_embed) base
+architecture, none showing the target signature, and the direction of
+change with weight is not even consistently monotonic -- further
+weight sweeping (10, 20, ...) is very unlikely to be an efficient use
+of remaining time under the project's 3-month deadline, and would
+repeat the same "still ambiguous, try a different number" pattern this
+session already went through twice on the pre-pos_embed architecture
+(weight=1.0, then 10.0).
+
+**What this leaves as the honest, defensible position for the thesis**:
+1. task2's `ObjectCentricZeroInitAdapter` result (72.5%->87.5%, n=40
+   disjoint episodes, McNemar chi2=4.167, p<0.05, contact_frac also
+   independently dropped 30.9%->20.1%) is a REAL, statistically
+   confirmed behavioral improvement -- this part of Month 2 stands
+   unchanged and should still be reported as the project's headline
+   Month 2 result.
+2. What is NOT established, despite real effort across two architecture
+   variants (original vs. pos_embed-fixed) and 4 total training runs
+   (weight 0/1/5/10 combined across both), is that this improvement is
+   CAUSED BY the network learning to track the object's spatial
+   location. The original architecture's exact `shifted=0.00000` result
+   is the one fully decisive finding in this whole investigation
+   (mathematically forced by the missing positional encoding, not
+   ambiguous at all) -- everything after adding the positional
+   embedding is a real, measurable step away from that exact invariance,
+   but not yet a clean demonstration of genuine spatial tracking.
+3. **Recommended framing for the thesis** (consistent with this
+   project's own established practice of reporting real, unresolved
+   negative/ambiguous findings plainly rather than overclaiming): report
+   task2's success-rate/contact_frac improvement as validated, and
+   separately and explicitly flag the causal-confusion investigation
+   (de Haan et al., NeurIPS 2019) as a real, only PARTIALLY resolved
+   methodological finding -- the zero-mask ablation showing 80% (nearly
+   matching the real-mask's 90%) is the most decisive, reproducible piece
+   of evidence that object location specifically is not confirmed to
+   be what drives the improvement; the counterfactual mask-shift test's
+   architecture fix (positional embedding) is real progress on the
+   underlying mathematical bug but does not, on its own, resolve
+   the open question of what the adapter is actually keying on.
+4. **Not attempted, and the most promising remaining direction if this
+   thread is revisited with more time**: a genuine held-out generalization
+   test in ControlVLA's own style (a truly different object position/
+   scene arrangement, not just a held-out episode of the same fixed
+   scene) -- this project's task2 evaluation has only ever tested held-
+   out EPISODES of an unchanged scene/task, which cannot by itself rule
+   out a position-independent bias regardless of what the counterfactual
+   probe shows. Building this would need either a modified init_state
+   distribution for task2 or a genuinely different task, neither
+   attempted this session.
+
+## (1)+(2) implemented: ControlVLA-faithful redesign (rich per-object
+feature + K/V-side zero-init) -- real architectural fix confirmed,
+counterfactual test still ambiguous, real-rollout check launched
+(2026-09-06, same thread)
+
+Per user's explicit request ("(1)+(2)で実行してみて"), replaced
+`ObjectCentricZeroInitAdapter` entirely with the two fixes identified
+from the real ControlVLA paper read (see the prior "先行研究を調べた"
+entry):
+
+1. **Object representation**: `z = [z_pos, z_geo]` -- `z_pos` is a real
+   sinusoidal positional encoding of the object mask's weighted centroid
+   (row, col) on the 16x16 agentview patch grid; `z_geo` is a small CNN
+   (`Conv2d(1,16)->Conv2d(16,32)->AdaptiveAvgPool->Linear(32,64)`) run
+   over the RESHAPED (1,16,16) mask itself as a shape descriptor.
+   **Disclosed approximation**: this is a CNN over the MASK's shape, not
+   over the real masked RGB pixel crop (ControlVLA's actual z_geo) --
+   wiring in real RGB content would need new plumbing through
+   `predict_action`/`get_vla_action`, out of scope for this pass.
+2. **Zero-init moved from the output projection to the K/V projection
+   itself** (`kv_proj: Linear(128, 2*llm_dim)`, weight+bias zero-init)
+   -- matches ControlVLA's own stated `W_z, B_z` design. K=V=0 for every
+   sample at construction regardless of Z, so `out = projected_features
+   + attn_weights @ V = projected_features + attn_weights @ 0 =
+   projected_features` exactly, identically -- no separate zeroed output
+   layer needed.
+3. Kept QUERY = vision patch tokens (not an action-generation query
+   like ControlVLA's own diffusion-action-expert setup), since
+   OpenVLA-OFT's MLP-ResNet action head has no cross-attention structure
+   to inject into -- this is a structural constraint of this
+   architecture, not an oversight.
+
+With only one object token per sample (not 256 patch-level K/V entries
+any more), attention degenerates to `out = v` broadcast identically to
+every patch position -- confirmed this is fine (matches ControlVLA's
+own per-object-token formula in the single-target-object case) and
+removed `nn.MultiheadAttention`/`pos_embed` in favor of explicit
+einsum-based attention math for clarity.
+
+**Two real bugs hit and fixed during rollout of the real training
+pipeline (not caught by the CPU-only architecture smoke test alone)**:
+(a) `geo_cnn`'s params get cast to bf16 by the training script's
+`.to(device, dtype=torch.bfloat16)`, but `_object_feature` was forcing
+the grid to `.float()` before the conv -- `RuntimeError: Input type
+(float) and bias type (BFloat16)`. Fixed by casting to the conv layer's
+own weight dtype right before the conv, keeping centroid math itself in
+float32 for precision. (b) `train_object_centric_adapter.py`'s
+weight-decay-exclusion logic and per-step logging both referenced the
+now-removed `out_proj` by name -- updated both to reference `kv_proj`
+(the new zero-init layer) instead.
+
+**CPU-only architecture smoke test (real-shaped random tensors, no
+model load) confirmed the two properties that matter**: `max|output -
+input| = 0.0` at construction (exact identity, byte-for-byte); after
+manually perturbing `kv_proj` away from zero, output DOES change, AND
+a shifted mask now produces a measurably different output on the
+perturbed module (`max|output(shifted) - output(real)| = 1.43`) --
+this specific comparison was mathematically IMPOSSIBLE (always exactly
+0) under the old architecture at any weight values, confirming the
+permutation-invariance bug is genuinely fixed at the architecture
+level.
+
+**Real training run (task2, 679 pairs, same v2-fixed recipe: lr=2e-5,
+60-step warmup, kv_proj+biases excluded from weight decay, grad clip
+1.0, 300 steps)**: healthy, non-degenerate curve --
+`kv_proj_norm` grows smoothly and monotonically 0.0 -> 0.39 (no
+explosion/collapse), held_out_loss stays in a reasonable range
+(0.0126 -> 0.0461, comparable noise level to the prior pos_embed runs,
+no sustained divergence like the original v1 architecture showed).
+
+**Counterfactual test on the real trained checkpoint (step300, same
+fixed held-out frame `task2_ep14_t00018`)**: `shifted=0.00114,
+zero=0.00129, random=0.00091` -- all three are now real, non-degenerate,
+non-identical values (confirming the exact `0.00000` mathematical
+invariance is gone), but **`shifted` is still not clearly the LARGEST
+of the three** (it sits between zero and random) -- the same ambiguous
+pattern already seen with the pos_embed-only architecture, not yet the
+clean "shifted > zero, shifted > random" signature that would indicate
+genuine spatial tracking. Given this is now the THIRD architecture
+variant (original / pos_embed / this ControlVLA-faithful redesign)
+to show this same ambiguous pattern, and given the shared underlying
+data constraint (679 pairs, only ~19% `corrected=True`, 300 steps) is
+unchanged across all three, the leading explanation is a DATA-SCALE
+limitation, not an architecture-design one at this point -- the
+architecture no longer PREVENTS learning spatial tracking (unlike
+before), but 300 steps on ~130 correction-relevant samples may simply
+not be enough signal for it to emerge regardless of how well-designed
+the conditioning pathway is.
+
+**Real-rollout check launched (the metric that actually matters for
+the thesis)**: n=10, task2, episodes 0-9, two parallel launches --
+(a) this new ControlVLA-redesign adapter (step300) via
+`--load-object-centric-adapter`, (b) a fresh undistilled baseline on
+the identical episode range for a true paired comparison (not reusing
+the historical 62%/72.5% aggregate numbers, matching this project's own
+repeatedly-enforced "always pair on the same episodes" discipline).
+Results pending -- see the next entry once both complete. This is the
+practical bottom-line check: even without clean counterfactual evidence
+of genuine spatial tracking, if this redesign matches or exceeds the
+original architecture's real +15pt success-rate/contact_frac
+improvement, it remains a defensible thesis result (a real, if
+mechanistically-unresolved, behavioral improvement) -- if it performs
+worse than the original, that would be a genuine regression to
+disclose and revert from.
+
+## Real-rollout check RESULT: the ControlVLA-faithful redesign shows
+ZERO measurable difference from the undistilled baseline at n=10
+(exact same 7/10 episode-by-episode pattern) -- does not yet replicate
+Month 2's original validated benefit (2026-09-06, same thread)
+
+`rollout_task2_controlvla_redesign_step300_n10/` (adapter, step300) vs
+`rollout_task2_undistilled_reference_n10/` (fresh, no-adapter baseline,
+same episode range, launched in parallel on a separate GPU): **BOTH
+7/10 (70%), with the IDENTICAL per-episode success/failure pattern**
+(`[T,T,T,T,F,T,T,F,F,T]` in both). Individual episode step counts
+differ slightly (e.g. ep6: 481 vs 475 steps to success) -- confirming
+the adapter genuinely does perturb the trajectory, not a silent no-op
+-- but never enough to flip any episode's ultimate outcome on this
+10-episode set.
+
+**Honest read**: this is a materially different, and less encouraging,
+result than the original (2026-09-03) architecture's own n=10 result on
+this task (`9/10` vs baseline, later n=40-confirmed at 87.5% vs 72.5%,
+McNemar p<0.05). This specific 10-episode subset (episodes 0-9) was
+never tested with the ORIGINAL architecture, so this is not a strict
+apples-to-apples "did the redesign make it worse" comparison -- but at
+minimum, the redesign has **not yet demonstrated it preserves or
+extends Month 2's original validated success-rate benefit** on this
+episode range, unlike the original architecture's real, later-confirmed
+effect. Two explanations, not yet distinguished: (a) a genuine
+regression -- the richer centroid+shape feature broadcast identically
+to every vision patch (a global bias, not per-patch-differentiated
+correction) may carry LESS behaviorally-useful signal for actually
+nudging avoidance actions than the original's cruder-but-differently-
+structured per-patch-scalar-pooled-through-random-attention design,
+even though it is architecturally cleaner and fixes the diagnosed
+causal-confusion bug; (b) ordinary small-n sampling variance on a
+specific 10-episode subset this project has repeatedly found to be
+unreliable at this sample size.
+
+**Decision point for the thesis, given the 3-month deadline and this
+project's own repeated "don't chase an open-ended architecture/
+hyperparameter search" discipline**: the redesign is real, principled,
+and closes a genuine architectural gap (the causal-confusion mechanism
+is now at least POSSIBLE to learn, where before it was mathematically
+forced to zero) -- a legitimate methodological contribution to report
+regardless of the rollout outcome. But it has NOT been shown, on the
+evidence gathered so far, to be a practical improvement over either (a)
+doing nothing, or (b) the original (causally-confused but empirically
+validated) architecture. **Recommended path, not yet executed**: given
+limited remaining time, either (i) scale this specific n=10 check to
+n=20-40 before drawing a final conclusion (matching the rigor already
+applied to the original architecture's own validation), or (ii) accept
+the original (2026-09-03) architecture's real, statistically-confirmed
++15pt/n=40 result as Month 2's reported headline, and present this
+whole redesign investigation (2026-09-06) as a separate, honestly-
+reported METHODOLOGICAL finding for the thesis's discussion section --
+"the validated improvement's causal mechanism was investigated and
+found to be a position-independent aggregate bias, not object-location
+tracking; a more faithful re-architecture closes the mathematical gap
+that prevented spatial tracking, but does not, on preliminary evidence,
+demonstrate a practical rollout improvement of its own" -- without
+further chasing a fix under deadline pressure.
+
+## Priority ① (more data) executed: doubled the training set (679->1315
+pairs, task2 episodes 0-29), retrained the ControlVLA-redesign
+architecture -- the causal-confusion pattern SHARPENS into a clearer,
+more decisive negative finding, not fixed (2026-09-06, same thread)
+
+Per the user's explicit "その優先順位でやってみて" (proceed in the
+researched priority order: ① more data, ② rely on existing natural
+position variation, ③ narrow LoRA if needed), executed ① first as the
+cheapest, most directly hypothesis-testing option.
+
+**Data collection**: reused the existing `--save-distillation-pairs-dir`
+pipeline unchanged, `--episode-offset 15 --n-episodes 15` (task2,
+`proactive_avoidance_depth` teacher) to collect 15 NEW, non-overlapping
+episodes (15-29) -> 636 new pairs, 105 corrected (16.5%). Merged with
+the original 679-pair/episodes-0-14 set (file copy + manifest
+concatenation, no new code) into `month2_pairs_task2_n30/`: **1315
+total pairs, 30 episodes (0-29), 233 corrected (17.7%)** -- roughly
+doubles both the raw sample count and the correction-relevant sample
+count versus the original 679/128.
+
+**Retrained the SAME ControlVLA-faithful redesign architecture**
+(unchanged code, just pointed at the bigger dataset), steps scaled
+proportionally (300 -> 600) to keep roughly the same number of
+epochs-equivalent exposure, same lr/warmup/grad-clip/checkpoint-every
+recipe. **Healthy training**: `kv_proj_norm` grew smoothly 0 -> 0.656
+(no explosion), held_out_loss stayed bounded and noisy throughout all
+600 steps (range ~0.012-0.14, same qualitative noise level as every
+prior healthy run in this thread) -- no sustained divergence like the
+original v1 architecture's collapse.
+
+**Counterfactual test (step600, same fixed held-out-style frame),
+CLEARER result than any prior configuration**:
+
+| config | shifted | zero | random |
+|---|---|---|---|
+| original (n=679, no pos_embed) | 0.00000 (exact) | 0.00784 | 0.00119 |
+| pos_embed (n=679) | 0.00091 | 0.00051 | 0.00165 |
+| ControlVLA redesign (n=679) | 0.00114 | 0.00129 | 0.00091 |
+| **ControlVLA redesign (n=1315, doubled data)** | **0.00047** | **0.00421** | **0.00402** |
+
+With doubled data, `shifted` is now UNAMBIGUOUSLY the SMALLEST of the
+three (roughly 9x smaller than zero/random, not just "not clearly
+largest" like the earlier ambiguous readings) -- this is a materially
+MORE decisive, cleaner negative result, not just a repeat of the same
+ambiguity. **Interpretation, now much better supported than before**:
+the network has learned to distinguish "is this an in-distribution
+REAL mask" (zero/random -- both structurally impossible under the true
+data-collection process, which only ever produces a small ~13-15%-
+coverage blob -- correctly register as anomalous and shift the output)
+from "WHERE within the frame does this real-looking mask sit" (shifted
+preserves the exact real coverage/shape statistics, just relocated, and
+produces almost no change at all). **More data did not teach the
+network to use spatial location -- it sharpened the network's ability
+to detect out-of-distribution mask CONTENT while leaving spatial
+BLINDNESS untouched, or possibly worse (the shifted-vs-real gap is
+numerically smaller here than in either of the n=679 configurations).**
+
+**This directly refutes hypothesis ① ("679 pairs / ~130 corrected
+samples was probably just not enough for spatial learning to emerge")
+with real evidence, not just a shrug -- doubling both the total data
+and the corrected-sample count made the SPATIAL-blindness signature
+MORE pronounced, not less.** This is now a 4th independent
+configuration (original / pos_embed / ControlVLA-redesign-n679 /
+ControlVLA-redesign-n1315) converging on the same qualitative finding:
+whatever the adapter learns to key on, it is not the mask's spatial
+position, and this is not resolved by more data at this scale.
+
+**Real-rollout checks launched** (n=10, task2, episodes 0-9, paired
+against the already-measured undistilled-baseline reference on the
+same episodes, 7/10): step600 (final) and step300 (same step count as
+the n=679 run, for a matched comparison isolating the "more data at
+equal steps" variable) -- both running in parallel on separate GPUs.
+Results pending; see the next entry. Per this project's own repeated
+practice, the practical rollout outcome is checked regardless of the
+causal-mechanism verdict, since a real success-rate benefit without a
+confirmed spatial mechanism would still be a defensible (if honestly
+caveated) thesis result, matching how task2's original n=40 result is
+already being framed.
+
+## Priority ① real-rollout result: a small, real, positive signal (7/10
+-> 8/10) that survives across two checkpoints, but n=10/single
+discordant pair is not statistically confirmed -- and it DISSOCIATES
+from the causal-confusion diagnostic, which got worse (2026-09-06,
+same thread)
+
+`rollout_task2_controlvla_redesign_n30_step300_n10/` and
+`..._step600_n10/` (task2, episodes 0-9, doubled-data ControlVLA
+redesign, two different checkpoints from the SAME retrained model) vs.
+the already-measured undistilled-baseline reference on the identical
+episode range (7/10):
+
+| condition | success (n=10) | pattern |
+|---|---|---|
+| undistilled baseline | 7/10 | `[T,T,T,T,F,T,T,F,F,T]` |
+| redesign, doubled data, step300 | **8/10** | `[T,T,T,T,F,T,T,F,T,T]` |
+| redesign, doubled data, step600 | **8/10** | `[T,T,T,T,F,T,T,F,T,T]` |
+
+**Both checkpoints agree exactly** (a real internal-consistency check,
+not just two independent noisy reads) -- episode 8 flips from failure
+to success under the adapter, every other episode matches baseline
+exactly. This is a real, small, correctly-directed improvement over the
+original (n=679) redesign's EXACT TIE (7/10 vs 7/10) on this same
+episode set -- doubling the data helped the practical rollout outcome
+modestly, even though (per the entry above) it made the spatial-
+blindness signature in the causal-sensitivity diagnostic MORE
+pronounced, not less. **McNemar: b=0, c=1 -> chi2=0 (not significant
+at this n)** -- a single discordant pair is far too thin to claim a
+confirmed effect, consistent with this project's own repeated "n=10
+single-pair differences are not yet evidence" discipline.
+
+**Interpretation, stated carefully**: rollout success and "genuine
+spatial tracking" appear to be DISSOCIATING across these experiments --
+more data made the model modestly more helpful in practice while
+simultaneously making it MORE reliant on an in-distribution/out-of-
+distribution mask-content heuristic rather than less. This is
+consistent with (not proof of) the hypothesis that the practical
++1-episode benefit comes from the model learning "when a real-looking
+occlusion-mask signal is present at all, nudge the action a bit" (a
+coarse, still-behaviorally-useful heuristic) rather than from anything
+resembling WHERE-based avoidance -- i.e. the mechanism may genuinely be
+a more sophisticated version of the same "aggregate/statistical
+response, not spatial tracking" causal-confusion pattern already
+established, not a step toward fixing it.
+
+**Status of the researched-and-executed priority order
+(①データ量→②既存位置分散→③狭いLoRA)**:
+- **①(実行済み)**: real data doubling, real retraining, real dual-
+  checkpoint rollout check. Result: a small (+1/10, n.s.) positive
+  rollout signal, alongside a SHARPER (not resolved) causal-confusion
+  diagnostic. Does not refute or confirm the practical value of the
+  redesign on its own -- needs a larger n (20-40) to know if the +1/10
+  signal is real, matching this project's own repeated escalation
+  discipline for exactly this kind of thin result.
+- **②(追加実験は不要と判断)**: the premise (LIBERO's own init_state
+  variation already provides real object-position variation in the
+  existing data, so the causal-sensitivity signal SHOULD already be
+  learnable in principle) is confirmed correct by construction (episodes
+  0-29 do have varying object placements) -- but ① already tested
+  "give the model more of this naturally-varying data" directly, and it
+  did not produce spatial tracking. There is no further action under ②
+  distinct from ① to try -- closing this priority item as "verified,
+  subsumed by ①'s result," not skipped.
+- **③(未実施)**: narrow LoRA on the first 1-2 transformer layers
+  immediately downstream of the injection point, to give the frozen
+  backbone an actual learned pathway to use injected positional
+  content. This remains the one NOT-yet-attempted, more structurally
+  different lever from the ones tried so far (architecture-only /
+  data-only) -- genuinely new engineering, real risk of reintroducing
+  some of Month 1's catastrophic-forgetting dynamics if scoped too
+  broadly, and was flagged from the start as the higher-risk, lower-
+  priority option given the deadline.
+
+## Priority ③ implemented and smoke-tested: narrow LoRA (layers 0-1
+only, r=8) combined with the ObjectCentricZeroInitAdapter -- real
+training launched (2026-09-06, same thread)
+
+Per user's explicit request to proceed with ③ (the highest-risk,
+lowest-priority option in the researched order, per the user's own
+quoted framing back). Implemented as a NEW script,
+`scripts/train_object_centric_adapter_with_lora.py`, rather than
+modifying the existing adapter-only script in place, keeping both
+paths independently runnable/comparable.
+
+**Design**: `ObjectCentricZeroInitAdapter` (unchanged, the
+doubled-data ControlVLA-redesign architecture) + PEFT LoRA restricted
+to EXACTLY `--lora-layers` (default "0,1") of
+`vla.language_model.model.layers` via `LoraConfig(layers_to_transform=
+[0,1], layers_pattern="layers")` -- verified via a standalone check
+BEFORE writing the training script that this PEFT API (`layers_to_
+transform`) genuinely restricts LoRA injection to only the requested
+layer indices (confirmed: with `layers_to_transform=[0,1]` on a
+32-layer LlamaForCausalLM, LoRA modules appear ONLY on layers 0 and 1,
+524,288 trainable params for rank=8 x 4 projections x 2 layers -- not
+scattered across all 32). This is Month 1's own already-validated
+`get_peft_model(vla.language_model, lora_config)` wiring pattern
+(confirmed to work correctly with `predict_action`'s call convention
+in that thread), just with the layer-restriction parameter added.
+
+Everything else (data loading, the causal-sensitivity regularizer, the
+ablation modes, the L1-regression loss, the gradient-stashing monkey-
+patch on `action_head.predict_action`) is reused verbatim from
+`train_object_centric_adapter.py` via direct import
+(`normalize_action`, `load_sample`), not reimplemented. LoRA params get
+standard weight_decay=0.01 (not special-cased like the adapter's own
+zero-init `kv_proj`, since PEFT's own default LoRA init -- A~kaiming,
+B=zeros -- is a different kind of zero-init than this project's
+diagnosed `kv_proj`/`out_proj` fragility, and there is no evidence yet
+that LoRA's own B=0 has the same weight-decay-fights-zero-init
+failure mode). Checkpoints save BOTH `object_centric_adapter_weights.pt`
+and a new `lora_weights.pt`.
+
+**Rollout-side wiring**: new `--load-object-centric-adapter-lora <dir>`
+flag on `run_libero_occluded_oracle_headroom.py` (separate from, not
+overloading, the existing adapter-only `--load-object-centric-adapter`)
+-- loads both files, INFERS the LoRA rank (from `lora_A`'s own weight
+shape, `shape[0]`) and the exact layer indices (parsed directly from
+the saved state dict's own key names, e.g.
+`...model.layers.0.self_attn.q_proj.lora_A...`) rather than hardcoding
+either, mirroring the already-established "infer, don't hardcode"
+convention `--load-distillation-lora`'s own loading code already uses
+for rank.
+
+**Smoke test (n=6 steps, real model, real data) confirmed BEFORE
+committing to a real run**: no crash; `trainable params: 1,587,968 /
+7,696,710,215 (0.0206%)` (adapter + LoRA combined, vs. the
+adapter-only run's 0.0138% and vs. Month 1's full-32-layer LoRA's much
+larger footprint); **directly verified LoRA is actually training, not
+a silent no-op**, by diffing the saved `lora_weights.pt` between two
+checkpoints 3 steps apart -- `lora_B`'s norm moved 0.000222 ->
+0.000567 (a small but real, nonzero, monotonically-increasing change,
+consistent with PEFT's own B=0 initialization and the very low
+warmup-phase LR at these early steps) -- this check was necessary
+because the print-statistic (stacked A+B norm, dominated by A's large
+random-init magnitude) did not visibly change at 4 decimal places
+over just 6 steps, which could otherwise have been mistaken for a
+silent-no-op bug without checking the actual saved weights directly.
+
+**Real training run launched**: same doubled dataset
+(`month2_pairs_task2_n30`, 1315 pairs, 30 episodes), same 600-step/
+lr=2e-5/60-warmup/grad-clip=1.0 recipe as the adapter-only doubled-data
+run, `--lora-layers 0,1 --lora-rank 8` -- `object_centric_adapter_
+task2_lora01/`. Result pending; see the next entry once complete for
+the causal-sensitivity test + real-rollout comparison against both (a)
+the doubled-data adapter-ONLY run (7/10->8/10, n.s.) and (b) the
+undistilled baseline (7/10), same episode range (0-9) for a genuine
+3-way paired comparison.
+
+## Priority ③ REAL-ROLLOUT RESULT: no additional benefit over the
+adapter-alone (①) result -- step600 matches ①'s exact success pattern,
+step300 matches the undistilled baseline exactly; causal-sensitivity
+test moved slightly but not decisively (2026-09-06, same thread)
+
+`rollout_task2_lora01_step600_n10/` and `..._step300_n10/` (task2,
+episodes 0-9, doubled-data + narrow LoRA on layers 0-1, two checkpoints)
+vs. the already-measured adapter-ONLY doubled-data result (8/10,
+`[T,T,T,T,F,T,T,F,T,T]`) and the undistilled baseline (7/10,
+`[T,T,T,T,F,T,T,F,F,T]`) on the identical episode range:
+
+| condition | success (n=10) | pattern |
+|---|---|---|
+| undistilled baseline | 7/10 | `[T,T,T,T,F,T,T,F,F,T]` |
+| adapter-only, doubled data | 8/10 | `[T,T,T,T,F,T,T,F,T,T]` |
+| **adapter + LoRA(layers 0-1), step300** | 7/10 | `[T,T,T,T,F,T,T,F,F,T]` -- **EXACT MATCH to baseline** |
+| **adapter + LoRA(layers 0-1), step600** | 8/10 | `[T,T,T,T,F,T,T,F,T,T]` -- **EXACT MATCH to adapter-only** |
+
+**Priority ③ did not produce any additional practical benefit beyond
+①'s own result at this training scale.** step300's LoRA (still very
+weak at this point, per the smoke test's own observation that LoRA
+moves very slowly under the warmup-scaled LR in the first few hundred
+steps) reproduces baseline behavior exactly -- no measurable
+contribution yet. step600's LoRA reproduces the adapter-only run's
+exact success pattern (same specific episode-8 flip, nothing more,
+nothing less) -- i.e., by the time LoRA has moved enough to matter,
+the OUTCOME is indistinguishable from what the adapter alone already
+achieved. There is no evidence in this data that giving the frozen
+backbone a narrow learned pathway (layers 0-1) added anything beyond
+what priority ① (more data) already provided on its own.
+
+**Causal-sensitivity test with LoRA (step600)**: `shifted=0.00055,
+zero=0.00118, random=0.00040` -- `shifted` is no longer the smallest of
+the three (unlike the adapter-only doubled-data result, where shifted
+was ~9x smaller than zero/random) and is now LARGER than random, though
+still smaller than zero and still not the clean "shifted > both"
+signature that would confirm genuine spatial tracking. This is a real,
+if modest, move in the hoped-for direction relative to the adapter-
+alone doubled-data checkpoint, but not a decisive resolution -- and
+critically, it did NOT translate into any additional real-rollout
+benefit over the adapter-alone result on this episode set.
+
+**Summary of the full researched-and-executed priority order
+(1データ量→2既存位置分散→3狭いLoRA), final status**:
+1. **①(データ量倍増)**: real, executed, doubled the dataset -- gave a
+   small (+1/10, McNemar n.s.) rollout improvement over baseline, while
+   making the causal-confusion diagnostic MORE pronounced (sharper
+   OOD-content-detection-not-position-tracking signature), not less.
+2. **②(既存位置分散)**: verified by construction (LIBERO's own
+   init_state variation already provides real object-position
+   variation across episodes) and directly tested via ① -- subsumed,
+   not a separate action.
+3. **③(狭いLoRA)**: implemented, smoke-tested (confirmed LoRA
+   genuinely trains, not a silent no-op), real training run completed
+   cleanly (no catastrophic-forgetting-style loss divergence). Real-
+   rollout result: reproduces ①'s own outcome exactly, no additional
+   benefit measured at this n/training scale. Causal-sensitivity
+   moved modestly toward (not to) the hoped-for signature.
+
+**Overall verdict for the thesis, given all three priorities now
+executed with real data**: across 5 total architecture/data
+configurations tested this session (original / pos_embed / ControlVLA-
+redesign-n679 / ControlVLA-redesign-n1315 / ControlVLA-redesign-n1315+
+narrow-LoRA), NONE has produced a clean, decisive demonstration of
+genuine object-location causal tracking. The practical rollout benefit
+found across these configurations (7/10 -> 8/10, task2, episodes 0-9)
+is small, not McNemar-significant at this n, and has not grown by
+adding either more data or a narrow learned downstream pathway beyond
+what the very first doubled-data run already achieved. **Recommended
+final framing for the thesis, given the 3-month deadline and this
+being a thorough, honestly-executed investigation of the researched
+priority order**: report task2's ORIGINAL, statistically-confirmed
+n=40 result (72.5%->87.5%, McNemar p<0.05) as Month 2's validated
+headline (unaffected by any of this session's follow-up investigation,
+which used different episode ranges/architectures), and report the
+entire causal-confusion investigation (2026-09-06, this whole thread)
+as an honest, thorough methodological appendix: the improvement's
+causal mechanism was investigated in depth across architecture
+redesign, data scaling, and narrow downstream fine-tuning; none
+resolved it into confirmed spatial tracking, and the practical benefit
+did not scale with any of these interventions either -- a genuine,
+well-documented open question for future work, not something this
+project's remaining time should keep chasing further.
+
+## LIBERO-10 ★ (physical-interference, no_collision) factorial NOW
+COMPLETE across ALL 10 TASKS, per user's explicit request to extend
+coverage -- confirms physical-interference dominance is a real but
+MINORITY phenomenon within the suite (3/10 tasks significant), not a
+general property (2026-09-05/06)
+
+Ran the remaining 6 untested LIBERO-10 tasks (0,2,3,4,5,7), n=20 each,
+same `no_collision` mechanism already validated on task1/6/8/9. Full
+10-task LIBERO-10 table now complete:
+
+| task | baseline | no_collision (★) | b/c | chi2 | verdict |
+|---|---|---|---|---|---|
+| task0 | 95% (19/20) | 85% (17/20) | b=2,c=0 | 0.50 | n.s., slight regression |
+| **task1** | 35% (7/20) | 95% (19/20) | b=0,c=12 | **12.0** | **significant, p<0.001** |
+| task2 | 75% (15/20) | 95% (19/20) | b=1,c=5 | 1.50 | n.s., positive direction |
+| task3 | 30% (6/20) | 40% (8/20) | b=2,c=4 | 0.17 | n.s. |
+| task4 | 95% (19/20) | 100% (20/20) | b=0,c=1 | 0.00 | ceiling-limited, uninformative |
+| task5 | 95% (19/20) | 95% (19/20) | b=0,c=0 | 0.00 | exactly tied |
+| **task6** | 30% (6/20) | 50% (10/20) | b=0,c=4 | ~4.0 | **marginally significant, p~0.046** |
+| task7 | 5% (1/20) | 10% (2/20) | b=0,c=1 | 0.00 | floor-limited, uninformative |
+| **task8** | 35% (7/20) | 90% (18/20) | b=0,c=11 | ~12+ | **significant, p<0.001** |
+| task9 | 80% (16/20) | 80% (16/20) | b=0,c=0 | 0.00 | exactly tied (confirmed not a ceiling artifact -- see earlier entry) |
+
+**Confirms, now with FULL suite coverage rather than a 4-task subset,
+that physical-interference dominance is real but concentrated in a
+MINORITY of LIBERO-10 tasks: only 3 of 10 (task1, task6, task8) show a
+statistically real effect.** 4 tasks are ceiling/floor-limited and
+structurally uninformative for this specific test (task4, task5, task7,
+task9 -- task9 independently confirmed not a ceiling artifact via its
+own stock-suite comparison). 3 tasks (task0, task2, task3) show real,
+non-degenerate baseline rates with headroom, but the ★ intervention
+produces no significant effect on them either way (task0 even trends
+slightly NEGATIVE, though not significantly). **This is NOT "LIBERO-10
+has a general physical-interference problem" -- it's "3 specific tasks
+in LIBERO-10 have this problem, most others don't or can't be tested
+for it."** Matches, and now more precisely quantifies, the suite-level
+pattern already suspected from the occluder-type analysis (small
+tabletop objects in the reach path -- task1/6/8's occluders -- vs.
+other occluder placements).
+
+## Goal suite: 2 tasks (task6, task7) tested with the real ★ factorial
+for the first time (previously only `contact_frac` had been checked,
+never the causal intervention itself) -- one real significant hit
+(2026-09-06)
+
+Downloaded the `openvla-7b-oft-libero-goal-vjepa` checkpoint (missing
+in this fresh environment -- re-synced from HuggingFace via
+`moojink/openvla-7b-oft-finetuned-libero-goal`, same convention as
+Setup step 3) and ran the real `no_collision` factorial (not just the
+baseline-only contact_frac survey already on record) on the 2 Goal
+tasks previously flagged as having real nonzero baseline contact
+(task6: 46% ever-contact, task7: 80% ever-contact):
+
+| task | baseline | no_collision (★) | b/c | chi2 | verdict |
+|---|---|---|---|---|---|
+| Goal task6 | 70% (14/20) | 85% (17/20) | b=2,c=5 | 0.57 | n.s., positive direction |
+| **Goal task7** | 60% (12/20) | **100% (20/20)** | b=0,c=8 | **6.13** | **significant, p<0.05** |
+
+**Goal task7 is the FIRST confirmed physical-interference-dominant task
+outside LIBERO-10** -- a real, clean, complete recovery (every single
+baseline failure flips to success, zero regressions), matching task1/
+task8's own "overwhelming physical interference" signature. Goal task6
+shows the same weaker, non-significant pattern as LIBERO-10's task6
+(interesting naming coincidence, unrelated tasks/suites) -- a real,
+positive-but-thin effect, consistent with (not yet independently
+explained as the same mechanism as) LIBERO-10 task6's own weaker
+result.
+
+**Practical implication**: the "3/10 LIBERO-10 tasks" finding above is
+not suite-specific -- Goal also has at least 1 confirmed strong case
+(task7) among the small number of tasks tested there so far (2 of 10).
+This strengthens the overall picture: physical interference is a real,
+recurring, but MINORITY phenomenon across LIBERO-Occ generally, found
+wherever a task's occluder happens to sit directly in the required
+reach path (small tabletop objects), not a property of any one suite.
+
+**Not yet done, per the explicit resource-conscious plan**: Goal's
+remaining 8 tasks, and Spatial/Object entirely, have NOT had the ★
+factorial run yet -- only their baseline-only `contact_frac` was
+surveyed previously (27/29 checked Spatial/Object/Goal tasks showed
+exactly 0.00% contact, meaning the ★ intervention would very likely
+show no effect there, since there is no physical interference to
+remove in the first place). Given the very large GPU-time cost of a
+full ★ sweep across all remaining ~26 untested tasks and the
+low expected information value on tasks already confirmed to have
+zero baseline contact, the next step (per the resource-conscious plan
+already communicated to the user) is a cheap baseline-only contact_frac
+scan across Spatial/Object's remaining tasks first, to identify any
+additional real candidates before spending ★-factorial GPU time on
+them -- launched next, see the following entry.
+
+## Spatial/Object's own highest-contact-rate candidates ALSO tested with
+the real ★ factorial: both ceiling-limited, ZERO informative cases found
+in either suite -- physical-interference dominance does NOT appear to
+extend to Spatial/Object (2026-09-06, same day)
+
+Downloaded `openvla-7b-oft-libero-spatial-vjepa` and
+`openvla-7b-oft-libero-object-vjepa` checkpoints (also missing in this
+fresh environment) and ran the real ★ (`no_collision`) factorial on the
+2 tasks previously identified (via baseline-only `contact_frac` survey)
+as the ONLY nonzero-contact candidates in either suite:
+
+| task | baseline | no_collision (★) | b/c | chi2 | verdict |
+|---|---|---|---|---|---|
+| Spatial task1 | 100% (20/20) | 100% (20/20) | b=0,c=0 | 0.00 | ceiling-limited, zero headroom |
+| Object task6 | 95% (19/20) | 95% (19/20) | b=0,c=0 | 0.00 | ceiling-limited, zero headroom |
+
+**Both of Spatial/Object's own highest-known-contact-rate tasks turn
+out to ALSO be ceiling-limited** (baseline already at/near 100%) --
+despite having real, nonzero physical contact with their occluders,
+the policy already succeeds through that contact almost every time, so
+removing the physical interference has nothing left to improve. This
+is a genuinely new, informative negative finding: **`contact_frac>0`
+alone does not predict whether the ★ experiment will show an effect --
+baseline also needs real FAILURE headroom (not be ceiling-limited),
+and neither of Spatial/Object's 2 real candidates has both properties
+simultaneously.**
+
+**FULL cross-suite summary of the real physical-vs-visual ★ factorial,
+now covering all 4 suites (14 tasks tested with the real causal
+intervention, not just contact_frac surveys)**:
+
+| suite | tasks tested with ★ | significant physical-interference cases |
+|---|---|---|
+| LIBERO-10 | 10/10 (complete) | 3 (task1, task6, task8) |
+| Goal | 2/10 (the only 2 real-contact candidates) | 1 (task7) |
+| Spatial | 1/10 (the only real-contact candidate) | 0 (ceiling-limited) |
+| Object | 1/10 (the only real-contact candidate) | 0 (ceiling-limited) |
+
+**Revised, now cross-suite-validated conclusion**: physical-interference
+dominance is a real, recurring, but consistently MINORITY phenomenon
+wherever it has been found (LIBERO-10: 3/10, Goal: 1/2 tested) -- and
+in the 2 suites where it has NOT been found (Spatial, Object), the
+absence is now doubly confirmed: not only is baseline contact
+vanishingly rare across nearly the whole suite (27/29 tasks checked
+show exactly 0.00% contact), but even the rare exceptions that DO show
+real contact are ceiling-limited and structurally cannot demonstrate
+the effect regardless of whether it might be mechanistically present.
+**Do not extend the "physical interference explains occlusion
+difficulty" narrative to Spatial/Object without a genuinely new
+candidate task** -- the 2 most promising candidates already available
+in those suites have both been tried and ruled out as uninformative.
+
+This closes out the user's explicit request to test untested LIBERO-10
+tasks and Spatial/Object/Goal -- LIBERO-10 is now fully covered (10/10),
+Goal's 2 real-contact candidates are covered, and Spatial/Object's 2
+real-contact candidates are covered (both ceiling-limited). Remaining
+untested tasks in Goal (8/10) and Spatial/Object (9/10 each) all have
+confirmed/expected `contact_frac=0.00%` from the prior baseline survey,
+making further ★ testing there very low expected value without first
+finding some other real-contact candidate.
+
+## Video recording of the significant physical-interference cases:
+delivered. Month2/task2's own "recovery" video attempt exposed genuine,
+repeated coin-flip non-determinism at the single-episode level -- NOT
+presented as a clean recovery video (2026-09-06, same thread)
+
+Per user's explicit request, recorded and delivered real agentview
+videos (baseline vs. ★/`no_collision`) for the 3 significant physical-
+interference cases found this session: LIBERO-10 task1 (episode 0:
+baseline fails at t=520/timeout, ★ succeeds at t=239), LIBERO-10 task6
+(episode 3: baseline fails at t=520/timeout, ★ succeeds at t=390), and
+Goal task7 (episode 2: baseline fails at t=310/timeout, ★ succeeds at
+t=140). Fixed a real bug in `assemble_video.py` first: its
+`frame_*.png` glob also matched `frame_NNNNN_wrist.png` (added later,
+2026-08-30, for the wrist-camera-bypass check) and, since "00001."
+sorts before "00001_" lexicographically, silently interleaved the two
+cameras' frames into one video instead of two separate ones -- fixed
+with an explicit 5-digit-only glob for the agentview video plus a
+separate `_wrist.mp4` output, verified via frame counts matching the
+real logged `done_step` for each episode before delivery.
+
+**Important clarification volunteered to the user before recording**:
+no trained Month2 (`ObjectCentricZeroInitAdapter`) checkpoint exists
+for task1, task6, or Goal task7 in this fresh environment -- Month2 has
+only ever been trained for task2 (this session) and, historically, task6
+on a DIFFERENT machine (that checkpoint was never re-synced here and, in
+any case, would now be incompatible with this session's ControlVLA-
+faithful architecture redesign). **There is zero overlap between "tasks
+with a significant physical-interference finding" (task1/task6/task8/
+Goal-task7) and "tasks with an actual trained Month2 adapter" (task2
+only)** -- the videos delivered for task1/task6/Goal-task7 are baseline-
+vs-★ (the actual causal factorial), not baseline-vs-Month2.
+
+**Attempted a Month2 "recovery" video for task2 (the one task that DOES
+have a trained adapter) and found something important instead of a
+clean success story**: episode 8 (the specific episode already on
+record as flipping baseline-failure->adapter-success in an earlier
+n=10 test) was re-tested FOUR separate times across this session --
+(1) original n=10 test: adapter SUCCEEDS; (2) a standalone single-
+episode probe: adapter FAILS; (3) a fresh paired n=10 re-run (same
+checkpoint, same episode index): adapter SUCCEEDS; (4) the final
+video-recording attempt (same checkpoint, same episode index, BOTH
+baseline and adapter run standalone this time): **BOTH baseline AND
+adapter FAIL this time (done_step=530/timeout in both)**. **This is a
+genuine, repeated, roughly-50/50 coin-flip at the single-episode
+level, not a reliable recovery** -- directly, empirically confirming
+(not just statistically implying via McNemar chi2=1.33, n.s.) that
+task2's own adapter effect is NOT robust enough to demonstrate cleanly
+in a single-episode video. **Decision: did not deliver a "Month2
+recovers this episode" video** -- doing so would have required cherry-
+picking one lucky run out of four attempts, which would misrepresent
+the actual (thin, unconfirmed) strength of this specific effect. This
+is itself an honest, useful finding: it directly demonstrates, via
+repeated real re-runs rather than just aggregate statistics, exactly
+how unreliable a single "before/after" video would be for illustrating
+Month2's task2 result -- worth citing in the thesis as a concrete
+illustration of why McNemar's test (not a single anecdote) is the
+right way to evaluate this class of result.
+
+**Delivered to the user via SendUserFile**: 6 real agentview MP4s
+(3 baseline/★ pairs: task1 ep0, task6 ep3, Goal task7 ep2).
+
+## FULL 4-SUITE COVERAGE NOW COMPLETE: Goal's remaining 8 tasks + Object's
+remaining 9 tasks show exactly 0.00% contact_frac (zero new candidates);
+Spatial's one new candidate (task7) tested with the real ★ factorial and
+shows NO effect -- the physical-interference-dominance finding is now
+confirmed, cross-suite-exhaustive, and does NOT extend beyond LIBERO-10/
+Goal (2026-09-06, same day)
+
+Per the user's explicit request to also cover the untested tasks in
+other suites, completed baseline-only `contact_frac` surveys (n=10) for
+Goal's remaining 8 tasks and Object's remaining 9 tasks (the only ones
+not already checked in an earlier session), plus a fresh check of the
+one new nonzero-contact candidate found (Spatial task7):
+
+**Goal, 8 remaining tasks (0,1,2,3,4,5,8,9), n=10 each**: ALL show
+exactly 0.00% contact_frac, 0/10 ever-contact episodes on every task.
+Zero new candidates.
+
+**Object, 9 remaining tasks (0,1,2,3,4,5,7,8,9), n=10 each**: ALL show
+exactly 0.00% contact_frac, 0/10 ever-contact episodes on every task.
+Zero new candidates -- Object suite now shows 0.00% contact across
+ALL 10 tasks checked (the only exception, task6, was already confirmed
+ceiling-limited).
+
+**Spatial, 9 remaining tasks (0,2,3,4,5,6,7,8,9), n=10 each**: 8/9 show
+exactly 0.00% contact_frac. **task7 is the one new real candidate**:
+SR=30% (real failure headroom, unlike every ceiling-limited case so
+far), contact_frac=1.30%, 2/10 ever-contact episodes. Ran the real ★
+factorial on it (n=20): **baseline 35% (7/20) -> no_collision 30%
+(6/20), b=4/c=3, chi2=0.000 -- NO significant effect, and if anything
+a very slightly negative point estimate.** Physical interference does
+NOT explain Spatial task7's difficulty (65% baseline failure rate) --
+some other factor (visual occlusion, grasp precision, task complexity)
+must be dominant there instead, not yet investigated.
+
+**This completes the full cross-suite survey the user requested.**
+Final tally, ALL 4 suites, EVERY task now either baseline-surveyed for
+contact_frac or directly ★-tested:
+
+| suite | tasks w/ real baseline contact | tasks w/ CONFIRMED significant ★ effect |
+|---|---|---|
+| LIBERO-10 (10/10 tasks) | 3 (task1,6,8) + task9 (tied, 0pt) + task2,3,0 (mild, n.s.) | **3** (task1, task6, task8) |
+| Goal (10/10 tasks) | 2 (task6, task7) | **1** (task7) |
+| Spatial (10/10 tasks) | 2 (task1 -- ceiling-limited; task7 -- real headroom but ZERO effect) | **0** |
+| Object (10/10 tasks) | 1 (task6 -- ceiling-limited) | **0** |
+
+**Final, now cross-suite-exhaustive conclusion**: physical-interference
+dominance, wherever confirmed real, is found ONLY in LIBERO-10 (3
+tasks) and Goal (1 task) -- 4 confirmed cases out of all 40 LIBERO-Occ
+tasks across 4 suites. Spatial and Object show ZERO confirmed cases
+despite every task in both suites now having been checked (either via
+baseline contact survey or, for the 2 real-contact exceptions, the
+actual causal ★ intervention). **This is now the definitive, fully-
+exhaustive version of the finding -- not a partial/best-candidates-only
+result** -- suitable for stating in the thesis as a hard limit: "of the
+40 tasks across all 4 LIBERO-Occ suites, physical-interference-
+dominant occlusion difficulty was confirmed in exactly 4 (task1/6/8 in
+LIBERO-10, task7 in Goal); none of Spatial's or Object's 20 tasks show
+this pattern."
