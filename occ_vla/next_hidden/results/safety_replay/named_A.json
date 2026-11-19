@@ -2,10 +2,10 @@
  "verdict": {
   "mode": "named_A",
   "total": {
-   "quiet": 4043,
-   "over_conservative": 126,
-   "miss": 105,
-   "justified": 1726
+   "quiet": 3889,
+   "over_conservative": 290,
+   "miss": 112,
+   "justified": 1719
   },
   "narrow": {
    "quiet": 507,
@@ -18,8 +18,8 @@
   {
    "state": 0,
    "total": {
-    "quiet": 409,
-    "over_conservative": 8,
+    "quiet": 395,
+    "over_conservative": 23,
     "miss": 8,
     "justified": 175
    },
@@ -29,20 +29,22 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 32,
      "over_conservative": 2
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 12,
+     "over_conservative": 1
     },
     "open:pinch": {
      "quiet": 15
     },
     "open:arc": {
-     "quiet": 85
+     "quiet": 71,
+     "over_conservative": 14
     },
     "open:release": {
      "quiet": 10
@@ -97,14 +99,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 273.1574411845456,
-   "qp_ms": 7.862546257674694
+   "map_ms": 210.33431877678078,
+   "qp_ms": 4.830324707766638
   },
   {
    "state": 1,
    "total": {
-    "quiet": 395,
-    "over_conservative": 18,
+    "quiet": 389,
+    "over_conservative": 25,
     "miss": 8,
     "justified": 175
    },
@@ -114,17 +116,19 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
-     "quiet": 32,
-     "over_conservative": 2
+     "quiet": 33,
+     "over_conservative": 1
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 8,
+     "over_conservative": 5
     },
     "open:pinch": {
-     "quiet": 15
+     "quiet": 12,
+     "over_conservative": 3
     },
     "open:arc": {
      "quiet": 85
@@ -184,14 +188,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 256.69697916053934,
-   "qp_ms": 7.509515656708371
+   "map_ms": 208.25751692250097,
+   "qp_ms": 4.6995848626322685
   },
   {
    "state": 2,
    "total": {
-    "quiet": 408,
-    "over_conservative": 15,
+    "quiet": 379,
+    "over_conservative": 45,
     "miss": 19,
     "justified": 160
    },
@@ -201,21 +205,23 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 29,
      "over_conservative": 5
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 4,
+     "over_conservative": 9
     },
     "open:pinch": {
-     "quiet": 15
+     "quiet": 14,
+     "over_conservative": 1
     },
     "open:arc": {
-     "quiet": 82,
-     "over_conservative": 3
+     "quiet": 62,
+     "over_conservative": 23
     },
     "open:release": {
      "quiet": 10
@@ -272,14 +278,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 280.9262639855304,
-   "qp_ms": 8.065004450921897
+   "map_ms": 205.12845999195207,
+   "qp_ms": 4.802787165230088
   },
   {
    "state": 3,
    "total": {
-    "quiet": 400,
-    "over_conservative": 4,
+    "quiet": 391,
+    "over_conservative": 14,
     "justified": 174,
     "miss": 25
    },
@@ -289,7 +295,7 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 24,
@@ -298,10 +304,12 @@
      "miss": 3
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 4,
+     "over_conservative": 9
     },
     "open:pinch": {
-     "quiet": 15
+     "quiet": 14,
+     "over_conservative": 1
     },
     "open:arc": {
      "quiet": 85
@@ -358,14 +366,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 247.5104314826466,
-   "qp_ms": 6.669904086831494
+   "map_ms": 203.811948233907,
+   "qp_ms": 4.811206658290613
   },
   {
    "state": 4,
    "total": {
-    "quiet": 409,
-    "over_conservative": 9,
+    "quiet": 404,
+    "over_conservative": 15,
     "miss": 7,
     "justified": 175
    },
@@ -375,14 +383,15 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 30,
      "over_conservative": 4
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 7,
+     "over_conservative": 6
     },
     "open:pinch": {
      "quiet": 15
@@ -443,14 +452,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 251.03885375428945,
-   "qp_ms": 6.505690957419574
+   "map_ms": 210.55306016642618,
+   "qp_ms": 4.825410707396596
   },
   {
    "state": 5,
    "total": {
-    "quiet": 407,
-    "over_conservative": 4,
+    "quiet": 397,
+    "over_conservative": 15,
     "miss": 9,
     "justified": 175
    },
@@ -460,17 +469,19 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 30,
      "over_conservative": 4
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 4,
+     "over_conservative": 9
     },
     "open:pinch": {
-     "quiet": 15
+     "quiet": 14,
+     "over_conservative": 1
     },
     "open:arc": {
      "quiet": 85
@@ -482,7 +493,8 @@
      "quiet": 60
     },
     "open:around_door": {
-     "quiet": 32
+     "quiet": 31,
+     "over_conservative": 1
     },
     "take:up": {
      "quiet": 10
@@ -527,16 +539,16 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 249.24967244517904,
-   "qp_ms": 7.093085794701796
+   "map_ms": 203.87251994216302,
+   "qp_ms": 4.868404558490987
   },
   {
    "state": 6,
    "total": {
-    "quiet": 402,
-    "over_conservative": 5,
-    "justified": 170,
-    "miss": 21
+    "quiet": 359,
+    "over_conservative": 49,
+    "justified": 163,
+    "miss": 28
    },
    "narrow": {
     "quiet": 44,
@@ -544,7 +556,7 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 24,
@@ -553,13 +565,16 @@
      "miss": 3
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 4,
+     "over_conservative": 9
     },
     "open:pinch": {
-     "quiet": 15
+     "quiet": 12,
+     "over_conservative": 3
     },
     "open:arc": {
-     "quiet": 85
+     "quiet": 53,
+     "over_conservative": 32
     },
     "open:release": {
      "quiet": 10
@@ -604,8 +619,8 @@
      "justified": 159
     },
     "place:release": {
-     "miss": 7,
-     "justified": 8
+     "miss": 14,
+     "justified": 1
     },
     "place:retreat": {
      "quiet": 8
@@ -615,14 +630,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 242.7965719502008,
-   "qp_ms": 7.064915333802883
+   "map_ms": 212.68446621125898,
+   "qp_ms": 4.885726844664906
   },
   {
    "state": 7,
    "total": {
-    "quiet": 403,
-    "over_conservative": 27,
+    "quiet": 390,
+    "over_conservative": 41,
     "justified": 173
    },
    "narrow": {
@@ -630,20 +645,23 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 31,
      "over_conservative": 3
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 4,
+     "over_conservative": 9
     },
     "open:pinch": {
-     "quiet": 15
+     "quiet": 14,
+     "over_conservative": 1
     },
     "open:arc": {
-     "quiet": 85
+     "quiet": 81,
+     "over_conservative": 4
     },
     "open:release": {
      "quiet": 10
@@ -698,14 +716,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 246.75347988229635,
-   "qp_ms": 6.771370552319595
+   "map_ms": 203.2911809907597,
+   "qp_ms": 4.685775844059539
   },
   {
    "state": 8,
    "total": {
-    "quiet": 408,
-    "over_conservative": 20,
+    "quiet": 399,
+    "over_conservative": 30,
     "justified": 175
    },
    "narrow": {
@@ -713,17 +731,19 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 32,
      "over_conservative": 2
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 4,
+     "over_conservative": 9
     },
     "open:pinch": {
-     "quiet": 15
+     "quiet": 14,
+     "over_conservative": 1
     },
     "open:arc": {
      "quiet": 85
@@ -781,14 +801,14 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 254.2238354367848,
-   "qp_ms": 6.654139521653775
+   "map_ms": 203.88924377039075,
+   "qp_ms": 4.420694355414995
   },
   {
    "state": 9,
    "total": {
-    "quiet": 402,
-    "over_conservative": 16,
+    "quiet": 386,
+    "over_conservative": 33,
     "miss": 8,
     "justified": 174
    },
@@ -798,17 +818,19 @@
    },
    "by_phase": {
     "settle": {
-     "quiet": 9
+     "quiet": 10
     },
     "open:pre": {
      "quiet": 32,
      "over_conservative": 2
     },
     "open:insert": {
-     "quiet": 13
+     "quiet": 4,
+     "over_conservative": 9
     },
     "open:pinch": {
-     "quiet": 15
+     "over_conservative": 6,
+     "quiet": 9
     },
     "open:arc": {
      "quiet": 85
@@ -820,7 +842,8 @@
      "quiet": 60
     },
     "open:around_door": {
-     "quiet": 32
+     "quiet": 30,
+     "over_conservative": 2
     },
     "take:up": {
      "quiet": 10
@@ -869,11 +892,19 @@
     }
    },
    "unsolved_qp": 0,
-   "map_ms": 246.588651612401,
-   "qp_ms": 6.804431440929572
+   "map_ms": 204.02132711852101,
+   "qp_ms": 4.831998072837336
   }
  ],
  "rows": [
+  {
+   "state": 0,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
   {
    "state": 0,
    "t": 1,
@@ -1286,7 +1317,7 @@
    "state": 0,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
+   "correction": 0.039,
    "corrected": false,
    "would_collide": false
   },
@@ -1294,8 +1325,8 @@
    "state": 0,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.159,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -1782,48 +1813,48 @@
    "state": 0,
    "t": 114,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.184,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 115,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.243,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 116,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.209,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 117,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.152,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 118,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.115,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 119,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.103,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -1846,39 +1877,39 @@
    "state": 0,
    "t": 122,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.062,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 123,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.149,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 124,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.139,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 125,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.085,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 126,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.043,
    "corrected": false,
    "would_collide": false
   },
@@ -1886,7 +1917,7 @@
    "state": 0,
    "t": 127,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.023,
    "corrected": false,
    "would_collide": false
   },
@@ -1918,32 +1949,32 @@
    "state": 0,
    "t": 131,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.053,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 132,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.054,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 133,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.085,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 0,
    "t": 134,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.052,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -4806,7 +4837,7 @@
    "state": 0,
    "t": 492,
    "phase": "place:lower",
-   "correction": 0.244,
+   "correction": 0.243,
    "corrected": true,
    "would_collide": true
   },
@@ -5676,6 +5707,14 @@
   },
   {
    "state": 1,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 1,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -5862,7 +5901,7 @@
    "state": 1,
    "t": 24,
    "phase": "open:pre",
-   "correction": 0.025,
+   "correction": 0.0,
    "corrected": false,
    "would_collide": false
   },
@@ -5870,15 +5909,15 @@
    "state": 1,
    "t": 25,
    "phase": "open:pre",
-   "correction": 0.085,
-   "corrected": true,
+   "correction": 0.046,
+   "corrected": false,
    "would_collide": false
   },
   {
    "state": 1,
    "t": 26,
    "phase": "open:pre",
-   "correction": 0.088,
+   "correction": 0.052,
    "corrected": true,
    "would_collide": false
   },
@@ -5886,7 +5925,7 @@
    "state": 1,
    "t": 27,
    "phase": "open:pre",
-   "correction": 0.004,
+   "correction": 0.0,
    "corrected": false,
    "would_collide": false
   },
@@ -6054,8 +6093,8 @@
    "state": 1,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.071,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -6086,7 +6125,7 @@
    "state": 1,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
+   "correction": 0.039,
    "corrected": false,
    "would_collide": false
   },
@@ -6094,32 +6133,32 @@
    "state": 1,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.159,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 1,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.28,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 1,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.406,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 1,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.201,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -6150,7 +6189,7 @@
    "state": 1,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.033,
    "corrected": false,
    "would_collide": false
   },
@@ -6158,24 +6197,24 @@
    "state": 1,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.091,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 1,
    "t": 62,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.153,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 1,
    "t": 63,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.177,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -10444,6 +10483,14 @@
   },
   {
    "state": 2,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 2,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -10822,72 +10869,72 @@
    "state": 2,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.071,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.145,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.196,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.217,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.227,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.207,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.251,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.377,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.183,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -10918,7 +10965,7 @@
    "state": 2,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.028,
    "corrected": false,
    "would_collide": false
   },
@@ -10926,8 +10973,8 @@
    "state": 2,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.077,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -11342,56 +11389,56 @@
    "state": 2,
    "t": 113,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.095,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 114,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.127,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 115,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.099,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 116,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.083,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 117,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.095,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 118,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.125,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 119,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.169,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -11414,48 +11461,48 @@
    "state": 2,
    "t": 122,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.132,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 123,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.207,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 124,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.201,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 125,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.161,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 126,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.125,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 127,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.123,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -11478,7 +11525,7 @@
    "state": 2,
    "t": 130,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.048,
    "corrected": false,
    "would_collide": false
   },
@@ -11486,40 +11533,40 @@
    "state": 2,
    "t": 131,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.139,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 132,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.137,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 133,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.1,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 134,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.078,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 135,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.067,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -11550,23 +11597,23 @@
    "state": 2,
    "t": 139,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.088,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 140,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.064,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 2,
    "t": 141,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.047,
    "corrected": false,
    "would_collide": false
   },
@@ -11574,7 +11621,7 @@
    "state": 2,
    "t": 142,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.015,
    "corrected": false,
    "would_collide": false
   },
@@ -11582,7 +11629,7 @@
    "state": 2,
    "t": 143,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.001,
    "corrected": false,
    "would_collide": false
   },
@@ -12390,7 +12437,7 @@
    "state": 2,
    "t": 244,
    "phase": "open:around_door",
-   "correction": 0.0,
+   "correction": 0.039,
    "corrected": false,
    "would_collide": false
   },
@@ -15260,6 +15307,14 @@
   },
   {
    "state": 3,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 3,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -15638,72 +15693,72 @@
    "state": 3,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.072,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.145,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.196,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.217,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.227,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.206,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.253,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.379,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 3,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.173,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -15734,7 +15789,7 @@
    "state": 3,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.029,
    "corrected": false,
    "would_collide": false
   },
@@ -15742,8 +15797,8 @@
    "state": 3,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.079,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -20084,6 +20139,14 @@
   },
   {
    "state": 4,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 4,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -20462,48 +20525,48 @@
    "state": 4,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.071,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 4,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.145,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 4,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.196,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 4,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.217,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 4,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.227,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 4,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.207,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -24078,7 +24141,7 @@
    "state": 4,
    "t": 500,
    "phase": "place:lower",
-   "correction": 0.27,
+   "correction": 0.271,
    "corrected": true,
    "would_collide": true
   },
@@ -24246,7 +24309,7 @@
    "state": 4,
    "t": 521,
    "phase": "place:lower",
-   "correction": 0.272,
+   "correction": 0.273,
    "corrected": true,
    "would_collide": true
   },
@@ -24884,6 +24947,14 @@
   },
   {
    "state": 5,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 5,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -25254,7 +25325,7 @@
    "state": 5,
    "t": 47,
    "phase": "open:insert",
-   "correction": 0.0,
+   "correction": 0.006,
    "corrected": false,
    "would_collide": false
   },
@@ -25262,72 +25333,72 @@
    "state": 5,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.059,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.127,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.196,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.244,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.276,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.273,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.334,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.495,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 5,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.263,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -25358,7 +25429,7 @@
    "state": 5,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.034,
    "corrected": false,
    "would_collide": false
   },
@@ -25366,8 +25437,8 @@
    "state": 5,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.093,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -26822,8 +26893,8 @@
    "state": 5,
    "t": 243,
    "phase": "open:around_door",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.417,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -29644,6 +29715,14 @@
   },
   {
    "state": 6,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 6,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -29798,7 +29877,7 @@
    "state": 6,
    "t": 20,
    "phase": "open:pre",
-   "correction": 0.043,
+   "correction": 0.048,
    "corrected": false,
    "would_collide": false
   },
@@ -29806,7 +29885,7 @@
    "state": 6,
    "t": 21,
    "phase": "open:pre",
-   "correction": 0.059,
+   "correction": 0.066,
    "corrected": true,
    "would_collide": false
   },
@@ -29814,7 +29893,7 @@
    "state": 6,
    "t": 22,
    "phase": "open:pre",
-   "correction": 0.074,
+   "correction": 0.079,
    "corrected": true,
    "would_collide": false
   },
@@ -29822,7 +29901,7 @@
    "state": 6,
    "t": 23,
    "phase": "open:pre",
-   "correction": 0.124,
+   "correction": 0.142,
    "corrected": true,
    "would_collide": false
   },
@@ -29830,7 +29909,7 @@
    "state": 6,
    "t": 24,
    "phase": "open:pre",
-   "correction": 0.222,
+   "correction": 0.262,
    "corrected": true,
    "would_collide": false
   },
@@ -29838,7 +29917,7 @@
    "state": 6,
    "t": 25,
    "phase": "open:pre",
-   "correction": 0.303,
+   "correction": 0.364,
    "corrected": true,
    "would_collide": true
   },
@@ -29846,7 +29925,7 @@
    "state": 6,
    "t": 26,
    "phase": "open:pre",
-   "correction": 0.35,
+   "correction": 0.356,
    "corrected": true,
    "would_collide": true
   },
@@ -30014,7 +30093,7 @@
    "state": 6,
    "t": 47,
    "phase": "open:insert",
-   "correction": 0.0,
+   "correction": 0.007,
    "corrected": false,
    "would_collide": false
   },
@@ -30022,72 +30101,72 @@
    "state": 6,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.06,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.128,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.196,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.244,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.276,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.28,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.358,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.529,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.261,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -30110,7 +30189,7 @@
    "state": 6,
    "t": 59,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.012,
    "corrected": false,
    "would_collide": false
   },
@@ -30118,7 +30197,7 @@
    "state": 6,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.038,
    "corrected": false,
    "would_collide": false
   },
@@ -30126,24 +30205,24 @@
    "state": 6,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.096,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 62,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.08,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 63,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.103,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -30366,7 +30445,7 @@
    "state": 6,
    "t": 91,
    "phase": "open:arc",
-   "correction": 0.044,
+   "correction": 0.0,
    "corrected": false,
    "would_collide": false
   },
@@ -30542,63 +30621,63 @@
    "state": 6,
    "t": 113,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.121,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 114,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.316,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 115,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.37,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 116,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.323,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 117,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.264,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 118,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.227,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 119,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.21,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 120,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.028,
    "corrected": false,
    "would_collide": false
   },
@@ -30606,56 +30685,56 @@
    "state": 6,
    "t": 121,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.075,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 122,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.218,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 123,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.337,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 124,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.323,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 125,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.232,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 126,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.192,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 127,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.173,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -30670,127 +30749,127 @@
    "state": 6,
    "t": 129,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.189,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 130,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.27,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 131,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.326,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 132,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.317,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 133,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.349,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 134,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.326,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 135,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.266,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 136,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.134,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 137,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.166,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 138,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.261,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 139,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.321,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 140,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.332,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 141,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.321,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 142,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.315,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 143,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.284,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 144,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.023,
    "corrected": false,
    "would_collide": false
   },
@@ -30798,7 +30877,7 @@
    "state": 6,
    "t": 145,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.002,
    "corrected": false,
    "would_collide": false
   },
@@ -30822,7 +30901,7 @@
    "state": 6,
    "t": 148,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.003,
    "corrected": false,
    "would_collide": false
   },
@@ -30830,31 +30909,31 @@
    "state": 6,
    "t": 149,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.495,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 150,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.585,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 151,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.6,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 6,
    "t": 152,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.012,
    "corrected": false,
    "would_collide": false
   },
@@ -32870,7 +32949,7 @@
    "state": 6,
    "t": 404,
    "phase": "place:lower",
-   "correction": 0.306,
+   "correction": 0.286,
    "corrected": true,
    "would_collide": true
   },
@@ -32878,7 +32957,7 @@
    "state": 6,
    "t": 405,
    "phase": "place:lower",
-   "correction": 0.319,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -32886,7 +32965,7 @@
    "state": 6,
    "t": 406,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.31,
    "corrected": true,
    "would_collide": true
   },
@@ -32894,7 +32973,7 @@
    "state": 6,
    "t": 407,
    "phase": "place:lower",
-   "correction": 0.332,
+   "correction": 0.316,
    "corrected": true,
    "would_collide": true
   },
@@ -32902,7 +32981,7 @@
    "state": 6,
    "t": 408,
    "phase": "place:lower",
-   "correction": 0.335,
+   "correction": 0.319,
    "corrected": true,
    "would_collide": true
   },
@@ -32910,7 +32989,7 @@
    "state": 6,
    "t": 409,
    "phase": "place:lower",
-   "correction": 0.335,
+   "correction": 0.32,
    "corrected": true,
    "would_collide": true
   },
@@ -32918,7 +32997,7 @@
    "state": 6,
    "t": 410,
    "phase": "place:lower",
-   "correction": 0.335,
+   "correction": 0.321,
    "corrected": true,
    "would_collide": true
   },
@@ -32926,7 +33005,7 @@
    "state": 6,
    "t": 411,
    "phase": "place:lower",
-   "correction": 0.335,
+   "correction": 0.321,
    "corrected": true,
    "would_collide": true
   },
@@ -32934,7 +33013,7 @@
    "state": 6,
    "t": 412,
    "phase": "place:lower",
-   "correction": 0.334,
+   "correction": 0.319,
    "corrected": true,
    "would_collide": true
   },
@@ -32942,7 +33021,7 @@
    "state": 6,
    "t": 413,
    "phase": "place:lower",
-   "correction": 0.334,
+   "correction": 0.317,
    "corrected": true,
    "would_collide": true
   },
@@ -32950,7 +33029,7 @@
    "state": 6,
    "t": 414,
    "phase": "place:lower",
-   "correction": 0.334,
+   "correction": 0.316,
    "corrected": true,
    "would_collide": true
   },
@@ -32958,7 +33037,7 @@
    "state": 6,
    "t": 415,
    "phase": "place:lower",
-   "correction": 0.335,
+   "correction": 0.317,
    "corrected": true,
    "would_collide": true
   },
@@ -33030,7 +33109,7 @@
    "state": 6,
    "t": 424,
    "phase": "place:lower",
-   "correction": 0.335,
+   "correction": 0.315,
    "corrected": true,
    "would_collide": true
   },
@@ -33038,7 +33117,7 @@
    "state": 6,
    "t": 425,
    "phase": "place:lower",
-   "correction": 0.335,
+   "correction": 0.314,
    "corrected": true,
    "would_collide": true
   },
@@ -33046,7 +33125,7 @@
    "state": 6,
    "t": 426,
    "phase": "place:lower",
-   "correction": 0.334,
+   "correction": 0.314,
    "corrected": true,
    "would_collide": true
   },
@@ -33054,7 +33133,7 @@
    "state": 6,
    "t": 427,
    "phase": "place:lower",
-   "correction": 0.334,
+   "correction": 0.313,
    "corrected": true,
    "would_collide": true
   },
@@ -33062,7 +33141,7 @@
    "state": 6,
    "t": 428,
    "phase": "place:lower",
-   "correction": 0.334,
+   "correction": 0.313,
    "corrected": true,
    "would_collide": true
   },
@@ -33286,7 +33365,7 @@
    "state": 6,
    "t": 456,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.305,
    "corrected": true,
    "would_collide": true
   },
@@ -33294,7 +33373,7 @@
    "state": 6,
    "t": 457,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.305,
    "corrected": true,
    "would_collide": true
   },
@@ -33302,7 +33381,7 @@
    "state": 6,
    "t": 458,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.305,
    "corrected": true,
    "would_collide": true
   },
@@ -33310,7 +33389,7 @@
    "state": 6,
    "t": 459,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.304,
    "corrected": true,
    "would_collide": true
   },
@@ -33318,7 +33397,7 @@
    "state": 6,
    "t": 460,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.304,
    "corrected": true,
    "would_collide": true
   },
@@ -33326,7 +33405,7 @@
    "state": 6,
    "t": 461,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.304,
    "corrected": true,
    "would_collide": true
   },
@@ -33334,7 +33413,7 @@
    "state": 6,
    "t": 462,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.304,
    "corrected": true,
    "would_collide": true
   },
@@ -33342,7 +33421,7 @@
    "state": 6,
    "t": 463,
    "phase": "place:lower",
-   "correction": 0.328,
+   "correction": 0.304,
    "corrected": true,
    "would_collide": true
   },
@@ -33350,7 +33429,7 @@
    "state": 6,
    "t": 464,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.303,
    "corrected": true,
    "would_collide": true
   },
@@ -33358,7 +33437,7 @@
    "state": 6,
    "t": 465,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.303,
    "corrected": true,
    "would_collide": true
   },
@@ -33366,7 +33445,7 @@
    "state": 6,
    "t": 466,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.303,
    "corrected": true,
    "would_collide": true
   },
@@ -33374,7 +33453,7 @@
    "state": 6,
    "t": 467,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.303,
    "corrected": true,
    "would_collide": true
   },
@@ -33382,7 +33461,7 @@
    "state": 6,
    "t": 468,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.303,
    "corrected": true,
    "would_collide": true
   },
@@ -33390,7 +33469,7 @@
    "state": 6,
    "t": 469,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.303,
    "corrected": true,
    "would_collide": true
   },
@@ -33398,7 +33477,7 @@
    "state": 6,
    "t": 470,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.302,
    "corrected": true,
    "would_collide": true
   },
@@ -33406,7 +33485,7 @@
    "state": 6,
    "t": 471,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.302,
    "corrected": true,
    "would_collide": true
   },
@@ -33414,7 +33493,7 @@
    "state": 6,
    "t": 472,
    "phase": "place:lower",
-   "correction": 0.327,
+   "correction": 0.302,
    "corrected": true,
    "would_collide": true
   },
@@ -33422,7 +33501,7 @@
    "state": 6,
    "t": 473,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.302,
    "corrected": true,
    "would_collide": true
   },
@@ -33430,7 +33509,7 @@
    "state": 6,
    "t": 474,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.302,
    "corrected": true,
    "would_collide": true
   },
@@ -33438,7 +33517,7 @@
    "state": 6,
    "t": 475,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.302,
    "corrected": true,
    "would_collide": true
   },
@@ -33446,7 +33525,7 @@
    "state": 6,
    "t": 476,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.302,
    "corrected": true,
    "would_collide": true
   },
@@ -33454,7 +33533,7 @@
    "state": 6,
    "t": 477,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33462,7 +33541,7 @@
    "state": 6,
    "t": 478,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33470,7 +33549,7 @@
    "state": 6,
    "t": 479,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33478,7 +33557,7 @@
    "state": 6,
    "t": 480,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33486,7 +33565,7 @@
    "state": 6,
    "t": 481,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33494,7 +33573,7 @@
    "state": 6,
    "t": 482,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33502,7 +33581,7 @@
    "state": 6,
    "t": 483,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33510,7 +33589,7 @@
    "state": 6,
    "t": 484,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33518,7 +33597,7 @@
    "state": 6,
    "t": 485,
    "phase": "place:lower",
-   "correction": 0.326,
+   "correction": 0.301,
    "corrected": true,
    "would_collide": true
   },
@@ -33526,7 +33605,7 @@
    "state": 6,
    "t": 486,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33534,7 +33613,7 @@
    "state": 6,
    "t": 487,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33542,7 +33621,7 @@
    "state": 6,
    "t": 488,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33550,7 +33629,7 @@
    "state": 6,
    "t": 489,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33558,7 +33637,7 @@
    "state": 6,
    "t": 490,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33566,7 +33645,7 @@
    "state": 6,
    "t": 491,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33574,7 +33653,7 @@
    "state": 6,
    "t": 492,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33582,7 +33661,7 @@
    "state": 6,
    "t": 493,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.3,
    "corrected": true,
    "would_collide": true
   },
@@ -33590,7 +33669,7 @@
    "state": 6,
    "t": 494,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33598,7 +33677,7 @@
    "state": 6,
    "t": 495,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33606,7 +33685,7 @@
    "state": 6,
    "t": 496,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33614,7 +33693,7 @@
    "state": 6,
    "t": 497,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33622,7 +33701,7 @@
    "state": 6,
    "t": 498,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33630,7 +33709,7 @@
    "state": 6,
    "t": 499,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33638,7 +33717,7 @@
    "state": 6,
    "t": 500,
    "phase": "place:lower",
-   "correction": 0.325,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33646,7 +33725,7 @@
    "state": 6,
    "t": 501,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33654,7 +33733,7 @@
    "state": 6,
    "t": 502,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33662,7 +33741,7 @@
    "state": 6,
    "t": 503,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.299,
    "corrected": true,
    "would_collide": true
   },
@@ -33670,7 +33749,7 @@
    "state": 6,
    "t": 504,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33678,7 +33757,7 @@
    "state": 6,
    "t": 505,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33686,7 +33765,7 @@
    "state": 6,
    "t": 506,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33694,7 +33773,7 @@
    "state": 6,
    "t": 507,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33702,7 +33781,7 @@
    "state": 6,
    "t": 508,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33710,7 +33789,7 @@
    "state": 6,
    "t": 509,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33718,7 +33797,7 @@
    "state": 6,
    "t": 510,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33726,7 +33805,7 @@
    "state": 6,
    "t": 511,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33734,7 +33813,7 @@
    "state": 6,
    "t": 512,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33742,7 +33821,7 @@
    "state": 6,
    "t": 513,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33750,7 +33829,7 @@
    "state": 6,
    "t": 514,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33758,7 +33837,7 @@
    "state": 6,
    "t": 515,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33766,7 +33845,7 @@
    "state": 6,
    "t": 516,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33774,7 +33853,7 @@
    "state": 6,
    "t": 517,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.298,
    "corrected": true,
    "would_collide": true
   },
@@ -33782,7 +33861,7 @@
    "state": 6,
    "t": 518,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33790,7 +33869,7 @@
    "state": 6,
    "t": 519,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33798,7 +33877,7 @@
    "state": 6,
    "t": 520,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33806,7 +33885,7 @@
    "state": 6,
    "t": 521,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33814,7 +33893,7 @@
    "state": 6,
    "t": 522,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33822,7 +33901,7 @@
    "state": 6,
    "t": 523,
    "phase": "place:lower",
-   "correction": 0.324,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33830,7 +33909,7 @@
    "state": 6,
    "t": 524,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33838,7 +33917,7 @@
    "state": 6,
    "t": 525,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33846,7 +33925,7 @@
    "state": 6,
    "t": 526,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33854,7 +33933,7 @@
    "state": 6,
    "t": 527,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33862,7 +33941,7 @@
    "state": 6,
    "t": 528,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33870,7 +33949,7 @@
    "state": 6,
    "t": 529,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33878,7 +33957,7 @@
    "state": 6,
    "t": 530,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33886,7 +33965,7 @@
    "state": 6,
    "t": 531,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33894,7 +33973,7 @@
    "state": 6,
    "t": 532,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33902,7 +33981,7 @@
    "state": 6,
    "t": 533,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33910,7 +33989,7 @@
    "state": 6,
    "t": 534,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33918,7 +33997,7 @@
    "state": 6,
    "t": 535,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33926,7 +34005,7 @@
    "state": 6,
    "t": 536,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33934,7 +34013,7 @@
    "state": 6,
    "t": 537,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33942,7 +34021,7 @@
    "state": 6,
    "t": 538,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33950,7 +34029,7 @@
    "state": 6,
    "t": 539,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33958,7 +34037,7 @@
    "state": 6,
    "t": 540,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33966,7 +34045,7 @@
    "state": 6,
    "t": 541,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33974,7 +34053,7 @@
    "state": 6,
    "t": 542,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.297,
    "corrected": true,
    "would_collide": true
   },
@@ -33982,7 +34061,7 @@
    "state": 6,
    "t": 543,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -33990,7 +34069,7 @@
    "state": 6,
    "t": 544,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -33998,7 +34077,7 @@
    "state": 6,
    "t": 545,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34006,7 +34085,7 @@
    "state": 6,
    "t": 546,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34014,7 +34093,7 @@
    "state": 6,
    "t": 547,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34022,7 +34101,7 @@
    "state": 6,
    "t": 548,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34030,7 +34109,7 @@
    "state": 6,
    "t": 549,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34038,7 +34117,7 @@
    "state": 6,
    "t": 550,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34046,7 +34125,7 @@
    "state": 6,
    "t": 551,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34054,7 +34133,7 @@
    "state": 6,
    "t": 552,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34062,7 +34141,7 @@
    "state": 6,
    "t": 553,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34070,7 +34149,7 @@
    "state": 6,
    "t": 554,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34078,7 +34157,7 @@
    "state": 6,
    "t": 555,
    "phase": "place:lower",
-   "correction": 0.323,
+   "correction": 0.296,
    "corrected": true,
    "would_collide": true
   },
@@ -34086,7 +34165,7 @@
    "state": 6,
    "t": 556,
    "phase": "place:release",
-   "correction": 0.039,
+   "correction": 0.049,
    "corrected": false,
    "would_collide": true
   },
@@ -34094,7 +34173,7 @@
    "state": 6,
    "t": 557,
    "phase": "place:release",
-   "correction": 0.045,
+   "correction": 0.042,
    "corrected": false,
    "would_collide": true
   },
@@ -34110,7 +34189,7 @@
    "state": 6,
    "t": 559,
    "phase": "place:release",
-   "correction": 0.04,
+   "correction": 0.043,
    "corrected": false,
    "would_collide": true
   },
@@ -34118,7 +34197,7 @@
    "state": 6,
    "t": 560,
    "phase": "place:release",
-   "correction": 0.03,
+   "correction": 0.029,
    "corrected": false,
    "would_collide": true
   },
@@ -34126,7 +34205,7 @@
    "state": 6,
    "t": 561,
    "phase": "place:release",
-   "correction": 0.029,
+   "correction": 0.028,
    "corrected": false,
    "would_collide": true
   },
@@ -34134,7 +34213,7 @@
    "state": 6,
    "t": 562,
    "phase": "place:release",
-   "correction": 0.028,
+   "correction": 0.027,
    "corrected": false,
    "would_collide": true
   },
@@ -34142,7 +34221,7 @@
    "state": 6,
    "t": 563,
    "phase": "place:release",
-   "correction": 0.027,
+   "correction": 0.026,
    "corrected": false,
    "would_collide": true
   },
@@ -34150,56 +34229,56 @@
    "state": 6,
    "t": 564,
    "phase": "place:release",
-   "correction": 0.055,
-   "corrected": true,
+   "correction": 0.044,
+   "corrected": false,
    "would_collide": true
   },
   {
    "state": 6,
    "t": 565,
    "phase": "place:release",
-   "correction": 0.054,
-   "corrected": true,
+   "correction": 0.044,
+   "corrected": false,
    "would_collide": true
   },
   {
    "state": 6,
    "t": 566,
    "phase": "place:release",
-   "correction": 0.053,
-   "corrected": true,
+   "correction": 0.043,
+   "corrected": false,
    "would_collide": true
   },
   {
    "state": 6,
    "t": 567,
    "phase": "place:release",
-   "correction": 0.052,
-   "corrected": true,
+   "correction": 0.042,
+   "corrected": false,
    "would_collide": true
   },
   {
    "state": 6,
    "t": 568,
    "phase": "place:release",
-   "correction": 0.051,
-   "corrected": true,
+   "correction": 0.042,
+   "corrected": false,
    "would_collide": true
   },
   {
    "state": 6,
    "t": 569,
    "phase": "place:release",
-   "correction": 0.051,
-   "corrected": true,
+   "correction": 0.041,
+   "corrected": false,
    "would_collide": true
   },
   {
    "state": 6,
    "t": 570,
    "phase": "place:release",
-   "correction": 0.05,
-   "corrected": true,
+   "correction": 0.041,
+   "corrected": false,
    "would_collide": true
   },
   {
@@ -34422,6 +34501,14 @@
    "state": 6,
    "t": 598,
    "phase": "place:settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 7,
+   "t": 0,
+   "phase": "settle",
    "correction": 0.0,
    "corrected": false,
    "would_collide": false
@@ -34798,7 +34885,7 @@
    "state": 7,
    "t": 47,
    "phase": "open:insert",
-   "correction": 0.0,
+   "correction": 0.006,
    "corrected": false,
    "would_collide": false
   },
@@ -34806,72 +34893,72 @@
    "state": 7,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.059,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.127,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.196,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.244,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.276,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.273,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.334,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.495,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.263,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -34902,7 +34989,7 @@
    "state": 7,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.034,
    "corrected": false,
    "would_collide": false
   },
@@ -34910,8 +34997,8 @@
    "state": 7,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.093,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -35350,15 +35437,15 @@
    "state": 7,
    "t": 116,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.081,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 117,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.014,
    "corrected": false,
    "would_collide": false
   },
@@ -35478,8 +35565,8 @@
    "state": 7,
    "t": 132,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.128,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -35494,15 +35581,15 @@
    "state": 7,
    "t": 134,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.117,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 7,
    "t": 135,
    "phase": "open:arc",
-   "correction": 0.0,
+   "correction": 0.005,
    "corrected": false,
    "would_collide": false
   },
@@ -35630,8 +35717,8 @@
    "state": 7,
    "t": 151,
    "phase": "open:arc",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.178,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -39252,6 +39339,14 @@
   },
   {
    "state": 8,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 8,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -39622,7 +39717,7 @@
    "state": 8,
    "t": 47,
    "phase": "open:insert",
-   "correction": 0.0,
+   "correction": 0.023,
    "corrected": false,
    "would_collide": false
   },
@@ -39630,72 +39725,72 @@
    "state": 8,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.099,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.175,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.235,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.266,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.276,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.28,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.352,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.521,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 8,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.286,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -39718,7 +39813,7 @@
    "state": 8,
    "t": 59,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.008,
    "corrected": false,
    "would_collide": false
   },
@@ -39726,7 +39821,7 @@
    "state": 8,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
+   "correction": 0.034,
    "corrected": false,
    "would_collide": false
   },
@@ -39734,8 +39829,8 @@
    "state": 8,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.093,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -44076,6 +44171,14 @@
   },
   {
    "state": 9,
+   "t": 0,
+   "phase": "settle",
+   "correction": 0.0,
+   "corrected": false,
+   "would_collide": false
+  },
+  {
+   "state": 9,
    "t": 1,
    "phase": "settle",
    "correction": 0.0,
@@ -44446,7 +44549,7 @@
    "state": 9,
    "t": 47,
    "phase": "open:insert",
-   "correction": 0.0,
+   "correction": 0.027,
    "corrected": false,
    "would_collide": false
   },
@@ -44454,120 +44557,120 @@
    "state": 9,
    "t": 48,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.1,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 49,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.177,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 50,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.24,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 51,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.275,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 52,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.301,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 53,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.379,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 54,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.498,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 55,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.674,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 56,
    "phase": "open:insert",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.442,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 57,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.088,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 58,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.153,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 59,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.171,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 60,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.21,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 61,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.252,
+   "corrected": true,
    "would_collide": false
   },
   {
    "state": 9,
    "t": 62,
    "phase": "open:pinch",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.204,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -46014,8 +46117,8 @@
    "state": 9,
    "t": 243,
    "phase": "open:around_door",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.093,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -46030,8 +46133,8 @@
    "state": 9,
    "t": 245,
    "phase": "open:around_door",
-   "correction": 0.0,
-   "corrected": false,
+   "correction": 0.248,
+   "corrected": true,
    "would_collide": false
   },
   {
@@ -47062,7 +47165,7 @@
    "state": 9,
    "t": 374,
    "phase": "place:raise",
-   "correction": 0.108,
+   "correction": 0.109,
    "corrected": true,
    "would_collide": false
   },
@@ -47070,7 +47173,7 @@
    "state": 9,
    "t": 375,
    "phase": "place:raise",
-   "correction": 0.071,
+   "correction": 0.089,
    "corrected": true,
    "would_collide": false
   },
@@ -47078,7 +47181,7 @@
    "state": 9,
    "t": 376,
    "phase": "place:raise",
-   "correction": 0.005,
+   "correction": 0.045,
    "corrected": false,
    "would_collide": false
   },

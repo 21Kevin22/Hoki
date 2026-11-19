@@ -18,6 +18,7 @@ env.reset(); env.set_init_state(states[0]); zero_steps(env, 10)
 m = env.sim.model._model
 mid = m.material(OPAQUE_MATERIALS[0]).id
 glass_g = [g for g in range(m.ngeom) if m.geom_matid[g] == mid]
+glass_group0 = m.geom_group[glass_g].copy()
 mug_g = [g for g in range(m.ngeom) if m.body(m.geom_bodyid[g]).name.startswith(OBJ)]
 
 
@@ -31,7 +32,7 @@ def render(glass_alpha, mug_visible=True, glass_present=True):
         m.geom_rgba[mug_g, 3] = 0.0
     o = env.env._get_observations(force_update=True)
     m.geom_rgba[glass_g, 3], m.geom_rgba[mug_g, 3] = ga, ma
-    m.geom_group[glass_g] = 1
+    m.geom_group[glass_g] = glass_group0
     return o
 
 

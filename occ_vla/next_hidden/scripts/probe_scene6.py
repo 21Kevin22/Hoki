@@ -25,4 +25,6 @@ out = dict(task=suite.get_task_names()[tid], bddl=bddl, joints=joints, door_join
            door_angle_init_rad=dict(min=min(angles), max=max(angles), mean=float(np.mean(angles))),
            door_angle_init_deg_mean=float(np.degrees(np.mean(angles))), sites=sites, bodies=bodies)
 print(json.dumps(out, indent=1))
-os.makedirs("results", exist_ok=True); json.dump(out, open("results/probe_scene6.json", "w"), indent=1)
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
+json.dump(out, open(os.path.join(HERE, "results", "probe_scene6.json"), "w"), indent=1)

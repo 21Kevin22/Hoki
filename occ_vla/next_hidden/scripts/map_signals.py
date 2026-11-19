@@ -9,7 +9,7 @@ from scipy.ndimage import binary_dilation, binary_erosion
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, "/home/ubuntu/slocal1/third_party/stowsafe_kit_v4/stowsafe")
 from build_init_states import HERE, OBJ, MW, make_env
-from scripted_expert import entrance_width
+from scripted_expert import entrance_width, DOOR_BOX
 from stowsafe.libero_env import camera_views, back_project
 
 OPEN_DEG, OPEN_HOLD = 74.5, 3
@@ -33,15 +33,15 @@ EDGE_PX = 2   # segmentation and depth disagree by 1-2 px at object edges (edge 
 def cloud(env, obs, exclude_geoms, only_geoms=None):
     """World points of both cameras (OpenCV orientation, see stowsafe.libero_env), minus excluded geoms.
     The excluded (robot) mask is grown and the kept-only mask shrunk by EDGE_PX to drop mixed edge pixels."""
-    P, own = [], []
-    for v in camera_views(env, obs):
+    P, views = [], camera_views(env, obs)
+    for v in views:
         seg = obs[f"{v.name}_segmentation_element"][..., 0][::-1]
         ok = np.isfinite(v.depth_m) & (v.depth_m < 2.5) & ~binary_dilation(np.isin(seg, exclude_geoms), iterations=EDGE_PX)
         if only_geoms is not None:
             ok &= binary_erosion(np.isin(seg, only_geoms), iterations=EDGE_PX)
         r, c = np.nonzero(ok)
         P.append(back_project(v, r, c))
-    return np.concatenate(P) if P else np.zeros((0, 3))
+    return (np.concatenate(P) if P else np.zeros((0, 3))), views
 
 
 def door_angle(P, B):
@@ -64,6 +64,12 @@ def door_angle(P, B):
     return float(np.degrees(np.arctan2(-v[1], side * v[0]))), D, len(D)
 
 
+def true_door_max_x(m, d):
+    """x of the door's outermost point (collision box corners), for a like-for-like width ground truth."""
+    g = m.geom(DOOR_BOX).id; R = d.geom_xmat[g].reshape(3, 3); s_ = m.geom_size[g]
+    return max((d.geom_xpos[g] + R @ (np.array([i, j, 0]) * s_))[0] for i in (-1, 1) for j in (-1, 1))
+
+
 def blob(P, B):
     lo, hi = B
     I = P[(P[:, 0] > lo[0]) & (P[:, 0] < hi[0]) & (P[:, 1] > lo[1] + IN_FRONT) & (P[:, 1] < hi[1]) &
@@ -81,32 +87,31 @@ def blob(P, B):
 def run(k, env):
     z = np.load(os.path.join(HERE, "results", "expert", f"state{k}_traj.npz"))
     states, door_gt = z["states"], z["door_deg"]
+    init = np.load(os.path.join(HERE, "results", "init", "init_states.npz"))["states"][k]
+    env.reset(); env.set_init_state(init)                         # t0 = the state before the expert's first step
     m, d = env.sim.model._model, env.sim.data._data
     robot_g = geom_ids(m, body_ids(m, ("robot0", "gripper0", "mount0")))
     mw_g = geom_ids(m, body_ids(m, (MW,)))
     mug_g = geom_ids(m, body_ids(m, (OBJ,)))
-    rows, B, base = [], None, None
+    obs = env.env._get_observations(force_update=True)
+    Pm, views0 = cloud(env, obs, robot_g, only_geoms=mw_g)        # container box B, given once
+    B = (Pm.min(0), Pm.max(0)); lo, hi = B
+    v0 = views0[0]
+    r0, c0 = np.nonzero(np.isfinite(v0.depth_m))
+    X0 = back_project(v0, r0, c0)
+    inB = np.all((X0 >= lo) & (X0 <= hi), 1)
+    base = (r0[inB], c0[inB], v0.depth_m[r0[inB], c0[inB]])
+    rows = []
     for t, s in enumerate(states):
         env.sim.set_state_from_flattened(s); env.sim.forward()
         obs = env.env._get_observations(force_update=True)
-        if B is None:                                              # t0: container box, given once
-            Pm = cloud(env, obs, robot_g, only_geoms=mw_g)
-            B = (Pm.min(0), Pm.max(0))
-            v0 = camera_views(env, obs)[0]
-            r0, c0 = np.nonzero(np.isfinite(v0.depth_m))
-            X0 = back_project(v0, r0, c0)
-            inB = np.all((X0 >= B[0]) & (X0 <= B[1]), 1)
-            base = (r0[inB], c0[inB], v0.depth_m[r0[inB], c0[inB]])
-        P = cloud(env, obs, robot_g)
-        th, _, n_door = door_angle(P, B)
-        dmax = None
-        lo, hi = B
-        sel_door = ((P[:, 1] > lo[1] - SWING_FRONT) & (P[:, 1] < lo[1] - SWING_BACK) & (P[:, 0] > lo[0] - SWING_X) &
-                    (P[:, 0] < hi[0] + SWING_X) & (P[:, 2] > lo[2] + SWING_ZLO) & (P[:, 2] < hi[2]))
-        if th > 0 and sel_door.any():
-            dmax = float(P[sel_door, 0].max())
-        w_hat = float(hi[0] - max(lo[0], dmax)) if dmax is not None else 0.0
-        v = camera_views(env, obs)[0]
+        P, views = cloud(env, obs, robot_g)
+        th, D, n_door = door_angle(P, B)
+        # width, same formula for estimate and ground truth (box B's right edge minus the door's largest x);
+        # None when the door is open but too few door points are visible (not 0)
+        w_hat = float(max(0.0, hi[0] - max(lo[0], D[:, 0].max()))) if th > 0 else (0.0 if door_gt[t] <= 5 else None)
+        w_gt = float(max(0.0, hi[0] - max(lo[0], true_door_max_x(m, d))))
+        v = views[0]
         seg = obs["agentview_segmentation_element"][..., 0][::-1]
         rr, cc, d0 = base
         keep = ~binary_dilation(np.isin(seg, robot_g), iterations=EDGE_PX)[rr, cc]
@@ -115,7 +120,8 @@ def run(k, env):
         mug_px = sum(int(np.isin(obs[f"{c}_segmentation_element"][..., 0], mug_g).sum())
                      for c in ("agentview", "robot0_eye_in_hand"))
         rows.append(dict(t=t, door_gt=float(door_gt[t]), door_hat=round(th, 1), n_door=n_door, r_open=round(r_open, 3),
-                         width_gt=entrance_width(m, d)[0], width_hat=round(w_hat, 4), blob=has_blob, n_inside=n_in,
+                         width_gt=round(w_gt, 4), width_inner_opening=entrance_width(m, d)[0],
+                         width_hat=None if w_hat is None else round(w_hat, 4), blob=has_blob, n_inside=n_in,
                          n_blob=n_blob, mug_px=mug_px))
     return rows, [B[0].round(3).tolist(), B[1].round(3).tolist()]
 
@@ -133,7 +139,8 @@ def evaluate(rows):
     vis = [r for r in rows if r["n_door"] >= MIN_DOOR_PTS and r["door_hat"] > 0]
     ang_err = [abs(r["door_hat"] - r["door_gt"]) for r in vis]
     wrows = [r for r in rows if r["door_gt"] > 5]
-    w_err = [r["width_hat"] - r["width_gt"] for r in wrows]
+    w_err = [r["width_hat"] - r["width_gt"] for r in wrows if r["width_hat"] is not None]
+    w_missing = sum(r["width_hat"] is None for r in wrows)
     t_vis = first(rows, lambda r: r["mug_px"] > 0)
     t_blob = first(rows, lambda r: r["blob"])
     return dict(t_open_gt=t_open, t_open_hat=t_open_hat,
@@ -141,15 +148,16 @@ def evaluate(rows):
                 angle_mae_deg=round(float(np.mean(ang_err)), 1) if ang_err else None, angle_n=len(ang_err),
                 width_mae_m=round(float(np.mean(np.abs(w_err))), 4) if w_err else None,
                 width_bias_m=round(float(np.mean(w_err)), 4) if w_err else None,
+                width_missing_steps=w_missing, width_open_steps=len(wrows),
                 t_mug_visible_gt=t_vis, t_blob=t_blob,
                 blob_dt=None if t_vis is None or t_blob is None else t_blob - t_vis,
-                blob_false_alarm=t_blob is not None and t_vis is not None and t_blob < t_vis)
+                blob_false_alarm=t_blob is not None and (t_vis is None or t_blob < t_vis))
 
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--states", default="0-9")
     a, b = map(int, ap.parse_args().states.split("-"))
-    out = os.path.join(HERE, "results", "map_signals"); os.makedirs(out, exist_ok=True)
+    out = os.path.join(HERE, "results", "map_signals"); os.makedirs(out, exist_ok=True)   # (re-run overwrites)
     env = make_env(res=256, depth=True); env.reset()
     summ = []
     for k in range(a, b + 1):

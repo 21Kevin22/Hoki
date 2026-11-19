@@ -56,6 +56,7 @@ class Runner:
                         and "table" not in m.body(m.body_rootid[i]).name}
         self.handle_g = {m.geom(n).id for n in ["microwave_1_g14", "microwave_1_g15", "microwave_1_g16"]}
         self.mug_g = [g for g in range(m.ngeom) if m.geom_bodyid[g] in self.mug_b]
+        self.floor_g = m.geom(FLOOR).id
         j = m.joint(DOOR_JOINT); self.jq = j.qposadr[0]; self.jid = j.id
         self.grasped_mug = False
         self.debug_contacts = bool(os.environ.get("EXPERT_DEBUG"))
@@ -97,9 +98,13 @@ class Runner:
                     elif ob in self.mug_b:
                         mug += 1
             # mug (while carried) against the microwave = the object hitting the container
-        mug_mw = sum(1 for i in range(self.d.ncon)
-                     if {self.m.geom_bodyid[self.d.contact[i].geom1], self.m.geom_bodyid[self.d.contact[i].geom2]} & self.mug_b
-                     and {self.m.geom_bodyid[self.d.contact[i].geom1], self.m.geom_bodyid[self.d.contact[i].geom2]} & self.mw_b)
+        # mug hitting the container: mug vs any microwave geom EXCEPT the floor box it rests / slides on (support)
+        mug_mw = 0
+        for i in range(self.d.ncon):
+            g1, g2 = self.d.contact[i].geom1, self.d.contact[i].geom2
+            bs = {self.m.geom_bodyid[g1], self.m.geom_bodyid[g2]}
+            if bs & self.mug_b and bs & self.mw_b and self.floor_g not in (g1, g2):
+                mug_mw += 1
         return mw, other, mug, mug_mw
 
     def step(self, a, phase):

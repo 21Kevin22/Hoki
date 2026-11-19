@@ -24,15 +24,19 @@ def run(k, mode, env):
     log = json.load(open(os.path.join(HERE, "results", "expert", f"state{k}.json")))["log"]
     states, actions, phases = z["states"], z["actions"], z["phases"]
     collide = np.array([(e["robot_microwave_contacts"] > 0) or (e["robot_other_contacts"] > 0) for e in log])
-    env.sim.set_state_from_flattened(states[0]); env.sim.forward()
+    # states[t] = state AFTER action t; the state before action 0 is the saved init state (the expert calls
+    # set_init_state right before its first step), so prev(t) = init for t = 0, states[t-1] otherwise
+    init = np.load(os.path.join(HERE, "results", "init", "init_states.npz"))["states"][k]
+    prev = lambda t: init if t == 0 else states[t - 1]
+    env.reset(); env.set_init_state(init)
     obs = env.env._get_observations(force_update=True)
     cfg = MODES[mode]
     guard = StowSafe(env, obs, cfg, instruction=INSTRUCTION)
     m, d = env.sim.model._model, env.sim.data._data
     split = SplitRolePoints(m, tuple(env.env.obj_of_interest), SPLIT_ROLES[mode]) if mode in SPLIT_ROLES else None
     rows = []
-    for t in range(1, len(states)):
-        env.sim.set_state_from_flattened(states[t - 1]); env.sim.forward()
+    for t in range(len(states)):
+        env.sim.set_state_from_flattened(prev(t)); env.sim.forward()
         obs = env.env._get_observations(force_update=True)
         if split is not None:
             guard.set_roles(*split(d))

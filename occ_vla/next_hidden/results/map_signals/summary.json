@@ -4,23 +4,25 @@
    "state": 0,
    "box_B": [
     [
-     -0.168,
-     0.197,
-     0.931
+     -0.156,
+     0.206,
+     0.932
     ],
     [
-     0.171,
-     0.384,
+     0.181,
+     0.381,
      1.109
     ]
    ],
    "t_open_gt": 105,
-   "t_open_hat": 98,
-   "open_dt": -7,
-   "angle_mae_deg": 38.4,
-   "angle_n": 450,
-   "width_mae_m": 0.1255,
-   "width_bias_m": -0.0206,
+   "t_open_hat": 99,
+   "open_dt": -6,
+   "angle_mae_deg": 37.1,
+   "angle_n": 447,
+   "width_mae_m": 0.115,
+   "width_bias_m": -0.1145,
+   "width_missing_steps": 80,
+   "width_open_steps": 527,
    "t_mug_visible_gt": 72,
    "t_blob": 0,
    "blob_dt": -72,
@@ -31,22 +33,24 @@
    "box_B": [
     [
      -0.168,
-     0.197,
-     0.931
+     0.201,
+     0.932
     ],
     [
-     0.171,
+     0.17,
      0.384,
      1.109
     ]
    ],
    "t_open_gt": 105,
-   "t_open_hat": 98,
-   "open_dt": -7,
-   "angle_mae_deg": 37.7,
+   "t_open_hat": 97,
+   "open_dt": -8,
+   "angle_mae_deg": 37.5,
    "angle_n": 446,
-   "width_mae_m": 0.1284,
-   "width_bias_m": -0.0255,
+   "width_mae_m": 0.1253,
+   "width_bias_m": -0.1248,
+   "width_missing_steps": 77,
+   "width_open_steps": 523,
    "t_mug_visible_gt": 72,
    "t_blob": 0,
    "blob_dt": -72,
@@ -56,23 +60,25 @@
    "state": 2,
    "box_B": [
     [
-     -0.168,
-     0.197,
-     0.931
+     -0.164,
+     0.206,
+     0.932
     ],
     [
-     0.171,
-     0.384,
+     0.173,
+     0.383,
      1.109
     ]
    ],
    "t_open_gt": 105,
    "t_open_hat": 98,
    "open_dt": -7,
-   "angle_mae_deg": 37.8,
-   "angle_n": 453,
-   "width_mae_m": 0.1273,
-   "width_bias_m": -0.0219,
+   "angle_mae_deg": 37.0,
+   "angle_n": 454,
+   "width_mae_m": 0.1203,
+   "width_bias_m": -0.1198,
+   "width_missing_steps": 75,
+   "width_open_steps": 529,
    "t_mug_visible_gt": 72,
    "t_blob": 0,
    "blob_dt": -72,
@@ -82,75 +88,81 @@
    "state": 3,
    "box_B": [
     [
-     -0.168,
-     0.197,
+     -0.175,
+     0.188,
      0.931
     ],
     [
-     0.171,
-     0.384,
+     0.163,
+     0.386,
      1.109
     ]
    ],
    "t_open_gt": 105,
    "t_open_hat": 97,
    "open_dt": -8,
-   "angle_mae_deg": 31.6,
+   "angle_mae_deg": 32.4,
    "angle_n": 525,
-   "width_mae_m": 0.1148,
-   "width_bias_m": 0.0261,
-   "t_mug_visible_gt": 72,
+   "width_mae_m": 0.1059,
+   "width_bias_m": -0.1055,
+   "width_missing_steps": 5,
+   "width_open_steps": 530,
+   "t_mug_visible_gt": 60,
    "t_blob": 0,
-   "blob_dt": -72,
+   "blob_dt": -60,
    "blob_false_alarm": true
   },
   {
    "state": 4,
    "box_B": [
     [
-     -0.168,
-     0.197,
-     0.931
+     -0.174,
+     0.191,
+     0.932
     ],
     [
-     0.171,
-     0.384,
+     0.164,
+     0.386,
      1.109
     ]
    ],
    "t_open_gt": 105,
-   "t_open_hat": 98,
-   "open_dt": -7,
-   "angle_mae_deg": 36.5,
-   "angle_n": 450,
-   "width_mae_m": 0.1211,
-   "width_bias_m": -0.0163,
-   "t_mug_visible_gt": 72,
+   "t_open_hat": 97,
+   "open_dt": -8,
+   "angle_mae_deg": 37.2,
+   "angle_n": 451,
+   "width_mae_m": 0.1174,
+   "width_bias_m": -0.1169,
+   "width_missing_steps": 76,
+   "width_open_steps": 527,
+   "t_mug_visible_gt": 61,
    "t_blob": 0,
-   "blob_dt": -72,
+   "blob_dt": -61,
    "blob_false_alarm": true
   },
   {
    "state": 5,
    "box_B": [
     [
-     -0.168,
-     0.197,
-     0.931
+     -0.156,
+     0.2,
+     0.932
     ],
     [
-     0.171,
-     0.384,
+     0.181,
+     0.381,
      1.109
     ]
    ],
    "t_open_gt": 105,
-   "t_open_hat": 98,
-   "open_dt": -7,
-   "angle_mae_deg": 38.6,
-   "angle_n": 447,
-   "width_mae_m": 0.1257,
-   "width_bias_m": -0.0217,
+   "t_open_hat": 99,
+   "open_dt": -6,
+   "angle_mae_deg": 38.1,
+   "angle_n": 443,
+   "width_mae_m": 0.1167,
+   "width_bias_m": -0.1162,
+   "width_missing_steps": 79,
+   "width_open_steps": 522,
    "t_mug_visible_gt": 72,
    "t_blob": 0,
    "blob_dt": -72,
@@ -161,11 +173,11 @@
    "box_B": [
     [
      -0.168,
-     0.197,
-     0.931
+     0.207,
+     0.932
     ],
     [
-     0.171,
+     0.17,
      0.384,
      1.109
     ]
@@ -173,10 +185,12 @@
    "t_open_gt": 105,
    "t_open_hat": 97,
    "open_dt": -8,
-   "angle_mae_deg": 36.6,
-   "angle_n": 449,
-   "width_mae_m": 0.1225,
-   "width_bias_m": -0.0182,
+   "angle_mae_deg": 36.4,
+   "angle_n": 450,
+   "width_mae_m": 0.1178,
+   "width_bias_m": -0.1173,
+   "width_missing_steps": 75,
+   "width_open_steps": 525,
    "t_mug_visible_gt": 72,
    "t_blob": 0,
    "blob_dt": -72,
@@ -186,49 +200,53 @@
    "state": 7,
    "box_B": [
     [
-     -0.168,
-     0.197,
-     0.931
+     -0.158,
+     0.199,
+     0.932
     ],
     [
-     0.171,
-     0.384,
+     0.179,
+     0.381,
      1.109
     ]
    ],
    "t_open_gt": 105,
    "t_open_hat": 98,
    "open_dt": -7,
-   "angle_mae_deg": 36.7,
-   "angle_n": 456,
-   "width_mae_m": 0.1192,
-   "width_bias_m": -0.0131,
-   "t_mug_visible_gt": 72,
+   "angle_mae_deg": 36.1,
+   "angle_n": 454,
+   "width_mae_m": 0.1084,
+   "width_bias_m": -0.1079,
+   "width_missing_steps": 76,
+   "width_open_steps": 530,
+   "t_mug_visible_gt": 73,
    "t_blob": 0,
-   "blob_dt": -72,
+   "blob_dt": -73,
    "blob_false_alarm": true
   },
   {
    "state": 8,
    "box_B": [
     [
-     -0.168,
-     0.197,
-     0.931
+     -0.174,
+     0.204,
+     0.932
     ],
     [
-     0.171,
-     0.384,
+     0.164,
+     0.386,
      1.109
     ]
    ],
    "t_open_gt": 105,
-   "t_open_hat": 98,
-   "open_dt": -7,
-   "angle_mae_deg": 36.8,
-   "angle_n": 456,
-   "width_mae_m": 0.1217,
-   "width_bias_m": -0.0155,
+   "t_open_hat": 97,
+   "open_dt": -8,
+   "angle_mae_deg": 37.0,
+   "angle_n": 455,
+   "width_mae_m": 0.1193,
+   "width_bias_m": -0.1189,
+   "width_missing_steps": 75,
+   "width_open_steps": 530,
    "t_mug_visible_gt": 72,
    "t_blob": 0,
    "blob_dt": -72,
@@ -238,23 +256,25 @@
    "state": 9,
    "box_B": [
     [
-     -0.168,
-     0.197,
-     0.931
+     -0.17,
+     0.202,
+     0.93
     ],
     [
-     0.171,
+     0.168,
      0.384,
      1.109
     ]
    ],
    "t_open_gt": 105,
-   "t_open_hat": 98,
-   "open_dt": -7,
+   "t_open_hat": 97,
+   "open_dt": -8,
    "angle_mae_deg": 37.2,
-   "angle_n": 450,
-   "width_mae_m": 0.1251,
-   "width_bias_m": -0.0208,
+   "angle_n": 451,
+   "width_mae_m": 0.1212,
+   "width_bias_m": -0.1207,
+   "width_missing_steps": 76,
+   "width_open_steps": 527,
    "t_mug_visible_gt": 72,
    "t_blob": 0,
    "blob_dt": -72,
@@ -264,8 +284,8 @@
  "verdict": {
   "open_signal_within_10": 10,
   "angle_mae_le_10": 0,
-  "width_mae_mean_m": 0.1231,
-  "width_bias_mean_m": -0.0147,
+  "width_mae_mean_m": 0.1167,
+  "width_bias_mean_m": -0.1163,
   "blob_within_20": 0,
   "blob_false_alarms": 10,
   "n": 10

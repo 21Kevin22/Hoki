@@ -7,6 +7,9 @@ Usage: python scripts/pi05_official_smoke.py --suite libero_spatial --task-id 0 
 import argparse, collections, json, math, os, pathlib, time
 import imageio
 import numpy as np
+import torch
+_torch_load = torch.load   # LIBERO's bundled .pt init states predate torch>=2.6's weights_only=True default
+torch.load = lambda *a, **k: _torch_load(*a, **{**k, "weights_only": False})
 from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import OffScreenRenderEnv
 from openpi_client import image_tools

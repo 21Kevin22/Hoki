@@ -149,8 +149,11 @@ def main():
         y_c = d.geom_xpos[g("microwave_1_g6")][1] + args.y_offset
         x_c = x_c + args.x_offset
         mug_geoms = [i for i in range(m.ngeom) if m.body(m.geom_bodyid[i]).name.startswith(OBJ)]
-        bottom_offset = d.qpos[qa + 2] - min(d.geom_xpos[i][2] - m.geom_rbound[i] * 0 - m.geom_size[i][2]
-                                             for i in mug_geoms)     # upright mug: body z - lowest box face
+        def half_z(i):    # world-z half extent of a geom (exact for boxes; bounding sphere otherwise)
+            if m.geom_type[i] == mujoco.mjtGeom.mjGEOM_BOX:
+                return float(np.abs(d.geom_xmat[i].reshape(3, 3)[2]) @ m.geom_size[i])
+            return float(m.geom_rbound[i])
+        bottom_offset = d.qpos[qa + 2] - min(d.geom_xpos[i][2] - half_z(i) for i in mug_geoms)
         d.qpos[qa:qa + 3] = [x_c + rng.uniform(-args.x_jitter, args.x_jitter),
                              y_c + rng.uniform(-args.y_jitter, args.y_jitter), floor_top + bottom_offset + 0.003]
         d.qvel[va:va + 6] = 0.0
