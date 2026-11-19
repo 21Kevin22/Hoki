@@ -1,0 +1,73 @@
+{
+ "task": "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
+ "bddl": "/home/ubuntu/slocal1/third_party/LIBERO/libero/libero/bddl_files/libero_10/KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it.bddl",
+ "joints": [
+  "microwave_1_microjoint"
+ ],
+ "door_joint": "microwave_1_microjoint",
+ "door_range": [
+  -2.094,
+  0.0
+ ],
+ "n_init_states": 50,
+ "door_angle_init_rad": {
+  "min": -2.059648378987669,
+  "max": -1.3232891331569794,
+  "mean": -1.7024106651746005
+ },
+ "door_angle_init_deg_mean": -97.54094611256373,
+ "sites": {
+  "kitchen_table_microwave_init_region": {
+   "pos": [
+    0.0,
+    0.35,
+    0.875
+   ],
+   "size": [
+    0.01,
+    0.01,
+    0.007
+   ]
+  },
+  "microwave_1_top_side": {
+   "pos": [
+    -0.0096,
+    0.3667,
+    1.12
+   ],
+   "size": [
+    0.12,
+    0.0835,
+    0.005
+   ]
+  },
+  "microwave_1_heating_region": {
+   "pos": [
+    -0.0096,
+    0.3667,
+    1.016
+   ],
+   "size": [
+    0.12,
+    0.0835,
+    0.08
+   ]
+  },
+  "microwave_1_default_site": {
+   "pos": [
+    -0.0096,
+    0.3567,
+    0.92
+   ],
+   "size": [
+    0.002,
+    0.002,
+    0.002
+   ]
+  }
+ },
+ "bodies": [
+  "microwave_1_main",
+  "microwave_1_microdoorroot"
+ ]
+}

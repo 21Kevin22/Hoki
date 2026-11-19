@@ -1,0 +1,30 @@
+{
+  "created": "2026-11-19T05:52:22",
+  "git_commit": "4c1cdadb7b2461aede8ac52847fdb9b30b7b9a64",
+  "git_dirty": true,
+  "python": "3.12.3",
+  "pip_freeze": [],
+  "files": {
+    "task/KITCHEN_SCENE6_take_the_yellow_and_white_mug_out_of_the_microwave_and_put_it_on_the_plate.bddl": "96a7cb69ba358ddde7743081d7167b18e83744b0c2efa293b70ca0278e9db5e3",
+    "task/init_states.npz": "c83993166ffaef305225fd99257918300236b012f7e9e7a56c65c4b91f3bda0c",
+    "bddl/KITCHEN_SCENE6_take_the_yellow_and_white_mug_out_of_the_microwave_and_put_it_on_the_plate.bddl": "96a7cb69ba358ddde7743081d7167b18e83744b0c2efa293b70ca0278e9db5e3",
+    "scripts/build_init_states.py": "86bd36a4599df73fb50591481ac8ef7557d92bc55d9003bf07564f501214eb45",
+    "scripts/env_check.py": "24f12f9df053efe61de54b655f3f036b1169bc311f4c78f7ae73ee69e985341f",
+    "scripts/instruction_table.py": "fd28666e34475c8645107eb586ef59c5cd29a4d4fab064ec1b9e932673c13b02",
+    "scripts/make_manifest.py": "8a79b1232c713019f336ffdfe3271d910150507fe8cc2871fdc05995bfca15e8",
+    "scripts/monitor.sh": "64b217666e4afb81cf140cce3918c3f9ca9f57cf5fc0a33fc221b9672a2354a2",
+    "scripts/probe_scene6.py": "9a7de6c76d4dd6824074723ad99f96ed532a91b7db79413d1a87231a43123e0a",
+    "scripts/rgb_visibility.py": "27138377090acbe11e6e36aadc9ddc5200bc20a58c783759d49dbc18683ab23a",
+    "scripts/run_gate_6_1_6_2.sh": "ac1afae14e43f8bddf3c533c785288f7517ed68c075a1113cfdda04b71f256c3",
+    "scripts/scripted_expert.py": "ce0fccafe87abd097a724f4f4edefe4905d0a85cf5a490bdf5d7c98644131994",
+    "scripts/summarize_expert.py": "a9d26b33bd6082607204f561e1bf11cbd699489929a5f0f09615502c412ebe55",
+    "scripts/verify_init_states.py": "80366d1207ac0fe3c71d164d3a12b962871a355d1e954348a5899bee85d17c7b",
+    "results/init/init_checks.json": "c402b435e8ba34d2092461894352c6078b9c4ecdd2c7e8cf4efcf58627543e45",
+    "results/init/verify.json": "ba25c96c1e0ab3eb16b2f8680e38ce3c600eb37a9999c74aee6433fcd8820349",
+    "results/init/rgb_visibility.json": "52402b635e24fd6b41d8cddbadc30befeac49651613f5d27e4f9e1de2eeb048f",
+    "results/expert/summary.json": "3f91b51c8523f204a6e3989b02d656e5bec41a7eca128492e7abd25b445555c2",
+    "results/instruction_table.json": "332d9b53444f3e6c07af0565c87edb2db79838e4174aa3b81a89f9576f1da63e",
+    "results/pi05_libero_train_tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99",
+    "results/probe_scene6.json": "89d6ddc7509249a4115166570e920ee9d6741961573fcd25a9581520698506b0"
+  }
+}

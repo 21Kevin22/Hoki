@@ -1,0 +1,262 @@
+{
+ "n": 10,
+ "n_success": 7,
+ "entrance_width_vs_door_deg": {
+  "30": 0.0122,
+  "45": 0.0536,
+  "60": 0.1074,
+  "76.0": 0.1743,
+  "97.5": 0.207,
+  "118.0": 0.207
+ },
+ "rows": [
+  {
+   "state": 0,
+   "success": true,
+   "steps": 601,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0207,
+   "handle_xyz": [
+    -0.059,
+    0.3,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 73,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 5,
+   "robot_microwave_contact_by_phase": {
+    "take:insert": 5
+   },
+   "robot_other_object_contact_steps": 171
+  },
+  {
+   "state": 1,
+   "success": false,
+   "steps": 597,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.092,
+   "handle_xyz": [
+    -0.062,
+    0.296,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 73,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 3,
+   "robot_microwave_contact_by_phase": {
+    "take:insert": 1,
+    "take:pinch": 2
+   },
+   "robot_other_object_contact_steps": 171
+  },
+  {
+   "state": 2,
+   "success": true,
+   "steps": 598,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0147,
+   "handle_xyz": [
+    -0.044,
+    0.299,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 114
+   },
+   "robot_microwave_contact_steps": 4,
+   "robot_microwave_contact_by_phase": {
+    "take:pinch": 4
+   },
+   "robot_other_object_contact_steps": 172
+  },
+  {
+   "state": 3,
+   "success": true,
+   "steps": 599,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0121,
+   "handle_xyz": [
+    -0.042,
+    0.301,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 114
+   },
+   "robot_microwave_contact_steps": 1,
+   "robot_microwave_contact_by_phase": {
+    "take:insert": 1
+   },
+   "robot_other_object_contact_steps": 173
+  },
+  {
+   "state": 4,
+   "success": false,
+   "steps": 604,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0315,
+   "handle_xyz": [
+    -0.045,
+    0.293,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 0,
+   "robot_microwave_contact_by_phase": {},
+   "robot_other_object_contact_steps": 169
+  },
+  {
+   "state": 5,
+   "success": false,
+   "steps": 603,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.032,
+   "handle_xyz": [
+    -0.043,
+    0.289,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 0,
+   "robot_microwave_contact_by_phase": {},
+   "robot_other_object_contact_steps": 170
+  },
+  {
+   "state": 6,
+   "success": true,
+   "steps": 601,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0248,
+   "handle_xyz": [
+    -0.054,
+    0.301,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 3,
+   "robot_microwave_contact_by_phase": {
+    "take:insert": 3
+   },
+   "robot_other_object_contact_steps": 170
+  },
+  {
+   "state": 7,
+   "success": true,
+   "steps": 599,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0074,
+   "handle_xyz": [
+    -0.043,
+    0.305,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 4,
+   "robot_microwave_contact_by_phase": {
+    "take:insert": 2,
+    "take:pinch": 2
+   },
+   "robot_other_object_contact_steps": 169
+  },
+  {
+   "state": 8,
+   "success": true,
+   "steps": 598,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0148,
+   "handle_xyz": [
+    -0.054,
+    0.293,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 2,
+   "robot_microwave_contact_by_phase": {
+    "take:insert": 2
+   },
+   "robot_other_object_contact_steps": 169
+  },
+  {
+   "state": 9,
+   "success": true,
+   "steps": 597,
+   "door_deg": 103.5,
+   "door_open": true,
+   "entrance_m": 0.207,
+   "handle_reached": true,
+   "mug_out": true,
+   "mug_plate_xy_m": 0.0212,
+   "handle_xyz": [
+    -0.048,
+    0.294,
+    0.999
+   ],
+   "first_visible": {
+    "agentview": 72,
+    "wrist": 76
+   },
+   "robot_microwave_contact_steps": 4,
+   "robot_microwave_contact_by_phase": {
+    "take:pinch": 4
+   },
+   "robot_other_object_contact_steps": 171
+  }
+ ]
+}

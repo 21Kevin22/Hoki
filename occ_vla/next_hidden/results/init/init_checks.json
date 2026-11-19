@@ -1,0 +1,659 @@
+{
+ "bddl": "KITCHEN_SCENE6_take_the_yellow_and_white_mug_out_of_the_microwave_and_put_it_on_the_plate.bddl",
+ "kept": 10,
+ "tried": 21,
+ "render": "egl",
+ "checks": [
+  {
+   "seed": 0,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0584,
+    0.3504,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.1
+  },
+  {
+   "seed": 1,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0433,
+    0.3598,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    2.83,
+    0.01,
+    0.01
+   ],
+   "seconds": 19.0
+  },
+  {
+   "seed": 2,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0623,
+    0.346,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.0
+  },
+  {
+   "seed": 3,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0481,
+    0.3468,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 7,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": false,
+   "seconds": 21.9
+  },
+  {
+   "seed": 4,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0434,
+    0.3494,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 21.8
+  },
+  {
+   "seed": 5,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0433,
+    0.3599,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    3.2,
+    3.12
+   ],
+   "seconds": 19.3
+  },
+  {
+   "seed": 6,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0523,
+    0.3544,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 6,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": false,
+   "seconds": 22.3
+  },
+  {
+   "seed": 7,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0507,
+    0.3594,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    3.09
+   ],
+   "seconds": 19.2
+  },
+  {
+   "seed": 8,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0595,
+    0.3454,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 23,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": false,
+   "seconds": 22.3
+  },
+  {
+   "seed": 9,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0459,
+    0.335,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.03
+   ],
+   "seconds": 19.5
+  },
+  {
+   "seed": 10,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0418,
+    0.3511,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.2
+  },
+  {
+   "seed": 11,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0508,
+    0.3518,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    3.92,
+    3.64
+   ],
+   "seconds": 19.3
+  },
+  {
+   "seed": 12,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0554,
+    0.3597,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    4.14,
+    0.01,
+    0.01
+   ],
+   "seconds": 19.2
+  },
+  {
+   "seed": 13,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0452,
+    0.3429,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.2
+  },
+  {
+   "seed": 14,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0429,
+    0.3391,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.2
+  },
+  {
+   "seed": 15,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0535,
+    0.3513,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.3
+  },
+  {
+   "seed": 16,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0425,
+    0.355,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.2
+  },
+  {
+   "seed": 17,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0427,
+    0.3346,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    0.03,
+    0.01
+   ],
+   "seconds": 19.4
+  },
+  {
+   "seed": 18,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0617,
+    0.3439,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 22,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": false,
+   "seconds": 22.4
+  },
+  {
+   "seed": 19,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0538,
+    0.3429,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 21.9
+  },
+  {
+   "seed": 20,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.048,
+    0.3438,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true,
+   "reload_drift_mm": [
+    0.01,
+    0.01,
+    0.01
+   ],
+   "rgb_mug_pixels_agentview": 0,
+   "rgb_mug_pixels_robot0_eye_in_hand": 0,
+   "rgb_hidden": true,
+   "seconds": 22.2
+  }
+ ]
+}

@@ -1,0 +1,115 @@
+{
+ "n_training_tasks": 40,
+ "rows": [
+  {
+   "condition": "A (single)",
+   "instruction": "take the yellow and white mug out of the microwave and put it on the plate",
+   "exact_in_training": false,
+   "nearest": [
+    {
+     "task": "put the white mug on the left plate and put the yellow and white mug on the right plate",
+     "jaccard": 0.53,
+     "difflib": 0.51
+    },
+    {
+     "task": "put the yellow and white mug in the microwave and close it",
+     "jaccard": 0.53,
+     "difflib": 0.74
+    },
+    {
+     "task": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+     "jaccard": 0.47,
+     "difflib": 0.35
+    }
+   ]
+  },
+  {
+   "condition": "A (single)",
+   "instruction": "open the microwave and put the yellow and white mug on the plate",
+   "exact_in_training": false,
+   "nearest": [
+    {
+     "task": "put the white mug on the left plate and put the yellow and white mug on the right plate",
+     "jaccard": 0.67,
+     "difflib": 0.73
+    },
+    {
+     "task": "put the yellow and white mug in the microwave and close it",
+     "jaccard": 0.54,
+     "difflib": 0.61
+    },
+    {
+     "task": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+     "jaccard": 0.47,
+     "difflib": 0.4
+    }
+   ]
+  },
+  {
+   "condition": "B/C step 1 (open)",
+   "instruction": "open the microwave",
+   "exact_in_training": false,
+   "nearest": [
+    {
+     "task": "open the middle drawer of the cabinet",
+     "jaccard": 0.29,
+     "difflib": 0.51
+    },
+    {
+     "task": "open the top drawer and put the bowl inside",
+     "jaccard": 0.22,
+     "difflib": 0.43
+    },
+    {
+     "task": "put the yellow and white mug in the microwave and close it",
+     "jaccard": 0.18,
+     "difflib": 0.45
+    }
+   ]
+  },
+  {
+   "condition": "B/C step 2 (take + place)",
+   "instruction": "put the yellow and white mug on the plate",
+   "exact_in_training": false,
+   "nearest": [
+    {
+     "task": "put the white mug on the left plate and put the yellow and white mug on the right plate",
+     "jaccard": 0.8,
+     "difflib": 0.64
+    },
+    {
+     "task": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+     "jaccard": 0.54,
+     "difflib": 0.47
+    },
+    {
+     "task": "put the yellow and white mug in the microwave and close it",
+     "jaccard": 0.5,
+     "difflib": 0.75
+    }
+   ]
+  },
+  {
+   "condition": "B/C step 2 (take + place)",
+   "instruction": "pick up the yellow and white mug and place it on the plate",
+   "exact_in_training": false,
+   "nearest": [
+    {
+     "task": "pick up the black bowl on the ramekin and place it on the plate",
+     "jaccard": 0.57,
+     "difflib": 0.79
+    },
+    {
+     "task": "pick up the black bowl on the stove and place it on the plate",
+     "jaccard": 0.57,
+     "difflib": 0.79
+    },
+    {
+     "task": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+     "jaccard": 0.53,
+     "difflib": 0.71
+    }
+   ]
+  }
+ ]
+}
