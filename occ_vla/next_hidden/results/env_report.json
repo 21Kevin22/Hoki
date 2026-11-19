@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-11-19T04:33:30",
+  "gpus": [
+    {
+      "index": 0,
+      "name": "NVIDIA RTX A5000",
+      "compute_cap": "8.6",
+      "generation": "Ampere+",
+      "mem_total_mib": 24564,
+      "mem_used_mib": 15,
+      "util_pct": 0,
+      "mem_free_mib": 24549
+    },
+    {
+      "index": 1,
+      "name": "NVIDIA RTX A5000",
+      "compute_cap": "8.6",
+      "generation": "Ampere+",
+      "mem_total_mib": 24564,
+      "mem_used_mib": 15,
+      "util_pct": 0,
+      "mem_free_mib": 24549
+    },
+    {
+      "index": 2,
+      "name": "NVIDIA RTX A5000",
+      "compute_cap": "8.6",
+      "generation": "Ampere+",
+      "mem_total_mib": 24564,
+      "mem_used_mib": 99,
+      "util_pct": 0,
+      "mem_free_mib": 24465
+    }
+  ],
+  "gpu_compute_processes": "none",
+  "driver_line": "NVIDIA-SMI 595.84                 Driver Version: 595.84         CUDA Version: 13.2",
+  "logged_in_users": "",
+  "other_users_processes": "",
+  "host_mem_total_gib": 62.5,
+  "cgroup_memory_max": "52.0 GiB",
+  "cgroup_cpu_max": "max 100000",
+  "cpu_cores": 36,
+  "disk_free_gib": 491.6,
+  "dtype_policy": "bf16 OK (all GPUs Ampere+)",
+  "openpi_present": false,
+  "pi05_libero_checkpoint": "not found",
+  "qwen_checkpoint": "not found",
+  "render_backend": "egl",
+  "render_check": "ok 3.0.0 24.75048828125",
+  "python": "/home/ubuntu/slocal1/third_party/.venv_oft/bin/python 3.10.21"
+}
