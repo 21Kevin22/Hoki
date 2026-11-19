@@ -1,7 +1,7 @@
 {
  "render": "egl",
  "n": 20,
- "n_pass": 19,
+ "n_pass": 16,
  "rows": [
   {
    "state": 0,
@@ -12,20 +12,20 @@
    "goal_false": true,
    "pixels_agentview": 0,
    "pixels_wrist": 0,
-   "drift_mm": 0.01,
+   "drift_mm": 4.3,
    "deepest_penetration_mm": 0.01,
    "object_pos": [
-    -0.0584,
-    0.3504,
-    0.9451
+    -0.058,
+    0.3557,
+    0.9456
    ],
    "hidden": true,
-   "stable": true,
+   "stable": false,
    "no_overlap": true,
    "mug_touches_door": false,
    "door_deg": 0.057,
    "door_shut": true,
-   "pass": true
+   "pass": false
   },
   {
    "state": 1,
@@ -63,8 +63,8 @@
    "drift_mm": 0.01,
    "deepest_penetration_mm": 0.01,
    "object_pos": [
-    -0.0434,
-    0.3494,
+    -0.0481,
+    0.3468,
     0.9451
    ],
    "hidden": true,
@@ -77,6 +77,78 @@
   },
   {
    "state": 3,
+   "warmstart_cleared": false,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 3.18,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0431,
+    0.3536,
+    0.9456
+   ],
+   "hidden": true,
+   "stable": false,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false
+  },
+  {
+   "state": 4,
+   "warmstart_cleared": false,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 3.04,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.052,
+    0.3579,
+    0.9456
+   ],
+   "hidden": true,
+   "stable": false,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false
+  },
+  {
+   "state": 5,
+   "warmstart_cleared": false,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0595,
+    0.3454,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true
+  },
+  {
+   "state": 6,
    "warmstart_cleared": false,
    "door_qpos": -0.001,
    "closed": true,
@@ -100,7 +172,7 @@
    "pass": true
   },
   {
-   "state": 4,
+   "state": 7,
    "warmstart_cleared": false,
    "door_qpos": -0.001,
    "closed": true,
@@ -124,7 +196,7 @@
    "pass": true
   },
   {
-   "state": 5,
+   "state": 8,
    "warmstart_cleared": false,
    "door_qpos": -0.001,
    "closed": true,
@@ -148,7 +220,7 @@
    "pass": true
   },
   {
-   "state": 6,
+   "state": 9,
    "warmstart_cleared": false,
    "door_qpos": -0.001,
    "closed": true,
@@ -172,78 +244,6 @@
    "pass": true
   },
   {
-   "state": 7,
-   "warmstart_cleared": false,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0425,
-    0.355,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true
-  },
-  {
-   "state": 8,
-   "warmstart_cleared": false,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0538,
-    0.3429,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true
-  },
-  {
-   "state": 9,
-   "warmstart_cleared": false,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.048,
-    0.3438,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true
-  },
-  {
    "state": 0,
    "warmstart_cleared": true,
    "door_qpos": -0.001,
@@ -303,8 +303,8 @@
    "drift_mm": 0.01,
    "deepest_penetration_mm": 0.01,
    "object_pos": [
-    -0.0434,
-    0.3494,
+    -0.0481,
+    0.3468,
     0.9451
    ],
    "hidden": true,
@@ -327,8 +327,8 @@
    "drift_mm": 0.01,
    "deepest_penetration_mm": 0.01,
    "object_pos": [
-    -0.0418,
-    0.3511,
+    -0.0434,
+    0.3494,
     0.9451
    ],
    "hidden": true,
@@ -341,6 +341,78 @@
   },
   {
    "state": 4,
+   "warmstart_cleared": true,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0523,
+    0.3544,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true
+  },
+  {
+   "state": 5,
+   "warmstart_cleared": true,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 0.01,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0595,
+    0.3454,
+    0.9451
+   ],
+   "hidden": true,
+   "stable": true,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": true
+  },
+  {
+   "state": 6,
+   "warmstart_cleared": true,
+   "door_qpos": -0.001,
+   "closed": true,
+   "inside": true,
+   "goal_false": true,
+   "pixels_agentview": 0,
+   "pixels_wrist": 0,
+   "drift_mm": 3.69,
+   "deepest_penetration_mm": 0.01,
+   "object_pos": [
+    -0.0415,
+    0.3555,
+    0.9457
+   ],
+   "hidden": true,
+   "stable": false,
+   "no_overlap": true,
+   "mug_touches_door": false,
+   "door_deg": 0.057,
+   "door_shut": true,
+   "pass": false
+  },
+  {
+   "state": 7,
    "warmstart_cleared": true,
    "door_qpos": -0.001,
    "closed": true,
@@ -364,7 +436,7 @@
    "pass": true
   },
   {
-   "state": 5,
+   "state": 8,
    "warmstart_cleared": true,
    "door_qpos": -0.001,
    "closed": true,
@@ -388,78 +460,6 @@
    "pass": true
   },
   {
-   "state": 6,
-   "warmstart_cleared": true,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 4.07,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0531,
-    0.3561,
-    0.9458
-   ],
-   "hidden": true,
-   "stable": false,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": false
-  },
-  {
-   "state": 7,
-   "warmstart_cleared": true,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0425,
-    0.355,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true
-  },
-  {
-   "state": 8,
-   "warmstart_cleared": true,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0538,
-    0.3429,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true
-  },
-  {
    "state": 9,
    "warmstart_cleared": true,
    "door_qpos": -0.001,
@@ -471,8 +471,8 @@
    "drift_mm": 0.01,
    "deepest_penetration_mm": 0.01,
    "object_pos": [
-    -0.048,
-    0.3438,
+    -0.0535,
+    0.3513,
     0.9451
    ],
    "hidden": true,

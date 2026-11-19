@@ -1,0 +1,273 @@
+{
+ "per_state": [
+  {
+   "state": 0,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 41.1,
+   "angle_n": 572,
+   "width_mae_m": 0.1305,
+   "width_bias_m": 0.0062,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 1,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 39.8,
+   "angle_n": 568,
+   "width_mae_m": 0.1307,
+   "width_bias_m": 0.0083,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 2,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 40.0,
+   "angle_n": 574,
+   "width_mae_m": 0.1253,
+   "width_bias_m": 0.012,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 3,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 38.6,
+   "angle_n": 575,
+   "width_mae_m": 0.1229,
+   "width_bias_m": 0.0127,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 4,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 39.0,
+   "angle_n": 572,
+   "width_mae_m": 0.1228,
+   "width_bias_m": 0.0151,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 5,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 40.7,
+   "angle_n": 567,
+   "width_mae_m": 0.1272,
+   "width_bias_m": 0.0095,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 6,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 38.9,
+   "angle_n": 570,
+   "width_mae_m": 0.1223,
+   "width_bias_m": 0.014,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 7,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 39.1,
+   "angle_n": 575,
+   "width_mae_m": 0.1205,
+   "width_bias_m": 0.0144,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 8,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 39.2,
+   "angle_n": 575,
+   "width_mae_m": 0.1284,
+   "width_bias_m": 0.0065,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  },
+  {
+   "state": 9,
+   "box_B": [
+    [
+     -0.461,
+     0.191,
+     0.9
+    ],
+    [
+     0.166,
+     0.396,
+     1.109
+    ]
+   ],
+   "t_open_gt": 105,
+   "t_open_hat": 13,
+   "open_dt": -92,
+   "angle_mae_deg": 39.5,
+   "angle_n": 572,
+   "width_mae_m": 0.1264,
+   "width_bias_m": 0.01,
+   "t_mug_visible_gt": 61,
+   "t_blob": 0,
+   "blob_dt": -61,
+   "blob_false_alarm": true
+  }
+ ],
+ "verdict": {
+  "open_signal_within_10": 0,
+  "angle_mae_le_10": 0,
+  "width_mae_mean_m": 0.1257,
+  "width_bias_mean_m": 0.0109,
+  "blob_within_20": 0,
+  "blob_false_alarms": 10,
+  "n": 10
+ }
+}

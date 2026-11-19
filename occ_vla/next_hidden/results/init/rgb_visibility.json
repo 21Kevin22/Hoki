@@ -4,12 +4,12 @@
  "rows": [
   {
    "state": 0,
-   "rgb_mug_pixels_agentview": 7,
+   "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0
   },
   {
    "state": 1,
-   "rgb_mug_pixels_agentview": 17,
+   "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0
   },
   {
@@ -29,7 +29,7 @@
   },
   {
    "state": 5,
-   "rgb_mug_pixels_agentview": 1,
+   "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0
   },
   {
@@ -44,7 +44,7 @@
   },
   {
    "state": 8,
-   "rgb_mug_pixels_agentview": 18,
+   "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0
   },
   {

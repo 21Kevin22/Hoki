@@ -1,0 +1,14 @@
+{
+ "suite": "libero_goal",
+ "task_id": 0,
+ "task": "open the middle drawer of the cabinet",
+ "episode": 0,
+ "success": true,
+ "steps": 182,
+ "max_steps": 300,
+ "wall_s": 9.9,
+ "n_infer": 35,
+ "mean_infer_s": 0.147,
+ "seed": 7,
+ "render": "egl"
+}

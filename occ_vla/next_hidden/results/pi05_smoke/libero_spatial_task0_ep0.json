@@ -1,0 +1,14 @@
+{
+ "suite": "libero_spatial",
+ "task_id": 0,
+ "task": "pick up the black bowl between the plate and the ramekin and place it on the plate",
+ "episode": 0,
+ "success": true,
+ "steps": 110,
+ "max_steps": 220,
+ "wall_s": 26.0,
+ "n_infer": 21,
+ "mean_infer_s": 1.066,
+ "seed": 7,
+ "render": "egl"
+}

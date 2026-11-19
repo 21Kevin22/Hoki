@@ -15,6 +15,10 @@
 | `scripts/scripted_expert.py` | 6-2：正解の位置を使う手本（開ける→取っ手をつまむ→出す→皿に置く）、扉の角度と入口の幅 |
 | `scripts/run_gate_6_1_6_2.sh` | 6-1 と 6-2 を通しで実行 |
 | `scripts/instruction_table.py` | 6-3：候補の指示文と学習の 40 タスクの対応 |
+| `scripts/glass_depth_check.py` | 扉のガラスが RGB・深度でどう写るか（不透明度 0.25 と 1.0） |
+| `scripts/serve_pi05.sh`, `scripts/pi05_official_smoke.py`, `scripts/gpu_peak_sampler.sh` | 6-4：π0.5 のサーバー（GPU 1 枚、先取りなし）、公式タスク 1 本ずつ、1 秒ごとの GPU メモリ |
+| `scripts/map_signals.py` | (i)：手本の記録を再生し、深度の地図から扉の角度・入口の幅・中の塊を出して正解と比べる |
+| `scripts/safety_replay.py` | (ii)：同じ記録に StowSafe の安全層を当て、止めすぎ・見逃しを数える |
 
 ```bash
 source /home/ubuntu/slocal1/third_party/stowsafe_env.sh   # LIBERO + MuJoCo(EGL)
@@ -23,6 +27,8 @@ bash scripts/monitor.sh results/monitor.log &
 RENDER_GPU=2 bash scripts/run_gate_6_1_6_2.sh      # 6-1 + 6-2（方策なし、描画のみ EGL）
 python scripts/make_manifest.py task bddl scripts --out MANIFEST.json
 ```
+
+6-4 のクライアントは LIBERO の venv に `PYTHONPATH=/home/ubuntu/slocal1/third_party/openpi_client_site` を足して動かす（StowSafe の venv には入れていない）。
 
 決まり（抜粋）：1 プロセス 1 GPU（`CUDA_VISIBLE_DEVICES`）、π0.5 は `XLA_PYTHON_CLIENT_PREALLOCATE=false`、
 Qwen と π0.5 を同じ時間に同じ GPU に載せない、まず 1 枚・1 本で最大メモリと時間を測る。

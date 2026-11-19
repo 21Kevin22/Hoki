@@ -1,7 +1,7 @@
 {
  "bddl": "KITCHEN_SCENE6_take_the_yellow_and_white_mug_out_of_the_microwave_and_put_it_on_the_plate.bddl",
  "kept": 10,
- "tried": 21,
+ "tried": 16,
  "render": "egl",
  "checks": [
   {
@@ -34,7 +34,7 @@
    "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
    "rgb_hidden": true,
-   "seconds": 22.1
+   "seconds": 22.4
   },
   {
    "seed": 1,
@@ -63,7 +63,7 @@
     0.01,
     0.01
    ],
-   "seconds": 19.0
+   "seconds": 19.4
   },
   {
    "seed": 2,
@@ -95,7 +95,7 @@
    "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
    "rgb_hidden": true,
-   "seconds": 22.0
+   "seconds": 25.0
   },
   {
    "seed": 3,
@@ -118,16 +118,16 @@
    "mug_touches_door": false,
    "door_deg": 0.057,
    "door_shut": true,
-   "pass": false,
+   "pass": true,
    "reload_drift_mm": [
     0.01,
     0.01,
     0.01
    ],
-   "rgb_mug_pixels_agentview": 7,
+   "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
-   "rgb_hidden": false,
-   "seconds": 21.9
+   "rgb_hidden": true,
+   "seconds": 22.8
   },
   {
    "seed": 4,
@@ -159,7 +159,7 @@
    "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
    "rgb_hidden": true,
-   "seconds": 21.8
+   "seconds": 26.2
   },
   {
    "seed": 5,
@@ -188,7 +188,7 @@
     3.2,
     3.12
    ],
-   "seconds": 19.3
+   "seconds": 20.2
   },
   {
    "seed": 6,
@@ -211,16 +211,16 @@
    "mug_touches_door": false,
    "door_deg": 0.057,
    "door_shut": true,
-   "pass": false,
+   "pass": true,
    "reload_drift_mm": [
     0.01,
     0.01,
     0.01
    ],
-   "rgb_mug_pixels_agentview": 6,
+   "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
-   "rgb_hidden": false,
-   "seconds": 22.3
+   "rgb_hidden": true,
+   "seconds": 23.3
   },
   {
    "seed": 7,
@@ -249,7 +249,7 @@
     0.01,
     3.09
    ],
-   "seconds": 19.2
+   "seconds": 20.1
   },
   {
    "seed": 8,
@@ -272,16 +272,16 @@
    "mug_touches_door": false,
    "door_deg": 0.057,
    "door_shut": true,
-   "pass": false,
+   "pass": true,
    "reload_drift_mm": [
     0.01,
     0.01,
     0.01
    ],
-   "rgb_mug_pixels_agentview": 23,
+   "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
-   "rgb_hidden": false,
-   "seconds": 22.3
+   "rgb_hidden": true,
+   "seconds": 22.1
   },
   {
    "seed": 9,
@@ -310,7 +310,7 @@
     0.01,
     0.03
    ],
-   "seconds": 19.5
+   "seconds": 19.3
   },
   {
    "seed": 10,
@@ -371,7 +371,7 @@
     3.92,
     3.64
    ],
-   "seconds": 19.3
+   "seconds": 19.2
   },
   {
    "seed": 12,
@@ -400,7 +400,7 @@
     0.01,
     0.01
    ],
-   "seconds": 19.2
+   "seconds": 19.4
   },
   {
    "seed": 13,
@@ -432,7 +432,7 @@
    "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
    "rgb_hidden": true,
-   "seconds": 22.2
+   "seconds": 22.5
   },
   {
    "seed": 14,
@@ -496,164 +496,7 @@
    "rgb_mug_pixels_agentview": 0,
    "rgb_mug_pixels_robot0_eye_in_hand": 0,
    "rgb_hidden": true,
-   "seconds": 22.3
-  },
-  {
-   "seed": 16,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0425,
-    0.355,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true,
-   "reload_drift_mm": [
-    0.01,
-    0.01,
-    0.01
-   ],
-   "rgb_mug_pixels_agentview": 0,
-   "rgb_mug_pixels_robot0_eye_in_hand": 0,
-   "rgb_hidden": true,
-   "seconds": 22.2
-  },
-  {
-   "seed": 17,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0427,
-    0.3346,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": false,
-   "reload_drift_mm": [
-    0.01,
-    0.03,
-    0.01
-   ],
-   "seconds": 19.4
-  },
-  {
-   "seed": 18,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0617,
-    0.3439,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": false,
-   "reload_drift_mm": [
-    0.01,
-    0.01,
-    0.01
-   ],
-   "rgb_mug_pixels_agentview": 22,
-   "rgb_mug_pixels_robot0_eye_in_hand": 0,
-   "rgb_hidden": false,
-   "seconds": 22.4
-  },
-  {
-   "seed": 19,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.0538,
-    0.3429,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true,
-   "reload_drift_mm": [
-    0.01,
-    0.01,
-    0.01
-   ],
-   "rgb_mug_pixels_agentview": 0,
-   "rgb_mug_pixels_robot0_eye_in_hand": 0,
-   "rgb_hidden": true,
-   "seconds": 21.9
-  },
-  {
-   "seed": 20,
-   "door_qpos": -0.001,
-   "closed": true,
-   "inside": true,
-   "goal_false": true,
-   "pixels_agentview": 0,
-   "pixels_wrist": 0,
-   "drift_mm": 0.01,
-   "deepest_penetration_mm": 0.01,
-   "object_pos": [
-    -0.048,
-    0.3438,
-    0.9451
-   ],
-   "hidden": true,
-   "stable": true,
-   "no_overlap": true,
-   "mug_touches_door": false,
-   "door_deg": 0.057,
-   "door_shut": true,
-   "pass": true,
-   "reload_drift_mm": [
-    0.01,
-    0.01,
-    0.01
-   ],
-   "rgb_mug_pixels_agentview": 0,
-   "rgb_mug_pixels_robot0_eye_in_hand": 0,
-   "rgb_hidden": true,
-   "seconds": 22.2
+   "seconds": 22.5
   }
  ]
 }

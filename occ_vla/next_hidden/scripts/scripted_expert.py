@@ -45,6 +45,7 @@ class Runner:
     def __init__(self, env, save_every):
         self.env, self.save_every = env, save_every
         self.log, self.frames, self.k = [], [], 0
+        self.traj_states, self.traj_actions = [], []     # for the policy-free replays in (i)/(ii)
         m = self.m = env.sim.model._model
         self.d = env.sim.data._data
         self.robot_b = {i for i in range(m.nbody) if m.body(i).name.startswith(("robot0", "gripper0"))}
@@ -104,6 +105,8 @@ class Runner:
     def step(self, a, phase):
         self._cur = phase
         obs, rew, done, info = self.env.step(a)
+        self.traj_states.append(self.env.sim.get_state().flatten().copy())
+        self.traj_actions.append(np.asarray(a, dtype=np.float32).copy())
         px = {c: int(np.isin(obs[f"{c}_segmentation_element"][..., 0], self.mug_g).sum()) for c in CAMS}
         mw, oth, mug, mug_mw = self.contacts()
         self.log.append(dict(k=self.k, phase=phase, door_deg=round(float(np.degrees(-self.door())), 1),
@@ -250,6 +253,10 @@ def main():
                                                                 if e["phase"].startswith("take:slide")),
                    robot_other_object_contact_steps=sum(e["robot_other_contacts"] > 0 for e in L), render="egl")
     json.dump(dict(summary=summary, log=L), open(os.path.join(out, f"state{args.state}.json"), "w"), indent=1)
+    # MuJoCo state after every step (replays are exact by set_state; re-executing actions is not, see RESULTS)
+    np.savez_compressed(os.path.join(out, f"state{args.state}_traj.npz"), states=np.array(r.traj_states),
+                        actions=np.array(r.traj_actions), phases=np.array([e["phase"] for e in L]),
+                        door_deg=np.array([e["door_deg"] for e in L]))
     if hasattr(r, "_seen_through"):
         Image.fromarray(r._seen_through).save(os.path.join(out, f"state{args.state}_visible_door_closed.png"))
     sel = r.frames[:: max(1, len(r.frames) // 8)][:8]

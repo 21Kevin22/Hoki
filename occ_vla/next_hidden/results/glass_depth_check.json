@@ -1,0 +1,25 @@
+{
+ "state": 0,
+ "note": "same physical state re-rendered; no stepping between views",
+ "cameras": {
+  "agentview": {
+   "glass_pixels": 249,
+   "depth_on_glass_px_median_m": {
+    "alpha025": 1.018,
+    "opaque": 0.9461,
+    "no_glass": 1.018
+   },
+   "frac_glass_px_where_alpha025_depth_equals_no_glass": 1.0,
+   "frac_glass_px_where_alpha025_depth_equals_opaque": 0.048,
+   "rgb_px_changed_by_mug_alpha025": 1,
+   "rgb_px_changed_by_mug_opaque": 0,
+   "depth_px_changed_by_mug_alpha025": 0
+  },
+  "robot0_eye_in_hand": {
+   "glass_pixels": 0,
+   "rgb_px_changed_by_mug_alpha025": 0,
+   "rgb_px_changed_by_mug_opaque": 0,
+   "depth_px_changed_by_mug_alpha025": 0
+  }
+ }
+}

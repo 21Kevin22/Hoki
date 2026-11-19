@@ -1,5 +1,5 @@
 """6-1 addendum: is the mug visible in the RGB images (what a policy sees), not just in segmentation?
-The microwave door has a glass window (material alpha 0.25): segmentation renders it opaque, RGB does not.
+LIBERO's microwave door glass has alpha 0.25 (segmentation: opaque, RGB: see-through); the task env makes it opaque.
 For each init state: render RGB at 256x256 (the policy's render size) normally and with every mug geom made
 fully transparent; count pixels whose max channel difference > THRESH. Writes results/init/rgb_visibility.json
 and, per state, a [normal | mug hidden | |diff|x4] strip."""
@@ -8,13 +8,12 @@ import numpy as np
 from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_init_states import HERE, OBJ, CAMS, zero_steps
-from libero.libero.envs import OffScreenRenderEnv
-from build_init_states import BDDL
+from build_init_states import BDDL, OpaqueGlassEnv
 THRESH = 10
 
 
 def make_rgb_env():
-    return OffScreenRenderEnv(bddl_file_name=BDDL, camera_heights=256, camera_widths=256, camera_names=CAMS)
+    return OpaqueGlassEnv(bddl_file_name=BDDL, camera_heights=256, camera_widths=256, camera_names=CAMS)
 
 
 def rgb_mug_pixels(env, state, save_prefix=None):

@@ -52,9 +52,33 @@ def zero_steps(env, n):
     return obs
 
 
-def make_env(res=128):
-    return OffScreenRenderEnv(bddl_file_name=BDDL, camera_heights=res, camera_widths=res,
-                              camera_segmentations="element", camera_names=CAMS)
+OPAQUE_MATERIALS = ("microwave_1_micro_window",)   # door glass: alpha 0.25 in LIBERO's microwave.xml
+
+
+class OpaqueGlassEnv(OffScreenRenderEnv):
+    """The task's env: LIBERO's OffScreenRenderEnv with the microwave door glass made opaque (alpha 1).
+
+    Why (PREREG_next.md, 2026-11-19): with alpha 0.25 the mug inside the closed microwave is visible in RGB through
+    the door (wrist camera while the arm moves; 1-18 px in the third-person camera at some init states), which
+    breaks the premise "the object is inside a closed container and cannot be seen". Rendering only: the glass is a
+    visual mesh (contype 0); the door's collision box is untouched. robosuite rebuilds the MuJoCo model on every
+    reset(), so the patch is re-applied after each reset and the reset observation is re-rendered.
+    """
+
+    def _patch(self):
+        m = self.env.sim.model._model
+        for name in OPAQUE_MATERIALS:
+            m.mat_rgba[m.material(name).id, 3] = 1.0
+
+    def reset(self):
+        super().reset()
+        self._patch()
+        return self.env._get_observations(force_update=True)
+
+
+def make_env(res=128, depth=False):
+    return OpaqueGlassEnv(bddl_file_name=BDDL, camera_heights=res, camera_widths=res,
+                          camera_segmentations="element", camera_names=CAMS, camera_depths=depth)
 
 
 def check_state(env, obs, p0, p1):

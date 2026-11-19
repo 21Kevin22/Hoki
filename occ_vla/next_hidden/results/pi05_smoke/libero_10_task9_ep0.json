@@ -1,0 +1,14 @@
+{
+ "suite": "libero_10",
+ "task_id": 9,
+ "task": "put the yellow and white mug in the microwave and close it",
+ "episode": 0,
+ "success": true,
+ "steps": 250,
+ "max_steps": 520,
+ "wall_s": 13.3,
+ "n_infer": 49,
+ "mean_infer_s": 0.147,
+ "seed": 7,
+ "render": "egl"
+}

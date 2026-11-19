@@ -1,0 +1,7 @@
+# videos, run logs (contain hostname / internal IP), monitor state files
+*.mp4
+results/logs/
+results/monitor.log
+results/STOP_NEW_EPISODES
+results/last_episode_done
+__pycache__/
