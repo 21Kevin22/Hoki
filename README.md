@@ -1,114 +1,47 @@
-# DELTA: Decomposed Efficient Long-Term Robot Task Planning using Large Language Models
+# Hoki — making frozen vision-language-action policies robust to occlusion and collision
 
-This repository is the python implementation for the paper [DELTA: Decomposed Efficient Long-Term Robot Task Planning using Large Language Models](https://arxiv.org/abs/2404.03275), which is accepted at IEEE International Conference on Robotics & Automation (ICRA) 2025.
+Research code by [21Kevin22](https://github.com/21Kevin22). Work in progress.
 
-DELTA uses pre-trained LLMs (GPT and Llama families) to automatically:
+Vision-language-action (VLA) policies such as [OpenVLA-OFT](https://openvla-oft.github.io/) and
+[π0.5](https://github.com/Physical-Intelligence/openpi) solve many tabletop manipulation tasks, but they fail when the
+target is hidden from a camera, or when the arm has to work in tight spaces next to other objects. This repository studies
+how to add that robustness **around a frozen policy**, without retraining it: modules that see what the policy cannot,
+and a safety layer that keeps the robot from hitting things.
 
-- Generate a PDDL domain file given a natural language description of the domain knowledge
-- Prune the 3D Scene Graph (3DSG) by only keeping the task-relevant items
-- Generate a PDDL problem file given a natural language description of the task goal and a 3DSG representing the environment
-- Decompose the long-term task goal into a sequence of sub-goals, such that an automated task planner can solve the corresponding sub-problems more efficiently
+The experiments run in simulation on [LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO) and on
+[LIBERO-Occ](https://arxiv.org/abs/2606.10862), a LIBERO variant in which objects are hidden by occluders.
 
-The code is implemented in Python 3.8.17.
+## Research threads
 
-Project webpage: https://delta-llm.github.io/
+| Thread | Where | What it asks |
+|---|---|---|
+| Occlusion recovery for OpenVLA-OFT | [`occ_vla/thirdparty/openvla-oft/`](occ_vla/thirdparty/openvla-oft/) | Why does OpenVLA-OFT fail under occlusion, and can a mid-layer module that rewrites occluded image tokens recover it? Separates visual occlusion from physical interference with the occluder (e.g. rendering the occluder without its collision). |
+| Occlusion-aware π0.5 system | [`occ_vla/src/occ_vla/`](occ_vla/src/occ_vla/) | π0.5 as the control backbone, with a world model (MMaDA-8B) that imagines the arm-free scene, kinematic extrapolation of hidden targets (PKLP), and gated action blending. |
+| Hidden objects inside containers | [`occ_vla/next_hidden/`](occ_vla/next_hidden/) (branch `next-hidden-microwave`) | Can a frozen π0.5 retrieve a mug from a closed microwave? Includes a new LIBERO task, a scripted solvability check, and policy-free checks of depth-map signals and of a safety layer at a narrow opening. Pre-registered (`PREREG_next.md`), results in `RESULTS_next.md`. |
+| VLM-based replanning | [`vlm_replan_lab/`](vlm_replan_lab/) | Perception, reasoning and replanning loop around a manipulation policy. |
+| LLM task planning (inherited) | repository root, [`baselines/`](baselines/) | The DELTA code this repository was forked from: LLM-generated PDDL and 3D-scene-graph task planning. Usage: [`docs/DELTA.md`](docs/DELTA.md). |
 
-<img src="data/images/delta_sys_overview.png" alt="system"/>
+Each thread keeps its own notes, scripts and result files in its directory. **Results are preliminary**; numbers should be
+cited only from the result files they come from (for example `occ_vla/thirdparty/openvla-oft/NUMBERS_REFERENCE.md`), not
+from this overview.
 
-## Usage from source
+## Getting started
 
-#### Create a virtual environment
+Each thread has its own environment, because the policies need incompatible dependency stacks (OpenVLA-OFT, openpi/JAX
+for π0.5, MMaDA). Start from the README of the thread you need:
 
-Assuming you have already installed Anaconda, run the following command to create a conda environment with Python 3.8:
+- OpenVLA-OFT: [`occ_vla/thirdparty/openvla-oft/SETUP.md`](occ_vla/thirdparty/openvla-oft/SETUP.md), [`LIBERO.md`](occ_vla/thirdparty/openvla-oft/LIBERO.md)
+- π0.5 system: [`occ_vla/README.md`](occ_vla/README.md)
+- Closed-container exploration: `occ_vla/next_hidden/README.md` (on branch `next-hidden-microwave`)
+- DELTA planning code: [`docs/DELTA.md`](docs/DELTA.md)
 
-```
-conda create -n delta python=3.8
-```
+## Credits and license
 
-#### Access to the LLMs
+This repository started as a fork of **DELTA: Decomposed Efficient Long-Term Robot Task Planning using Large Language
+Models** (Yuchen Liu, Luigi Palmieri et al., Robert Bosch GmbH; [paper](https://arxiv.org/abs/2404.03275),
+[project page](https://delta-llm.github.io/)), released under the GNU Affero General Public License v3.0.
+The DELTA code, its [`LICENSE`](LICENSE), copyright holders ([`NOTICE`](NOTICE)) and third-party notices
+([`3rd_party_licenses.md`](3rd_party_licenses.md)) are kept unchanged.
 
-The code inferences the GPT models via [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/). For using the Azure OpenAI API, please first apply for the access, then obtain the end point and API key from [Azure OpenAI Studio](https://oai.azure.com/portal). Create a `.env` file in the root folder and place the your key and end point there:
-
-```
-AZURE_API_KEY = "YOUR_AZURE_API_KEY"
-AZURE_ENDPOINT = "https://YOUR_AZURE_ENDPOINT.openai.azure.com/"
-```
-
-If your wish to use the regular [OpenAI API](https://platform.openai.com/docs/api-reference/introduction), please adjust the corresponding part in the `__init()__` function of the `GPT` class in file `llm.py`.
-
-To use the Llama models, create a Hugging Face account and getting access to [Hugging Face Llama 3.1 repository](https://huggingface.co/collections/meta-llama/llama-31-669fc079a0c406a149a5738f). Generate [access tokens](https://huggingface.co/settings/tokens) and use it to log in to your Hugging Face account:
-
-```
-pip install -U "huggingface_hub[cli]"
-huggingface-cli login --token YOUR_HF_TOKEN
-```
-
-By default the models weights will be downloaded and stored in `~/.cache/huggingface/`. If you wish to store the models weights in a different directory, please execute the following command:
-
-```
-export HF_HOME=/YOUR_DESIRED_DIR/
-```
-
-#### Installing dependencies
-
-First execute `pip install -r requirements.txt` to install the required packages.
-
-Clone the [PDDLGym Planners](https://github.com/ronuchit/pddlgym_planners) repository and install from source.
-
-```
-pip install -e .
-```
-
-Install the PDDL validator [VAL](https://github.com/KCL-Planning/VAL) with the following commands (reference [here](https://github.com/KCL-Planning/VAL/issues/55)):
-
-```
-git clone https://github.com/KCL-Planning/VAL.git
-VAL/scripts/linux/build_linux64.sh all Release
-sudo tar -xzvf VAL/build/linux64/Release/Val--Linux.tar.gz -C /usr/local --strip-components=1
-```
-
-#### Running experiments of DELTA
-
-For reproducing the results of DELTA with all evaluation domains, please run the bash script:
-
-```
-bash scripts/run_delta.sh
-```
-
-You may also directly run the source file of DELTA `python delta.py -h` with the `-h` flag to see more options for specifying the experiments, LLMs, domains, problems, and other parameters.
-
-#### Running experiments of other baselines
-
-The scripts for evaluating other baselines can also be found in the `/scripts` folder. You can find the source files of the baselines in the `/baselines` folder.
-
-#### Evaluation results
-
-After running the experiments, the log files are saved in the `/result` folder. Execute the following command to print the evaluation results (replace `YOUR_LOG_PATH` with the desired path of the log files):
-
-```
-python eval.py -f result/YOUR_LOG_PATH/log.csv
-```
-
-## Maintainers and Contributors
-
-Current maintainer: [Yuchen Liu](yuchen.liu2@de.bosch.com)
-
-Contributor: [Luigi Palmieri](luigi.palmieri@de.bosch.com)
-
-## 3rd Party Licenses
-
-This package depends on an open-source dataset and several open-source software. Following a list of the external dataset and software libraries:
-
-[3DSceneGraph](https://github.com/StanfordVL/3DSceneGraph)
-[LLM-GenPlan](https://github.com/tomsilver/llm-genplan)
-
-## Citation
-
-```
-@article{liu2024delta,
-  title={Delta: Decomposed efficient long-term robot task planning using large language models},
-  author={Liu, Yuchen and Palmieri, Luigi and Koch, Sebastian and Georgievski, Ilche and Aiello, Marco},
-  journal={arXiv preprint arXiv:2404.03275},
-  year={2024}
-}
-```
+Vendored third-party code keeps its own license in its directory, including OpenVLA-OFT
+(`occ_vla/thirdparty/openvla-oft/LICENSE`), Discrete Diffusion VLA (`DiscreteDiffusionVLA/LICENSE`) and LIBERO (`LIBERO/`).
