@@ -4,15 +4,15 @@ give the safety layer the observation and the expert's command u at every step, 
 recording has a robot contact with the microwave (except the handle bar) or a non-target object in t+1..t+5.
 Classes: justified / over-conservative (correction, no collision) / miss (no correction, collision).
 Versions = existing main-line modes, unchanged (PREREG_next.md (ii)). Writes results/safety_replay/<mode>.json.
-Usage: python scripts/safety_replay.py --mode safety|named_A [--states 0-9]"""
+Usage: python scripts/safety_replay.py --mode safety|named_A|hand_aff|hand_aff_fresh [--states 0-9]"""
 import argparse, collections, json, os, sys
 import numpy as np
 SS = "/home/ubuntu/slocal1/third_party/stowsafe_kit_v4/stowsafe"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); sys.path.insert(0, SS); sys.path.insert(0, os.path.join(SS, "integration"))
 from build_init_states import HERE, make_env
 from stowsafe import StowSafe
-from stowsafe.roles import SplitRolePoints
-from run_oft_stowsafe import MODES, SPLIT_ROLES
+from stowsafe.roles import SplitRolePoints, AffordancePoints, RolePoints, articulated_sweep_boxes, named_drawer
+from run_oft_stowsafe import MODES, SPLIT_ROLES, AFFORDANCE_MODES, ROLES_FROM_SIMULATOR
 
 CORR, HORIZON = 0.05, 5
 INSTRUCTION = "take the yellow and white mug out of the microwave and put it on the plate"
@@ -33,13 +33,24 @@ def run(k, mode, env):
     cfg = MODES[mode]
     guard = StowSafe(env, obs, cfg, instruction=INSTRUCTION)
     m, d = env.sim.model._model, env.sim.data._data
-    split = SplitRolePoints(m, tuple(env.env.obj_of_interest), SPLIT_ROLES[mode]) if mode in SPLIT_ROLES else None
+    ooi = tuple(env.env.obj_of_interest)
+    # role / affordance wiring copied from the main-line integration/run_oft_stowsafe.py (same order, same calls)
+    aff = AffordancePoints(m, ooi, INSTRUCTION) if mode in AFFORDANCE_MODES else None
+    if cfg.map.refresh_articulated:
+        nd = named_drawer(m, ooi, INSTRUCTION)
+        guard.set_refresh_boxes(articulated_sweep_boxes(m, d, env.env.sim, ooi, only={nd} if nd else None))
+    split = SplitRolePoints(m, ooi, SPLIT_ROLES[mode]) if mode in SPLIT_ROLES else None
+    roles = RolePoints(m, ooi) if (split is None and mode in ROLES_FROM_SIMULATOR) else None
     rows = []
     for t in range(len(states)):
         env.sim.set_state_from_flattened(prev(t)); env.sim.forward()
         obs = env.env._get_observations(force_update=True)
+        if roles is not None:
+            guard.set_targets(roles(d))
         if split is not None:
             guard.set_roles(*split(d))
+        if aff is not None:
+            guard.set_affordance(*aff(d))
         u = actions[t].astype(float)
         uh = guard.act(obs, u).action
         corr = float(np.linalg.norm(uh[:3] - u[:3]))
