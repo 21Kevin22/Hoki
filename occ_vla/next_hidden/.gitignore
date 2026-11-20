@@ -8,3 +8,6 @@ __pycache__/
 main/runs/*/*.mp4
 main/runs/C0_smoke/
 main/qwen/t0/
+main/runs/*_smoke/
+main/runs/*_diag*/
+main/jobs_diag*.txt

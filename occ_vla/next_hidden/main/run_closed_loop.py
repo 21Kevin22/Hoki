@@ -102,7 +102,9 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
                corrected_steps=int(corr.sum()), branch=dict(branches), miss_steps=miss,
                stalled=stalled(np.array(log["u"]), np.array(log["eef"])),
                filter=None if filt is None else {k: v for k, v in filt.summary().items()
-                                                  if k in ("map_ms", "qp_ms", "unsolved_qp", "replans", "mean_correction")},
+                                                  if k in ("map_ms", "qp_ms", "unsolved_qp", "replans", "mean_correction",
+                                                           "attach_events")},
+               blockers=None if filt is None else [list(map(str, b)) for b in filt.guard.stats.blockers[:30]],
                n_infer=n_inf, mean_infer_s=round(inf_s / max(n_inf, 1), 3), collision=col,
                cf_success=bool(done) and not col["l1"], render=os.environ.get("MUJOCO_GL"),
                held_steps=sum(bool(s["held"]) for s in rec.steps))

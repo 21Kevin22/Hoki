@@ -205,6 +205,39 @@ class OracleMap:
         per.update = update
 
 
+class OracleHeld:
+    """C8: the held object is also ground truth. Held = both fingers touch a target (same rule as the metric,
+    collisions.py); its spheres are fitted to the TRUE surface with StowSafe's own fit (map-based attach is off)."""
+
+    def __init__(self, guard, parts, m, d):
+        from collisions import CollisionRecorder
+        from stowsafe.spheres import fit_spheres_slab
+        self.g, self.m, self.d, self.fit = guard, m, d, fit_spheres_slab
+        self.rec = CollisionRecorder(parts, m, d)
+        self.pts = {}
+        for b in range(m.nbody):
+            n = m.body(b).name
+            if n.endswith("_main") and n[:-5] in parts.target_roots:
+                P = body_surface_points(m, b, include_visual=False, spacing=0.01)
+                self.pts[n[:-5]] = (b, P[np.random.default_rng(0).choice(len(P), min(len(P), 300), replace=False)])
+        guard.held.update = lambda *a, **k: None          # map-based attachment off for the oracle
+        self.current = None
+
+    def step(self, t):
+        held = self.rec._held()
+        h = self.g.held
+        name = next(iter(sorted(held)), None)
+        if name is None and h.attached:
+            h.local_centres = h.radii = None; h.events.append((t, "detach", 0)); self.current = None
+        elif name is not None and name != self.current and name in self.pts:
+            b, P = self.pts[name]
+            W = P @ self.d.xmat[b].reshape(3, 3).T + self.d.xpos[b]
+            R, p = self.d.xmat[h.palm].reshape(3, 3), self.d.xpos[h.palm]
+            local = (W - p) @ R
+            h.local_centres, h.radii = self.fit(local, h.cfg.max_spheres, pad=h.cfg.pad_m)
+            h.events.append((t, "attach_oracle", len(local))); self.current = name
+
+
 class Filter:
     def __init__(self, cond, env, obs, task, params, instruction):
         self.cond = cond
@@ -236,6 +269,7 @@ class Filter:
                                                                      only={jb}))
             if cond == "C8":
                 OracleMap(self.guard, m).install()
+                self.oracle_held = OracleHeld(self.guard, parts, m, d)
 
     def act(self, obs, u):
         if self.split is not None:
@@ -248,6 +282,9 @@ class Filter:
             self.guard.set_interior_boxes([self.interior_fixed])
         elif self.interior is not None and self.cond != "C7":
             self.guard.set_interior_boxes([site_box(self.m, self.d, self.interior)])
+        if getattr(self, "oracle_held", None) is not None:
+            self._t = getattr(self, "_t", 0) + 1
+            self.oracle_held.step(self._t)
         step = self.guard.act(obs, np.asarray(u, float))
         self.last_replan = bool(step.request_replan)
         a = np.asarray(step.action, float)
