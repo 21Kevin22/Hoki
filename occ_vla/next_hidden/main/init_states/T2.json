@@ -1,0 +1,216 @@
+{
+ "task": "T2",
+ "suite": "libero_10",
+ "index": 3,
+ "language": "put the black bowl in the bottom drawer of the cabinet and close it",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0045,
+  "median": 0.010450000000000001
+ },
+ "sha256": "0c301bdce015708f755463e6633e4b32d95ba7ed8e3355f14ed06deeb69ab396",
+ "log": [
+  {
+   "seed": 902000,
+   "min_dist_to_official_m": 0.0067,
+   "kept": true
+  },
+  {
+   "seed": 902001,
+   "min_dist_to_official_m": 0.0163,
+   "kept": true
+  },
+  {
+   "seed": 902002,
+   "min_dist_to_official_m": 0.0122,
+   "kept": true
+  },
+  {
+   "seed": 902003,
+   "min_dist_to_official_m": 0.0098,
+   "kept": true
+  },
+  {
+   "seed": 902004,
+   "min_dist_to_official_m": 0.0073,
+   "kept": true
+  },
+  {
+   "seed": 902005,
+   "min_dist_to_official_m": 0.0089,
+   "kept": true
+  },
+  {
+   "seed": 902006,
+   "min_dist_to_official_m": 0.0117,
+   "kept": true
+  },
+  {
+   "seed": 902007,
+   "min_dist_to_official_m": 0.0075,
+   "kept": true
+  },
+  {
+   "seed": 902008,
+   "min_dist_to_official_m": 0.0095,
+   "kept": true
+  },
+  {
+   "seed": 902009,
+   "min_dist_to_official_m": 0.0045,
+   "kept": true
+  },
+  {
+   "seed": 902010,
+   "min_dist_to_official_m": 0.0107,
+   "kept": true
+  },
+  {
+   "seed": 902011,
+   "min_dist_to_official_m": 0.0074,
+   "kept": true
+  },
+  {
+   "seed": 902012,
+   "min_dist_to_official_m": 0.0055,
+   "kept": true
+  },
+  {
+   "seed": 902013,
+   "min_dist_to_official_m": 0.008,
+   "kept": true
+  },
+  {
+   "seed": 902014,
+   "min_dist_to_official_m": 0.0115,
+   "kept": true
+  },
+  {
+   "seed": 902015,
+   "min_dist_to_official_m": 0.005,
+   "kept": true
+  },
+  {
+   "seed": 902016,
+   "min_dist_to_official_m": 0.0137,
+   "kept": true
+  },
+  {
+   "seed": 902017,
+   "min_dist_to_official_m": 0.0058,
+   "kept": true
+  },
+  {
+   "seed": 902018,
+   "min_dist_to_official_m": 0.0123,
+   "kept": true
+  },
+  {
+   "seed": 902019,
+   "min_dist_to_official_m": 0.0108,
+   "kept": true
+  },
+  {
+   "seed": 902020,
+   "min_dist_to_official_m": 0.0113,
+   "kept": true
+  },
+  {
+   "seed": 902021,
+   "min_dist_to_official_m": 0.0123,
+   "kept": true
+  },
+  {
+   "seed": 902022,
+   "min_dist_to_official_m": 0.0147,
+   "kept": true
+  },
+  {
+   "seed": 902023,
+   "min_dist_to_official_m": 0.0127,
+   "kept": true
+  },
+  {
+   "seed": 902024,
+   "min_dist_to_official_m": 0.0123,
+   "kept": true
+  },
+  {
+   "seed": 902025,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 902026,
+   "min_dist_to_official_m": 0.0086,
+   "kept": true
+  },
+  {
+   "seed": 902027,
+   "min_dist_to_official_m": 0.0141,
+   "kept": true
+  },
+  {
+   "seed": 902028,
+   "min_dist_to_official_m": 0.0076,
+   "kept": true
+  },
+  {
+   "seed": 902029,
+   "min_dist_to_official_m": 0.0056,
+   "kept": true
+  },
+  {
+   "seed": 902030,
+   "min_dist_to_official_m": 0.0106,
+   "kept": true
+  },
+  {
+   "seed": 902031,
+   "min_dist_to_official_m": 0.012,
+   "kept": true
+  },
+  {
+   "seed": 902032,
+   "min_dist_to_official_m": 0.0066,
+   "kept": true
+  },
+  {
+   "seed": 902033,
+   "min_dist_to_official_m": 0.0067,
+   "kept": true
+  },
+  {
+   "seed": 902034,
+   "min_dist_to_official_m": 0.0103,
+   "kept": true
+  },
+  {
+   "seed": 902035,
+   "min_dist_to_official_m": 0.0084,
+   "kept": true
+  },
+  {
+   "seed": 902036,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 902037,
+   "min_dist_to_official_m": 0.0098,
+   "kept": true
+  },
+  {
+   "seed": 902038,
+   "min_dist_to_official_m": 0.0126,
+   "kept": true
+  },
+  {
+   "seed": 902039,
+   "min_dist_to_official_m": 0.0168,
+   "kept": true
+  }
+ ]
+}

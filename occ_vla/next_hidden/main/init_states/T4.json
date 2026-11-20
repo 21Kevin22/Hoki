@@ -1,0 +1,216 @@
+{
+ "task": "T4",
+ "suite": "libero_goal",
+ "index": 0,
+ "language": "open the middle drawer of the cabinet",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0066,
+  "median": 0.0112
+ },
+ "sha256": "ceb5a558fbc9b718b894b8825cb3b684854a954caa0b870eccbe3d11fc70f435",
+ "log": [
+  {
+   "seed": 904000,
+   "min_dist_to_official_m": 0.0105,
+   "kept": true
+  },
+  {
+   "seed": 904001,
+   "min_dist_to_official_m": 0.0076,
+   "kept": true
+  },
+  {
+   "seed": 904002,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 904003,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 904004,
+   "min_dist_to_official_m": 0.0131,
+   "kept": true
+  },
+  {
+   "seed": 904005,
+   "min_dist_to_official_m": 0.0127,
+   "kept": true
+  },
+  {
+   "seed": 904006,
+   "min_dist_to_official_m": 0.0123,
+   "kept": true
+  },
+  {
+   "seed": 904007,
+   "min_dist_to_official_m": 0.011,
+   "kept": true
+  },
+  {
+   "seed": 904008,
+   "min_dist_to_official_m": 0.0087,
+   "kept": true
+  },
+  {
+   "seed": 904009,
+   "min_dist_to_official_m": 0.0137,
+   "kept": true
+  },
+  {
+   "seed": 904010,
+   "min_dist_to_official_m": 0.0119,
+   "kept": true
+  },
+  {
+   "seed": 904011,
+   "min_dist_to_official_m": 0.0084,
+   "kept": true
+  },
+  {
+   "seed": 904012,
+   "min_dist_to_official_m": 0.0095,
+   "kept": true
+  },
+  {
+   "seed": 904013,
+   "min_dist_to_official_m": 0.0118,
+   "kept": true
+  },
+  {
+   "seed": 904014,
+   "min_dist_to_official_m": 0.0097,
+   "kept": true
+  },
+  {
+   "seed": 904015,
+   "min_dist_to_official_m": 0.0076,
+   "kept": true
+  },
+  {
+   "seed": 904016,
+   "min_dist_to_official_m": 0.0135,
+   "kept": true
+  },
+  {
+   "seed": 904017,
+   "min_dist_to_official_m": 0.0159,
+   "kept": true
+  },
+  {
+   "seed": 904018,
+   "min_dist_to_official_m": 0.0106,
+   "kept": true
+  },
+  {
+   "seed": 904019,
+   "min_dist_to_official_m": 0.0093,
+   "kept": true
+  },
+  {
+   "seed": 904020,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 904021,
+   "min_dist_to_official_m": 0.012,
+   "kept": true
+  },
+  {
+   "seed": 904022,
+   "min_dist_to_official_m": 0.01,
+   "kept": true
+  },
+  {
+   "seed": 904023,
+   "min_dist_to_official_m": 0.0066,
+   "kept": true
+  },
+  {
+   "seed": 904024,
+   "min_dist_to_official_m": 0.0108,
+   "kept": true
+  },
+  {
+   "seed": 904025,
+   "min_dist_to_official_m": 0.0117,
+   "kept": true
+  },
+  {
+   "seed": 904026,
+   "min_dist_to_official_m": 0.0114,
+   "kept": true
+  },
+  {
+   "seed": 904027,
+   "min_dist_to_official_m": 0.0092,
+   "kept": true
+  },
+  {
+   "seed": 904028,
+   "min_dist_to_official_m": 0.015,
+   "kept": true
+  },
+  {
+   "seed": 904029,
+   "min_dist_to_official_m": 0.0105,
+   "kept": true
+  },
+  {
+   "seed": 904030,
+   "min_dist_to_official_m": 0.0135,
+   "kept": true
+  },
+  {
+   "seed": 904031,
+   "min_dist_to_official_m": 0.0121,
+   "kept": true
+  },
+  {
+   "seed": 904032,
+   "min_dist_to_official_m": 0.0107,
+   "kept": true
+  },
+  {
+   "seed": 904033,
+   "min_dist_to_official_m": 0.0096,
+   "kept": true
+  },
+  {
+   "seed": 904034,
+   "min_dist_to_official_m": 0.0116,
+   "kept": true
+  },
+  {
+   "seed": 904035,
+   "min_dist_to_official_m": 0.0088,
+   "kept": true
+  },
+  {
+   "seed": 904036,
+   "min_dist_to_official_m": 0.0077,
+   "kept": true
+  },
+  {
+   "seed": 904037,
+   "min_dist_to_official_m": 0.0142,
+   "kept": true
+  },
+  {
+   "seed": 904038,
+   "min_dist_to_official_m": 0.0099,
+   "kept": true
+  },
+  {
+   "seed": 904039,
+   "min_dist_to_official_m": 0.0149,
+   "kept": true
+  }
+ ]
+}

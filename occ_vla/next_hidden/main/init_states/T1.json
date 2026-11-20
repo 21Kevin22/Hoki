@@ -1,0 +1,216 @@
+{
+ "task": "T1",
+ "suite": "libero_10",
+ "index": 9,
+ "language": "put the yellow and white mug in the microwave and close it",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0026,
+  "median": 0.0091
+ },
+ "sha256": "97a3324a29c8672e221fb72221c8680d684fc985082dcc4a9900e8b5c2770e25",
+ "log": [
+  {
+   "seed": 901000,
+   "min_dist_to_official_m": 0.0059,
+   "kept": true
+  },
+  {
+   "seed": 901001,
+   "min_dist_to_official_m": 0.0073,
+   "kept": true
+  },
+  {
+   "seed": 901002,
+   "min_dist_to_official_m": 0.0082,
+   "kept": true
+  },
+  {
+   "seed": 901003,
+   "min_dist_to_official_m": 0.0167,
+   "kept": true
+  },
+  {
+   "seed": 901004,
+   "min_dist_to_official_m": 0.012,
+   "kept": true
+  },
+  {
+   "seed": 901005,
+   "min_dist_to_official_m": 0.007,
+   "kept": true
+  },
+  {
+   "seed": 901006,
+   "min_dist_to_official_m": 0.0114,
+   "kept": true
+  },
+  {
+   "seed": 901007,
+   "min_dist_to_official_m": 0.0123,
+   "kept": true
+  },
+  {
+   "seed": 901008,
+   "min_dist_to_official_m": 0.0124,
+   "kept": true
+  },
+  {
+   "seed": 901009,
+   "min_dist_to_official_m": 0.0103,
+   "kept": true
+  },
+  {
+   "seed": 901010,
+   "min_dist_to_official_m": 0.0036,
+   "kept": true
+  },
+  {
+   "seed": 901011,
+   "min_dist_to_official_m": 0.0069,
+   "kept": true
+  },
+  {
+   "seed": 901012,
+   "min_dist_to_official_m": 0.0066,
+   "kept": true
+  },
+  {
+   "seed": 901013,
+   "min_dist_to_official_m": 0.0053,
+   "kept": true
+  },
+  {
+   "seed": 901014,
+   "min_dist_to_official_m": 0.0093,
+   "kept": true
+  },
+  {
+   "seed": 901015,
+   "min_dist_to_official_m": 0.0112,
+   "kept": true
+  },
+  {
+   "seed": 901016,
+   "min_dist_to_official_m": 0.0062,
+   "kept": true
+  },
+  {
+   "seed": 901017,
+   "min_dist_to_official_m": 0.0091,
+   "kept": true
+  },
+  {
+   "seed": 901018,
+   "min_dist_to_official_m": 0.0115,
+   "kept": true
+  },
+  {
+   "seed": 901019,
+   "min_dist_to_official_m": 0.011,
+   "kept": true
+  },
+  {
+   "seed": 901020,
+   "min_dist_to_official_m": 0.0026,
+   "kept": true
+  },
+  {
+   "seed": 901021,
+   "min_dist_to_official_m": 0.0074,
+   "kept": true
+  },
+  {
+   "seed": 901022,
+   "min_dist_to_official_m": 0.0107,
+   "kept": true
+  },
+  {
+   "seed": 901023,
+   "min_dist_to_official_m": 0.0082,
+   "kept": true
+  },
+  {
+   "seed": 901024,
+   "min_dist_to_official_m": 0.0146,
+   "kept": true
+  },
+  {
+   "seed": 901025,
+   "min_dist_to_official_m": 0.0135,
+   "kept": true
+  },
+  {
+   "seed": 901026,
+   "min_dist_to_official_m": 0.0081,
+   "kept": true
+  },
+  {
+   "seed": 901027,
+   "min_dist_to_official_m": 0.0124,
+   "kept": true
+  },
+  {
+   "seed": 901028,
+   "min_dist_to_official_m": 0.0084,
+   "kept": true
+  },
+  {
+   "seed": 901029,
+   "min_dist_to_official_m": 0.0093,
+   "kept": true
+  },
+  {
+   "seed": 901030,
+   "min_dist_to_official_m": 0.0087,
+   "kept": true
+  },
+  {
+   "seed": 901031,
+   "min_dist_to_official_m": 0.0082,
+   "kept": true
+  },
+  {
+   "seed": 901032,
+   "min_dist_to_official_m": 0.0086,
+   "kept": true
+  },
+  {
+   "seed": 901033,
+   "min_dist_to_official_m": 0.0119,
+   "kept": true
+  },
+  {
+   "seed": 901034,
+   "min_dist_to_official_m": 0.0148,
+   "kept": true
+  },
+  {
+   "seed": 901035,
+   "min_dist_to_official_m": 0.0063,
+   "kept": true
+  },
+  {
+   "seed": 901036,
+   "min_dist_to_official_m": 0.0077,
+   "kept": true
+  },
+  {
+   "seed": 901037,
+   "min_dist_to_official_m": 0.01,
+   "kept": true
+  },
+  {
+   "seed": 901038,
+   "min_dist_to_official_m": 0.0135,
+   "kept": true
+  },
+  {
+   "seed": 901039,
+   "min_dist_to_official_m": 0.0091,
+   "kept": true
+  }
+ ]
+}

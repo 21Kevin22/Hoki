@@ -5,3 +5,5 @@ results/monitor.log
 results/STOP_NEW_EPISODES
 results/last_episode_done
 __pycache__/
+main/runs/*/*.mp4
+main/runs/C0_smoke/
