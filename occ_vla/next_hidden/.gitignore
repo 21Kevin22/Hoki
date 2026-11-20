@@ -7,3 +7,4 @@ results/last_episode_done
 __pycache__/
 main/runs/*/*.mp4
 main/runs/C0_smoke/
+main/qwen/t0/

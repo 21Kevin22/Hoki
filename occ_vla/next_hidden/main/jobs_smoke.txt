@@ -1,0 +1,7 @@
+C4 T1 dev 0-0 smoke {"delta_m": 0.02}
+C1 T1 dev 0-0 smoke
+C2 T1 dev 0-0 smoke
+C3 T1 dev 0-0 smoke
+C5 T1 dev 0-0 smoke
+C6 T1 dev 0-0 smoke {"delta_m": 0.02}
+C8 T1 dev 0-0 smoke {"delta_m": 0.02}

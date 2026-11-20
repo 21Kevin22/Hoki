@@ -158,3 +158,22 @@ stage 0 の結果は別に報告する。この設計は stage 0 の結果に依
       試しで見つけた不具合の修正。基準の値は変えない）。
   (f) 基準値の CF-SR が約 6% で、§6 の検出力の仮定（50% → 70%）と合わない。2 週目の A/A 試験と C4 の開発用の結果で
       計算し直し、評価用を回す前にここへ追記する。
+- 2026-11-20（C7 を回す前に記録。§5 の「質問とプロンプトはここに追記してから回す」）：
+  **C7 の役割の推定**。モデル Qwen2.5-VL-3B-Instruct（HF `Qwen/Qwen2.5-VL-3B-Instruct`、取得したスナップショットの値を MANIFEST に記録）、
+  fp16、`attn_implementation="sdpa"`、貪欲な復号（`do_sample=False`）、`max_new_tokens=200`、入力は 1 枚（下記）なので max_pixels は 256×256。
+  - 入力：各初期状態の、10 ステップの待ちの後の正面カメラの RGB（256×256、上下左右を正しい向きにしたもの）1 枚と、タスクの指示文。
+  - プロンプト（英語、そのまま使う）：
+    "You see a robot workspace. The robot's instruction is: '{instruction}'. Find the container or piece of furniture
+    that the instruction acts on (for example a microwave, one drawer of a cabinet, a compartment of a caddy).
+    Answer ONLY with JSON: {\"container_box\": [x1, y1, x2, y2], \"handle_point\": [x, y] or null,
+    \"front_box\": [x1, y1, x2, y2]}. container_box: the whole container in pixels. handle_point: a point on the handle
+    used to open or close it, null if there is none. front_box: the door, drawer front or opening where objects go in."
+  - 3D への写し方（正解を使わない。深度とカメラの較正だけ）：箱・点の画素の深度を逆投影する。
+    取っ手 ＝ 取っ手の点から 3 cm 以内の深度の点、前面 ＝ front_box の深度の点のうちカメラに近い 10% の深さから 2 cm 以内の点、
+    入れ物の中 ＝ container_box の点の外接箱を、カメラから遠ざかる向きに 15 cm 延ばしたもの（見え方の余裕で手を除外する範囲）。
+    役割：指・手のひら ＝ 対象物（下記）＋取っ手＋前面、持った物 ＝ それ＋container_box の点全体、腕 ＝ なし（C4 と同じ表の形）。
+    対象物の点：C7 でも、対象物そのものが何かはタスクの指示文から決まる（C2〜C4 と同じく対象物の点は正解の形を使う）。推定するのは入れ物の部位だけ。
+  - 回数：初期状態ごとに 1 回（t0）。**推定した部位の位置は t0 のまま固定**で、引き出し・扉が動いても追わない（π0.5 と同時に
+    GPU に載せないため。C7 が引き出しで C4 より不利になりうることは、結果を見る前の限界として書いておく）。
+  - JSON が壊れていた・箱が画像の外：その初期状態は「推定なし」とし、C7 は部位の役割なし（＝ C6 と同じ扱い）で回す。件数を報告する。
+  - 正解との比較：推定した取っ手の 3D 点と本当の取っ手の距離、container_box と本当の入れ物の画素の IoU を、すべての初期状態で報告する。
