@@ -150,7 +150,8 @@ def main():
                              horizon=MAX_STEPS[TASKS[a.task][0]] + 50)    # never truncated before our own limit
     env.seed(7)
     params = json.loads(a.params)
-    twin = None if (a.cond in ("C0", "C0p") or a.no_branch) else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
+    no_branch = a.no_branch or os.environ.get("NO_BRANCH") == "1"      # tuning runs skip the counterfactual
+    twin = None if (a.cond in ("C0", "C0p") or no_branch) else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
     if twin is not None:
         twin.seed(7); twin.reset()
     client = _wcp.WebsocketClientPolicy("127.0.0.1", a.port)

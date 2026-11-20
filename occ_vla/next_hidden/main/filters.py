@@ -57,6 +57,8 @@ def base_config(cond, p):
         c = _C4
     else:
         raise ValueError(cond)
+    # PREREG §7 (2026-11-20): gamma = 0.5 for every filter unless tuned (alpha = 10 at 20 Hz in AEGIS / multi-link)
+    c = dc.replace(c, safety=dc.replace(c.safety, gamma=float(p.get("gamma", 0.5))))
     if "margin_m" in p:              # one margin scale tuned per filter (§7); arm keeps its +1 cm offset if it had one
         s = c.safety
         off = s.margin_arm_m - s.margin_palm_m
