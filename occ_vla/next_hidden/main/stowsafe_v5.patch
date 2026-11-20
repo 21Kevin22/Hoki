@@ -1,0 +1,230 @@
+diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/config.py stowsafe_kit_v5/stowsafe/stowsafe/config.py
+--- stowsafe_kit_v4/stowsafe/stowsafe/config.py	2026-11-10 04:57:08.758536000 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/config.py	2026-11-20 03:51:53.611396721 +0000
+@@ -113,6 +113,11 @@
+                                         #   along the obstacle surface (second QP, same hard constraints)
+     gradient_smoothing_vox: float = 0.0 # Gaussian smoothing (voxels) of the field GRADIENT only (values unchanged)
+     role_dilation_voxels: int = 1       # "named": role voxels are grown by this many voxels (2 cm)
++    # v5 (next_hidden PREREG_main.md §3): visibility-dependent margin and a separate field for the held object
++    visibility_margin_m: float = 0.0    # Delta: unseen voxels (AUTO selection) are obstacles with margin m0 + Delta;
++                                        #   inside the task container's interior boxes they do not constrain the hand
++    separate_held_field: bool = False   # affordance mode: the arm gets ALL obstacles (no permissions); the held
++                                        #   object gets its own field with its permissions (v4: arm shared them)
+     sphere_fit: str = "slab"            # "slab": covers the dense collision surface, ~1 cm overhang (v4);
+                                         # "kmeans": v1-v3 fit (vertices only: gaps up to 7.5 cm, 3-5 cm overhang)
+ 
+diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/perception.py stowsafe_kit_v5/stowsafe/stowsafe/perception.py
+--- stowsafe_kit_v4/stowsafe/stowsafe/perception.py	2026-11-10 04:28:41.968902483 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/perception.py	2026-11-20 03:51:53.611396721 +0000
+@@ -21,6 +21,8 @@
+         self.map = OccupancyMap(lo, hi, map_cfg)
+         self.map.table_top = self.table_z
+         self.palm_field = self.finger_field = self.arm_field = None
++        self.held_field = self.unknown_arm_field = self.unknown_hand_field = None   # v5
++        self.interior_boxes = ()                                                   # v5: [(lo, hi)] world AABBs
+         self.update(obs, map_cfg.rays_per_side_first)
+ 
+     arm_role_points = None
+@@ -60,6 +62,7 @@
+                                min_range=self.map_cfg.wrist_min_range_m if view.is_wrist else 0.0)
+         if self.safety_cfg.obstacle_mode == "named":
+             self._named_fields(held, held_clear_pad, robot)
++            self._visibility_fields(held, held_clear_pad, robot)
+             return
+         policy, cfg, acm = self.safety_cfg.unknown_policy, self.safety_cfg, self.safety_cfg.allowed
+         all_obstacles = self.map.obstacles(policy)
+@@ -125,12 +128,37 @@
+             sm = self.safety_cfg.gradient_smoothing_vox
+             self.finger_field = DistanceField.from_obstacles(g, base & ~allowed(fp), sm)
+             self.palm_field = DistanceField.from_obstacles(g, base & ~allowed(pp), sm)
+-            self.arm_field = DistanceField.from_obstacles(g, base & ~allowed(hp), sm)
++            if self.safety_cfg.separate_held_field:      # v5: the arm may touch nothing; held keeps its permissions
++                self.arm_field = DistanceField.from_obstacles(g, base, sm)
++                self.held_field = DistanceField.from_obstacles(g, base & ~allowed(hp), sm)
++            else:
++                self.arm_field = DistanceField.from_obstacles(g, base & ~allowed(hp), sm)
+             return
+         self.arm_field = DistanceField.from_obstacles(g, arm, self.safety_cfg.gradient_smoothing_vox)
+         self.palm_field = DistanceField.from_obstacles(g, hand, self.safety_cfg.gradient_smoothing_vox)
+         self.finger_field = self.palm_field
+ 
++    def _visibility_fields(self, held, held_clear_pad, robot):
++        """v5: unseen voxels a camera could have seen or that hide behind a real surface (the AUTO selection), minus
++        the table, the robot and the held object, as a second obstacle set with margin m0 + Delta (safety_filter).
++        The hand ignores them inside the task container's interior boxes (it must reach in before seeing all)."""
++        self.unknown_arm_field = self.unknown_hand_field = None
++        if self.safety_cfg.visibility_margin_m <= 0:
++            return
++        m, g, sm = self.map, self.map.grid, self.safety_cfg.gradient_smoothing_vox
++        U = m.unknown & (m.shadow | (m.in_view & ~m.robot_shadow)) & ~m.table_surface() & ~self._inside(robot, 0.0)
++        if held is not None:
++            U &= ~self._inside(held, held_clear_pad)
++        if not U.any():
++            return
++        inside = np.zeros(g.shape, bool)
++        for lo, hi in self.interior_boxes:
++            c = g.centres
++            inside |= np.all((c >= np.asarray(lo)) & (c <= np.asarray(hi)), axis=1).reshape(g.shape)
++        self.unknown_arm_field = DistanceField.from_obstacles(g, U, sm)
++        Uh = U & ~inside
++        self.unknown_hand_field = DistanceField.from_obstacles(g, Uh, sm) if Uh.any() else None
++
+     def _inside(self, spheres, pad):
+         g = self.map.grid
+         d = np.linalg.norm(g.centres[:, None] - spheres.centres[None], axis=2) - spheres.radii[None] - pad
+diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py
+--- stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py	2026-11-10 01:07:20.706354546 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py	2026-11-20 03:52:57.598429536 +0000
+@@ -56,11 +56,15 @@
+         self.S = np.diag([scale.metres_per_step] * 3 + [scale.radians_per_step] * 3)
+         self.W = np.diag([cfg.weight_position] * 3 + [cfg.weight_rotation] * 3)
+ 
+-    def filter(self, data, spheres, palm_field, finger_field, u_vla, arm_field=None):
+-        """arm_field: field for the arm links and the held object (allowed-contact table); None = palm_field."""
++    def filter(self, data, spheres, palm_field, finger_field, u_vla, arm_field=None, held_field=None,
++               unknown_arm_field=None, unknown_hand_field=None):
++        """arm_field: field for the arm links and the held object (allowed-contact table); None = palm_field.
++        v5: held_field (own field for the held object), unknown_*_field (unseen voxels, margin + Delta)."""
+         u_vla = np.asarray(u_vla, float)
+         clearance, gradient = self._clearances(spheres, palm_field, finger_field, closing=u_vla[GRIPPER] > 0,
+-                                               arm_field=arm_field)
++                                               arm_field=arm_field, held_field=held_field,
++                                               unknown_arm_field=unknown_arm_field,
++                                               unknown_hand_field=unknown_hand_field)
+         active = clearance < self.cfg.activation_m
+         if self.cfg.allowed.finger_from_above and u_vla[GRIPPER] <= 0:
+             fingers = spheres.mask(SphereGroup.FINGER)
+@@ -103,19 +107,36 @@
+         return SafetyResult(u_safe, float(np.linalg.norm(u_arm - np.clip(u_vla[ARM], -1, 1))),
+                             float(clearance.min()), slack, tuple(spheres.names[i] for i in active), solved, blocker)
+ 
+-    def _clearances(self, spheres, palm_field, finger_field, closing, arm_field=None):
++    def _clearances(self, spheres, palm_field, finger_field, closing, arm_field=None, held_field=None,
++                    unknown_arm_field=None, unknown_hand_field=None):
+         D, G = palm_field.query(spheres.centres)
+         if arm_field is not None and arm_field is not palm_field:
+             arm = spheres.mask(SphereGroup.ARM) | spheres.mask(SphereGroup.HELD)
+             if arm.any():
+                 D[arm], G[arm] = arm_field.query(spheres.centres[arm])
++        held = spheres.mask(SphereGroup.HELD)
++        if held_field is not None and held.any():                 # v5
++            D[held], G[held] = held_field.query(spheres.centres[held])
+         fingers = spheres.mask(SphereGroup.FINGER)
+         if fingers.any():
+             if closing or self.cfg.allowed.fingers_unconstrained:                       # the fingers are closing on the object: leave them free
+                 D[fingers] = NOT_CONSTRAINED_M
+             else:
+                 D[fingers], G[fingers] = finger_field.query(spheres.centres[fingers])
+-        return D - spheres.radii - _margins(self.cfg, spheres.groups), G
++        C = D - spheres.radii - _margins(self.cfg, spheres.groups)
++        delta = self.cfg.visibility_margin_m                       # v5: unseen voxels with margin m0 + Delta
++        if delta > 0:
++            fingers_free = bool(closing or self.cfg.allowed.fingers_unconstrained)   # plain bool: never use ~ on it
++            hand = spheres.mask(SphereGroup.PALM) | (fingers if not fingers_free else np.zeros_like(fingers))
++            for mask, field in ((spheres.mask(SphereGroup.ARM) | held, unknown_arm_field), (hand, unknown_hand_field)):
++                if field is None or not mask.any():
++                    continue
++                idx = np.where(mask)[0]
++                Du, Gu = field.query(spheres.centres[idx])
++                Cu = Du - spheres.radii[idx] - _margins(self.cfg, [spheres.groups[i] for i in idx]) - delta
++                closer = Cu < C[idx]
++                C[idx[closer]], G[idx[closer]] = Cu[closer], Gu[closer]
++        return C, G
+ 
+     def _hand_to_joints(self, data):
+         jp = np.zeros((3, self.model.nv)); jr = np.zeros((3, self.model.nv))
+diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/stowsafe.py stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py
+--- stowsafe_kit_v4/stowsafe/stowsafe/stowsafe.py	2026-11-10 04:57:08.759535992 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py	2026-11-20 03:51:53.611396721 +0000
+@@ -103,6 +103,10 @@
+         self._external_targets = True
+         self.perception.set_roles(whole_body_points, hand_only_points)
+ 
++    def set_interior_boxes(self, boxes):
++        """v5: world AABBs of the task container's interior (the hand may enter unseen space there)."""
++        self.perception.interior_boxes = tuple(boxes)
++
+     def set_refresh_boxes(self, boxes):
+         self.perception.refresh_boxes = tuple(boxes)
+ 
+@@ -173,7 +177,9 @@
+         start = time.perf_counter()
+         result = (self.safety_relaxed if relaxed else self.safety).filter(self.data, concat(self.spheres.in_world(self.data), self.held.in_world(self.data)),
+                                     self.perception.palm_field, self.perception.finger_field, action,
+-                                    arm_field=self.perception.arm_field)
++                                    arm_field=self.perception.arm_field, held_field=self.perception.held_field,
++                                    unknown_arm_field=self.perception.unknown_arm_field,
++                                    unknown_hand_field=self.perception.unknown_hand_field)
+         self.stats.qp_ms.append(1000 * (time.perf_counter() - start))
+         self.stats.correction.append(result.correction)
+         if result.blocker is not None and result.correction > 0.05:
+diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/tests/test_v5_visibility.py stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py
+--- stowsafe_kit_v4/stowsafe/tests/test_v5_visibility.py	1970-01-01 00:00:00.000000000 +0000
++++ stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py	2026-11-20 03:52:28.291871317 +0000
+@@ -0,0 +1,66 @@
++"""v5 (next_hidden PREREG_main.md §3): visibility-dependent margin and the separate held-object field."""
++import numpy as np
++from stowsafe.config import SafetyConfig
++from stowsafe.safety_filter import WholeBodySafetyFilter, _margins
++from stowsafe.spheres import SpheresInWorld, SphereGroup
++from stowsafe.voxel_map import VoxelGrid, DistanceField
++
++
++def _filter(**kw):
++    f = WholeBodySafetyFilter.__new__(WholeBodySafetyFilter)
++    f.cfg = SafetyConfig(**kw)
++    return f
++
++
++GRID = VoxelGrid(np.zeros(3), np.ones(3) * 0.4, 0.02)
++
++
++def _field(*voxels):
++    occ = np.zeros(GRID.shape, bool)
++    for v in voxels:
++        occ[v] = True
++    return DistanceField.from_obstacles(GRID, occ)
++
++
++def _spheres(points, groups):
++    P = np.asarray(points, float)
++    return SpheresInWorld(P, np.full(len(P), 0.01), np.zeros(len(P), int), tuple(groups), tuple(map(str, range(len(P)))))
++
++
++FAR = _field()                                   # no observed obstacle anywhere
++UNSEEN = _field((10, 10, 10))                    # one unseen voxel at the centre (0.21 m)
++
++
++def test_delta_zero_ignores_unseen_space():
++    S = _spheres([[0.21, 0.21, 0.30]], [SphereGroup.ARM])
++    C0, _ = _filter()._clearances(S, FAR, FAR, False, unknown_arm_field=UNSEEN)
++    assert C0[0] > 0.5                              # Delta = 0 (v4 behaviour): unseen voxels do not constrain
++
++
++def test_delta_shrinks_clearance_to_unseen_space_by_exactly_delta():
++    S = _spheres([[0.21, 0.21, 0.30]], [SphereGroup.ARM])
++    D, _ = UNSEEN.query(S.centres)
++    expect = D[0] - 0.01 - _margins(SafetyConfig(), S.groups)[0] - 0.03
++    C, G = _filter(visibility_margin_m=0.03)._clearances(S, FAR, FAR, False, unknown_arm_field=UNSEEN)
++    assert abs(C[0] - expect) < 1e-6 and G[0][2] > 0      # pushed away (+z) from the unseen voxel
++
++
++def test_hand_uses_its_own_unknown_field_inside_the_interior():
++    S = _spheres([[0.21, 0.21, 0.30], [0.21, 0.21, 0.30]], [SphereGroup.ARM, SphereGroup.PALM])
++    # the hand field is None when every unseen voxel lies inside the container interior: hand unconstrained
++    C, _ = _filter(visibility_margin_m=0.03)._clearances(S, FAR, FAR, False, unknown_arm_field=UNSEEN,
++                                                          unknown_hand_field=None)
++    assert C[0] < 0.2 and C[1] > 0.5
++
++
++def test_closing_fingers_stay_free_of_the_unseen_margin():
++    S = _spheres([[0.21, 0.21, 0.30]], [SphereGroup.FINGER])
++    C, _ = _filter(visibility_margin_m=0.03)._clearances(S, FAR, FAR, True, unknown_hand_field=UNSEEN)
++    assert C[0] > 0.5
++
++
++def test_held_object_uses_its_own_field():
++    S = _spheres([[0.21, 0.21, 0.30], [0.21, 0.21, 0.30]], [SphereGroup.ARM, SphereGroup.HELD])
++    arm = _field((10, 10, 12))                       # obstacle 2 cm under the sphere for the arm
++    C, _ = _filter()._clearances(S, FAR, FAR, False, arm_field=arm, held_field=FAR)
++    assert C[0] < 0.05 and C[1] > 0.5               # the held object may approach what the arm may not
