@@ -20,7 +20,12 @@ PROMPT = ("You see a robot workspace. The robot's instruction is: '{instruction}
           "used to open or close it, null if there is none. front_box: the door, drawer front or opening where objects go in.")
 
 
+QWEN_SIDE = 280      # the processor resizes the 256x256 image to 280x280 (multiple of 28); answers use that space
+SCALE = 256.0 / QWEN_SIDE
+
+
 def parse(text):
+    """JSON -> boxes/point rescaled from Qwen's 280x280 input space to our 256x256 pixels, then range-checked."""
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
         return None
@@ -28,7 +33,11 @@ def parse(text):
         j = json.loads(m.group(0))
     except json.JSONDecodeError:
         return None
-    ok = lambda b, n: isinstance(b, list) and len(b) == n and all(isinstance(v, (int, float)) and 0 <= v <= 256 for v in b)
+    num = lambda b, n: isinstance(b, list) and len(b) == n and all(isinstance(v, (int, float)) for v in b)
+    for k, n in (("container_box", 4), ("front_box", 4), ("handle_point", 2)):
+        if num(j.get(k), n):
+            j[k] = [v * SCALE for v in j[k]]
+    ok = lambda b, n: num(b, n) and all(0 <= v <= 256 for v in b)
     if not ok(j.get("container_box"), 4) or not ok(j.get("front_box"), 4):
         return None
     if j.get("handle_point") is not None and not ok(j.get("handle_point"), 2):
@@ -63,5 +72,16 @@ def main():
     print(f"done: {len(out)} images, unparsed {n_bad}", flush=True)
 
 
+def reparse():
+    """Re-parse the saved raw answers (no new inference)."""
+    path = os.path.join(HERE, "main", "qwen", "qwen_roles.json")
+    J = json.load(open(path))
+    for v in J["results"].values():
+        v["parsed"] = parse(v["raw"])
+    J["coord_space"] = f"Qwen input {QWEN_SIDE}x{QWEN_SIDE}, rescaled to 256x256"
+    json.dump(J, open(path, "w"), indent=1)
+    print("reparsed:", len(J["results"]), "unparsed", sum(v["parsed"] is None for v in J["results"].values()))
+
+
 if __name__ == "__main__":
-    main()
+    reparse() if "--reparse" in sys.argv else main()
