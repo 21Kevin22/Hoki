@@ -1,0 +1,40 @@
+{
+ "task": "T7",
+ "cond": "C0",
+ "success": true,
+ "steps": 306,
+ "max_steps": 530,
+ "wall_s": 17.7,
+ "n_infer": 60,
+ "mean_infer_s": 0.151,
+ "collision": {
+  "l1": false,
+  "l1_steps": 0,
+  "l2": false,
+  "any_force": {
+   "1.0": false,
+   "2.0": false,
+   "5.0": false,
+   "10.0": false,
+   "20.0": false
+  },
+  "max_force": 0.0,
+  "first_l1_step": null,
+  "bystander_max_disp_m": 0.1694,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "cream_cheese_1_main": 0.0007,
+   "ketchup_1_main": 0.1694,
+   "orange_juice_1_main": 0.1385,
+   "milk_1_main": 0.1385,
+   "butter_1_main": 0.0056
+  },
+  "container_max_disp_m": 0.0479,
+  "pairs": {}
+ },
+ "cf_success": true,
+ "render": "egl",
+ "held_steps": 142,
+ "l1_pairs_first": []
+}

@@ -1,0 +1,201 @@
+{
+ "task": "T5",
+ "cond": "C0",
+ "success": false,
+ "steps": 530,
+ "max_steps": 530,
+ "wall_s": 26.6,
+ "n_infer": 104,
+ "mean_infer_s": 0.151,
+ "collision": {
+  "l1": true,
+  "l1_steps": 15,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": false
+  },
+  "max_force": 15.78,
+  "first_l1_step": 138,
+  "bystander_max_disp_m": 0.0519,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "white_yellow_mug_1_main": 0.0519
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "finger | gripper0_rightfinger | white_yellow_mug_1_g11": 11,
+   "finger | gripper0_rightfinger | white_yellow_mug_1_g12": 11,
+   "finger | gripper0_leftfinger | white_yellow_mug_1_g15": 4
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 0,
+ "l1_pairs_first": [
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g11"
+   ],
+   [
+    "finger",
+    "gripper0_rightfinger",
+    "white_yellow_mug_1_g12"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_leftfinger",
+    "white_yellow_mug_1_g15"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_leftfinger",
+    "white_yellow_mug_1_g15"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_leftfinger",
+    "white_yellow_mug_1_g15"
+   ]
+  ],
+  [
+   [
+    "finger",
+    "gripper0_leftfinger",
+    "white_yellow_mug_1_g15"
+   ]
+  ]
+ ]
+}

@@ -1,0 +1,181 @@
+{
+ "task": "T1",
+ "cond": "C0",
+ "success": true,
+ "steps": 305,
+ "max_steps": 530,
+ "wall_s": 16.1,
+ "n_infer": 59,
+ "mean_infer_s": 0.148,
+ "collision": {
+  "l1": true,
+  "l1_steps": 44,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 141.59,
+  "first_l1_step": 158,
+  "bystander_max_disp_m": 0.0754,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "porcelain_mug_1_main": 0.0754
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "arm | robot0_link7 | microwave_1_g17": 37,
+   "hand | gripper0_right_gripper | microwave_1_g4": 6,
+   "hand | gripper0_right_gripper | microwave_1_g6": 1
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 37,
+ "l1_pairs_first": [
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "microwave_1_g17"
+   ]
+  ]
+ ]
+}

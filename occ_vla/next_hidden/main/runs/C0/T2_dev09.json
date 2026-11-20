@@ -1,0 +1,88 @@
+{
+ "task": "T2",
+ "cond": "C0",
+ "success": true,
+ "steps": 230,
+ "max_steps": 530,
+ "wall_s": 12.2,
+ "n_infer": 44,
+ "mean_infer_s": 0.149,
+ "collision": {
+  "l1": true,
+  "l1_steps": 7,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 68.1,
+  "first_l1_step": 223,
+  "bystander_max_disp_m": 0.0736,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "wine_bottle_1_main": 0.0736
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "hand | gripper0_right_gripper | white_cabinet_1_g29": 7
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 70,
+ "l1_pairs_first": [
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g29"
+   ]
+  ]
+ ]
+}

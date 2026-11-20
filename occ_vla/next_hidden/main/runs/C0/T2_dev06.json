@@ -1,0 +1,87 @@
+{
+ "task": "T2",
+ "cond": "C0",
+ "success": true,
+ "steps": 222,
+ "max_steps": 530,
+ "wall_s": 11.7,
+ "n_infer": 43,
+ "mean_infer_s": 0.152,
+ "collision": {
+  "l1": true,
+  "l1_steps": 4,
+  "l2": false,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": false,
+   "10.0": false,
+   "20.0": false
+  },
+  "max_force": 3.34,
+  "first_l1_step": 146,
+  "bystander_max_disp_m": 0.0736,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "wine_bottle_1_main": 0.0736
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "held | akita_black_bowl_1 | white_cabinet_1_g29": 8
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 70,
+ "l1_pairs_first": [
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ]
+ ]
+}

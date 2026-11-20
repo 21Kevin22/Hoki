@@ -48,7 +48,10 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5):
     max_t = MAX_STEPS[suite] + 10
     while t < max_t:
         if t < 10:
-            obs, _, done, _ = env.step(DUMMY); rec.step(t); t += 1; continue
+            obs, _, done, _ = env.step(DUMMY); rec.step(t); t += 1
+            if t == 10:
+                rec.rebase()                 # displacement from the settled pose (objects drop ~7 cm at reset)
+            continue
         img = image_tools.convert_to_uint8(image_tools.resize_with_pad(np.ascontiguousarray(obs["agentview_image"][::-1, ::-1]), 224, 224))
         wimg = image_tools.convert_to_uint8(image_tools.resize_with_pad(np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1]), 224, 224))
         frames.append(img)

@@ -1,0 +1,69 @@
+{
+ "task": "T3",
+ "cond": "C0",
+ "success": true,
+ "steps": 190,
+ "max_steps": 310,
+ "wall_s": 10.3,
+ "n_infer": 36,
+ "mean_infer_s": 0.147,
+ "collision": {
+  "l1": true,
+  "l1_steps": 4,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 531.08,
+  "first_l1_step": 107,
+  "bystander_max_disp_m": 0.0736,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "cream_cheese_1_main": 0.0284,
+   "wine_bottle_1_main": 0.0736,
+   "plate_1_main": 0.0699
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "arm | robot0_link7 | wooden_cabinet_1_g11": 4
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 62,
+ "l1_pairs_first": [
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "wooden_cabinet_1_g11"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "wooden_cabinet_1_g11"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "wooden_cabinet_1_g11"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link7",
+    "wooden_cabinet_1_g11"
+   ]
+  ]
+ ]
+}

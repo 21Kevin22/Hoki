@@ -1,0 +1,144 @@
+{
+ "task": "T5",
+ "cond": "C0",
+ "success": true,
+ "steps": 191,
+ "max_steps": 530,
+ "wall_s": 9.6,
+ "n_infer": 37,
+ "mean_infer_s": 0.149,
+ "collision": {
+  "l1": true,
+  "l1_steps": 15,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 57.69,
+  "first_l1_step": 176,
+  "bystander_max_disp_m": 0.0518,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "white_yellow_mug_1_main": 0.0518
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "held | black_book_1 | desk_caddy_1_g2": 15
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 110,
+ "l1_pairs_first": [
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ],
+  [
+   [
+    "held",
+    "black_book_1",
+    "desk_caddy_1_g2"
+   ]
+  ]
+ ]
+}

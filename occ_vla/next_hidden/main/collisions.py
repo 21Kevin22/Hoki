@@ -41,6 +41,17 @@ class CollisionRecorder:
         self.steps = []
         self.max_disp = {b: 0.0 for b in self.bystanders}
 
+    def rebase(self):
+        """Start the displacement references (1 mm / L3) from the CURRENT pose. Called at the end of the 10 wait steps:
+        LIBERO places objects ~7 cm above the table and they fall during the first steps, so displacement measured
+        from the reset pose counts that fall (found in the week-1 pilot: identical 7.4 cm in every episode)."""
+        m, d = self.m, self.d
+        self.start = {b: d.xpos[b].copy() for b in self.bystanders}
+        self.max_disp = {b: 0.0 for b in self.bystanders}
+        if self.container_body is not None:
+            self.container_start = d.xpos[self.container_body].copy(); self.container_max_disp = 0.0
+        self.jstart = {j: float(d.qpos[m.jnt_qposadr[j]]) for j in self.other_joints}
+
     def _held(self):
         m, d = self.m, self.d
         touch = {}

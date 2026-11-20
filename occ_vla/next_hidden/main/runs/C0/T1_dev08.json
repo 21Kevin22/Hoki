@@ -1,0 +1,272 @@
+{
+ "task": "T1",
+ "cond": "C0",
+ "success": true,
+ "steps": 325,
+ "max_steps": 530,
+ "wall_s": 17.1,
+ "n_infer": 63,
+ "mean_infer_s": 0.151,
+ "collision": {
+  "l1": true,
+  "l1_steps": 22,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 202.73,
+  "first_l1_step": 146,
+  "bystander_max_disp_m": 0.0754,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "porcelain_mug_1_main": 0.0754
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "held | white_yellow_mug_1 | microwave_1_g6": 31,
+   "hand | gripper0_right_gripper | microwave_1_g4": 4,
+   "hand | gripper0_right_gripper | microwave_1_g6": 3,
+   "arm | robot0_link6 | microwave_1_g17": 2
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 64,
+ "l1_pairs_first": [
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ],
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "held",
+    "white_yellow_mug_1",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ]
+ ]
+}

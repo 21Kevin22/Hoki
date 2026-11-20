@@ -1,0 +1,184 @@
+{
+ "task": "T2",
+ "cond": "C0",
+ "success": true,
+ "steps": 237,
+ "max_steps": 530,
+ "wall_s": 12.7,
+ "n_infer": 46,
+ "mean_infer_s": 0.151,
+ "collision": {
+  "l1": true,
+  "l1_steps": 14,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 64.48,
+  "first_l1_step": 139,
+  "bystander_max_disp_m": 0.0736,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "wine_bottle_1_main": 0.0736
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "held | akita_black_bowl_1 | white_cabinet_1_g29": 15,
+   "hand | gripper0_right_gripper | wine_bottle_1_g10": 6,
+   "hand | gripper0_right_gripper | white_cabinet_1_g4": 2
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 86,
+ "l1_pairs_first": [
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "wine_bottle_1_g10"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "wine_bottle_1_g10"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "wine_bottle_1_g10"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "wine_bottle_1_g10"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "wine_bottle_1_g10"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "wine_bottle_1_g10"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "white_cabinet_1_g4"
+   ]
+  ]
+ ]
+}

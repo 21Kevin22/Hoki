@@ -1,0 +1,122 @@
+{
+ "task": "T1",
+ "cond": "C0",
+ "success": true,
+ "steps": 252,
+ "max_steps": 530,
+ "wall_s": 13.3,
+ "n_infer": 49,
+ "mean_infer_s": 0.147,
+ "collision": {
+  "l1": true,
+  "l1_steps": 11,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 158.12,
+  "first_l1_step": 157,
+  "bystander_max_disp_m": 0.0754,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "porcelain_mug_1_main": 0.0754
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "hand | gripper0_right_gripper | microwave_1_g4": 10,
+   "hand | gripper0_right_gripper | microwave_1_g6": 2
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 58,
+ "l1_pairs_first": [
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ],
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g6"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ],
+  [
+   [
+    "hand",
+    "gripper0_right_gripper",
+    "microwave_1_g4"
+   ]
+  ]
+ ]
+}

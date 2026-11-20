@@ -1,0 +1,130 @@
+{
+ "task": "T2",
+ "cond": "C0",
+ "success": true,
+ "steps": 247,
+ "max_steps": 530,
+ "wall_s": 13.2,
+ "n_infer": 48,
+ "mean_infer_s": 0.15,
+ "collision": {
+  "l1": true,
+  "l1_steps": 10,
+  "l2": true,
+  "any_force": {
+   "1.0": true,
+   "2.0": true,
+   "5.0": true,
+   "10.0": true,
+   "20.0": true
+  },
+  "max_force": 80.89,
+  "first_l1_step": 149,
+  "bystander_max_disp_m": 0.0736,
+  "moved_1mm": true,
+  "l3": true,
+  "bystander_disp_m": {
+   "wine_bottle_1_main": 0.0736
+  },
+  "container_max_disp_m": 0.0,
+  "pairs": {
+   "held | akita_black_bowl_1 | white_cabinet_1_g29": 9,
+   "arm | robot0_link5 | white_cabinet_1_g9": 5
+  }
+ },
+ "cf_success": false,
+ "render": "egl",
+ "held_steps": 92,
+ "l1_pairs_first": [
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ],
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "held",
+    "akita_black_bowl_1",
+    "white_cabinet_1_g29"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link5",
+    "white_cabinet_1_g9"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link5",
+    "white_cabinet_1_g9"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link5",
+    "white_cabinet_1_g9"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link5",
+    "white_cabinet_1_g9"
+   ]
+  ],
+  [
+   [
+    "arm",
+    "robot0_link5",
+    "white_cabinet_1_g9"
+   ]
+  ]
+ ]
+}
