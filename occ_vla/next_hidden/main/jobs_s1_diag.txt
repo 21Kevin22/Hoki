@@ -1,0 +1,10 @@
+C0 T1 dev 0-4 s1base {}
+C5 T1 dev 0-4 s1m0 {"margin_m":0.0}
+C0 T2 dev 0-4 s1base {}
+C5 T2 dev 0-4 s1m0 {"margin_m":0.0}
+C0 T3 dev 0-4 s1base {}
+C5 T3 dev 0-4 s1m0 {"margin_m":0.0}
+C0 T5 dev 0-4 s1base {}
+C5 T5 dev 0-4 s1m0 {"margin_m":0.0}
+C0 T6 dev 0-4 s1base {}
+C5 T6 dev 0-4 s1m0 {"margin_m":0.0}
