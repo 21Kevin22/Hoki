@@ -7,6 +7,7 @@ Filter.act(obs, u) -> (a, info).
   C3  hand-only CBF + drawer part affordances             = MODES["hand_aff_fresh"] (+ AffordancePoints, refresh boxes)
   C4  PROPOSED: container part roles (GT, main/parts.py) + visibility-dependent margin (Delta)
   C5  C4 without the visibility margin (Delta = 0)
+  C9  C5 + affordance refinements (inner surfaces for the held object, no permission leak, phase) -- PREREG 2026-11-22
   C6  C4 without part roles (the whole task container is touchable like a target)
   C8  C4 on the TRUE geometry (oracle map: every non-robot collision surface occupied, nothing unknown)
   (C7 = C4 with roles estimated by Qwen2.5-VL-3B: main/roles_qwen.py, added separately)
@@ -53,7 +54,7 @@ def base_config(cond, p):
         c = MODES["hand_aff_fresh"]
     elif cond in ("C4", "C6", "C7", "C8", "C4_5Hz"):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
-    elif cond == "C5":
+    elif cond in ("C5", "C9"):
         c = _C4
     else:
         raise ValueError(cond)
@@ -102,6 +103,55 @@ class PartPoints:
         hand = self._world(self.targets + self.hand, d)
         held = self._world(self.targets + self.held + self.dests, d)
         return hand, hand, held
+
+
+class PartPointsV2(PartPoints):
+    """C9 (PREREG 2026-11-22): C5's GT part roles with three affordance refinements, nothing else changed.
+    (1) inner surfaces: the held object may touch every task-container surface inside the interior box (+2 cm),
+        not only the floor (putting an object in touches the inner walls; 50% of C0's L1 contacts are of this kind).
+    (2) no leak: the 1-voxel growth of a permission never covers a voxel of a surface that part may not touch
+        (stowsafe perception.permission_voxels, v5).
+    (3) phase: while an object is held (StowSafe's attachment), the hand loses the handle/panel permissions and
+        gains the inner floor (doors and drawers are opened before grasping and closed after release here)."""
+
+    PAD = 0.02
+
+    def __init__(self, parts: TaskParts, m, guard, interior_site):
+        super().__init__(parts, m)
+        self.guard, self.site = guard, interior_site
+        kind = lambda ks: [(m.geom_bodyid[g], geom_points(m, g)) for g, k in parts.part.items() if k in ks]
+        self.cont = kind(("handle", "panel", "floor", "wall"))
+        self.floor = kind(("floor",))
+        self.handle_panel = kind(("handle", "panel"))
+        self.walls = kind(("wall",))
+
+    def _inside(self, P, d):
+        if P is None or self.site is None:
+            return None
+        lo, hi = site_box(self.m, d, self.site)
+        return P[np.all((P >= np.asarray(lo) - self.PAD) & (P <= np.asarray(hi) + self.PAD), axis=1)]
+
+    def __call__(self, d):
+        W = lambda items: self._world(items, d)
+        cat = lambda *A: (lambda L: np.concatenate(L) if L else None)([a for a in A if a is not None and len(a)])
+        inner = self._inside(W(self.cont), d)
+        held = cat(W(self.targets), W(self.dests), W(self.floor), inner)
+        if self.guard.held.attached:
+            hand = cat(W(self.targets), W(self.dests), W(self.floor))
+        else:
+            hand = cat(W(self.targets), W(self.handle_panel))
+        allc = W(self.cont)
+
+        def forbid(allowed):                          # container points this part may not touch
+            if allc is None:
+                return None
+            if allowed is None or not len(allowed):
+                return allc
+            from scipy.spatial import cKDTree
+            dist, _ = cKDTree(allowed).query(allc, distance_upper_bound=0.005)
+            return allc[~np.isfinite(dist)]
+        fh, fd = forbid(hand), forbid(held)
+        return (hand, hand, held), (fh, fh, fd)
 
 
 def site_box(m, d, name):
@@ -259,7 +309,9 @@ class Filter:
             self.guard.set_refresh_boxes(articulated_sweep_boxes(m, d, env.env.sim, ooi, only={nd} if nd else None))
         else:                                              # C4 family (C7 overrides parts_pts with estimated roles)
             parts = TaskParts(task, m, d)
-            if cond != "C7":
+            if cond == "C9":
+                self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task])
+            elif cond != "C7":
                 self.parts_pts = PartPoints(parts, m, whole_container=(cond == "C6"))
             else:
                 self.parts_pts = QwenRoles(params["state_stem"], parts, m)
@@ -279,7 +331,11 @@ class Filter:
         if self.aff is not None:
             self.guard.set_affordance(*self.aff(self.d))
         if self.parts_pts is not None:
-            self.guard.set_affordance(*self.parts_pts(self.d))
+            if self.cond == "C9":
+                allow, forbid = self.parts_pts(self.d)
+                self.guard.set_affordance(*allow, forbid=forbid)
+            else:
+                self.guard.set_affordance(*self.parts_pts(self.d))
         if getattr(self, "interior_fixed", None) is not None:            # C7: estimated, fixed at t0
             self.guard.set_interior_boxes([self.interior_fixed])
         elif self.interior is not None and self.cond != "C7":

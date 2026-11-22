@@ -17,7 +17,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
  
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/perception.py stowsafe_kit_v5/stowsafe/stowsafe/perception.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/perception.py	2026-11-10 04:28:41.968902483 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/perception.py	2026-11-20 07:02:40.854736171 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/perception.py	2026-11-22 02:24:00.939852735 +0000
 @@ -21,6 +21,8 @@
          self.map = OccupancyMap(lo, hi, map_cfg)
          self.map.table_top = self.table_z
@@ -27,7 +27,25 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
          self.update(obs, map_cfg.rays_per_side_first)
  
      arm_role_points = None
-@@ -60,6 +62,7 @@
+@@ -33,11 +35,15 @@
+         self.arm_role_points = whole_body_points
+ 
+     affordance = None
++    affordance_forbid = None                 # v5: (finger, palm, held) points that stay obstacles after dilation
+     refresh_boxes = ()                       # world boxes of moving parts, rebuilt from scratch every update
+ 
+-    def set_affordance(self, finger, palm, held):
+-        """Part affordances: the points each robot part may approach (fingers / palm / held object and arm)."""
++    def set_affordance(self, finger, palm, held, forbid=None):
++        """Part affordances: the points each robot part may approach (fingers / palm / held object and arm).
++        forbid (v5, optional): per part, points of surfaces it must NOT touch; their voxels are removed from the
++        dilated permission (the 1-voxel growth may not leak onto a neighbouring forbidden wall)."""
+         self.affordance = (finger, palm, held)
++        self.affordance_forbid = forbid
+ 
+     def set_targets(self, points):
+         """Target memory: 3-D points of the instructed object(s), e.g. a one-time detection back-projected."""
+@@ -60,6 +66,7 @@
                                 min_range=self.map_cfg.wrist_min_range_m if view.is_wrist else 0.0)
          if self.safety_cfg.obstacle_mode == "named":
              self._named_fields(held, held_clear_pad, robot)
@@ -35,16 +53,32 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
              return
          policy, cfg, acm = self.safety_cfg.unknown_policy, self.safety_cfg, self.safety_cfg.allowed
          all_obstacles = self.map.obstacles(policy)
-@@ -125,12 +128,38 @@
+@@ -113,25 +120,62 @@
+                 arole = binary_dilation(arole, iterations=self.safety_cfg.role_dilation_voxels)
+             arm = base & ~arole
+         if self.affordance is not None:            # per-part permissions replace the object-level roles
+-            def allowed(P):
+-                m = np.zeros(g.shape, bool)
+-                if P is not None and len(P):
+-                    P = P[g.contains(P)]
+-                    m.reshape(-1)[np.unique(g.flat_index(P))] = True
+-                    if self.safety_cfg.role_dilation_voxels:
+-                        m = binary_dilation(m, iterations=self.safety_cfg.role_dilation_voxels)
+-                return m
++            allowed = lambda P, F=None: permission_voxels(g, P, F, self.safety_cfg.role_dilation_voxels)
+             fp, pp, hp = self.affordance
++            ff, pf, hf = self.affordance_forbid if self.affordance_forbid is not None else (None, None, None)
              sm = self.safety_cfg.gradient_smoothing_vox
-             self.finger_field = DistanceField.from_obstacles(g, base & ~allowed(fp), sm)
-             self.palm_field = DistanceField.from_obstacles(g, base & ~allowed(pp), sm)
+-            self.finger_field = DistanceField.from_obstacles(g, base & ~allowed(fp), sm)
+-            self.palm_field = DistanceField.from_obstacles(g, base & ~allowed(pp), sm)
 -            self.arm_field = DistanceField.from_obstacles(g, base & ~allowed(hp), sm)
++            self.finger_field = DistanceField.from_obstacles(g, base & ~allowed(fp, ff), sm)
++            self.palm_field = DistanceField.from_obstacles(g, base & ~allowed(pp, pf), sm)
 +            if self.safety_cfg.separate_held_field:      # v5: the arm may touch nothing; held keeps its permissions
 +                self.arm_field = DistanceField.from_obstacles(g, base, sm)
-+                self.held_field = DistanceField.from_obstacles(g, base & ~allowed(hp), sm)
++                self.held_field = DistanceField.from_obstacles(g, base & ~allowed(hp, hf), sm)
 +            else:
-+                self.arm_field = DistanceField.from_obstacles(g, base & ~allowed(hp), sm)
++                self.arm_field = DistanceField.from_obstacles(g, base & ~allowed(hp, hf), sm)
              return
          self.arm_field = DistanceField.from_obstacles(g, arm, self.safety_cfg.gradient_smoothing_vox)
          self.palm_field = DistanceField.from_obstacles(g, hand, self.safety_cfg.gradient_smoothing_vox)
@@ -75,6 +109,24 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
      def _inside(self, spheres, pad):
          g = self.map.grid
          d = np.linalg.norm(g.centres[:, None] - spheres.centres[None], axis=2) - spheres.radii[None] - pad
+         return (d.min(1) < 0).reshape(g.shape)
++
++
++def permission_voxels(g, P, F=None, dilation=0):
++    """Voxels a robot part may touch: those of the allowed points P grown by `dilation` voxels. v5: the growth never
++    covers a voxel of the forbidden points F (a neighbouring wall stays an obstacle); P's own voxels always stay."""
++    from scipy.ndimage import binary_dilation
++    def vox(Q):
++        m = np.zeros(g.shape, bool)
++        if Q is not None and len(Q):
++            Q = Q[g.contains(Q)]
++            m.reshape(-1)[np.unique(g.flat_index(Q))] = True
++        return m
++    m = vox(P)
++    if m.any() and dilation:
++        grown = binary_dilation(m, iterations=dilation)
++        m = m | (grown & ~vox(F)) if F is not None else grown
++    return m
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py	2026-11-10 01:07:20.706354546 +0000
 +++ stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py	2026-11-20 03:52:57.598429536 +0000
@@ -138,8 +190,8 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
          jp = np.zeros((3, self.model.nv)); jr = np.zeros((3, self.model.nv))
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/stowsafe.py stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/stowsafe.py	2026-11-10 04:57:08.759535992 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py	2026-11-20 03:51:53.611396721 +0000
-@@ -103,6 +103,10 @@
++++ stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py	2026-11-22 02:23:27.022481600 +0000
+@@ -103,12 +103,16 @@
          self._external_targets = True
          self.perception.set_roles(whole_body_points, hand_only_points)
  
@@ -150,6 +202,14 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
      def set_refresh_boxes(self, boxes):
          self.perception.refresh_boxes = tuple(boxes)
  
+-    def set_affordance(self, finger, palm, held):
++    def set_affordance(self, finger, palm, held, forbid=None):
+         self._external_targets = True
+-        self.perception.set_affordance(finger, palm, held)
++        self.perception.set_affordance(finger, palm, held, forbid)
+ 
+     def set_targets(self, points):
+         self._external_targets = points is not None
 @@ -173,7 +177,9 @@
          start = time.perf_counter()
          result = (self.safety_relaxed if relaxed else self.safety).filter(self.data, concat(self.spheres.in_world(self.data), self.held.in_world(self.data)),
@@ -163,8 +223,8 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
          if result.blocker is not None and result.correction > 0.05:
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/tests/test_v5_visibility.py stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py
 --- stowsafe_kit_v4/stowsafe/tests/test_v5_visibility.py	1970-01-01 00:00:00.000000000 +0000
-+++ stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py	2026-11-20 03:52:28.291871317 +0000
-@@ -0,0 +1,66 @@
++++ stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py	2026-11-22 02:23:50.654042192 +0000
+@@ -0,0 +1,78 @@
 +"""v5 (next_hidden PREREG_main.md §3): visibility-dependent margin and the separate held-object field."""
 +import numpy as np
 +from stowsafe.config import SafetyConfig
@@ -231,3 +291,15 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +    arm = _field((10, 10, 12))                       # obstacle 2 cm under the sphere for the arm
 +    C, _ = _filter()._clearances(S, FAR, FAR, False, arm_field=arm, held_field=FAR)
 +    assert C[0] < 0.05 and C[1] > 0.5               # the held object may approach what the arm may not
++
++
++def test_permission_growth_does_not_leak_onto_a_forbidden_wall():
++    from stowsafe.perception import permission_voxels
++    c = lambda v: GRID.centres.reshape(*GRID.shape, 3)[v]
++    handle, wall = c((10, 10, 10)), c((11, 10, 10))
++    old = permission_voxels(GRID, handle[None], None, 1)
++    new = permission_voxels(GRID, handle[None], wall[None], 1)
++    assert old[11, 10, 10] and not new[11, 10, 10]          # v4 growth covered the wall; v5 keeps it an obstacle
++    assert new[10, 10, 10] and new[9, 10, 10] and new.sum() == old.sum() - 1
++    both = permission_voxels(GRID, np.stack([handle, wall]), wall[None], 1)
++    assert both[11, 10, 10]                                  # an explicitly allowed point is never removed

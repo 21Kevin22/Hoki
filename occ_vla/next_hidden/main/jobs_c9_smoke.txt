@@ -1,0 +1,2 @@
+C9 T1 dev 0-0 smoke9 {"margin_m":0.0,"gamma":0.5}
+C9 T3 dev 0-0 smoke9 {"margin_m":0.0,"gamma":0.5}
