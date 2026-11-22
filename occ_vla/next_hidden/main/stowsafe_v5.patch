@@ -1,7 +1,7 @@
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/config.py stowsafe_kit_v5/stowsafe/stowsafe/config.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/config.py	2026-11-10 04:57:08.758536000 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/config.py	2026-11-20 07:02:40.854736171 +0000
-@@ -113,6 +113,13 @@
++++ stowsafe_kit_v5/stowsafe/stowsafe/config.py	2026-11-22 03:05:04.134153255 +0000
+@@ -113,6 +113,20 @@
                                          #   along the obstacle surface (second QP, same hard constraints)
      gradient_smoothing_vox: float = 0.0 # Gaussian smoothing (voxels) of the field GRADIENT only (values unchanged)
      role_dilation_voxels: int = 1       # "named": role voxels are grown by this many voxels (2 cm)
@@ -10,6 +10,13 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +                                        #   inside the task container's interior boxes they do not constrain the hand
 +    visibility_unknown: str = "shadow"  # which unseen voxels get Delta: "shadow" = hidden behind a real surface (default);
 +                                        #   "auto" = + in-view voxels no ray crossed yet (sparse rays -> phantom obstacles)
++    # v5b (next_hidden PREREG 2026-11-22 C10): speed-limited instead of keep-out. Surfaces a part MAY touch
++    # (its permissions) and unseen shadow voxels are "slow": within slow_range_m the approach speed toward them is
++    # capped at slow_speed_m per control step (grad h . dx >= -(gamma * max(h, 0) + v)), instead of being free
++    # (permissions) or kept out with a margin (Delta). 0 = off (v5 behaviour).
++    slow_speed_m: float = 0.0
++    slow_range_m: float = 0.03
++    slow_unknown: bool = True           # unseen shadow voxels are slow (the hand may enter them slowly)
 +    separate_held_field: bool = False   # affordance mode: the arm gets ALL obstacles (no permissions); the held
 +                                        #   object gets its own field with its permissions (v4: arm shared them)
      sphere_fit: str = "slab"            # "slab": covers the dense collision surface, ~1 cm overhang (v4);
@@ -17,17 +24,18 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
  
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/perception.py stowsafe_kit_v5/stowsafe/stowsafe/perception.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/perception.py	2026-11-10 04:28:41.968902483 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/perception.py	2026-11-22 02:24:00.939852735 +0000
-@@ -21,6 +21,8 @@
++++ stowsafe_kit_v5/stowsafe/stowsafe/perception.py	2026-11-22 03:05:04.137153225 +0000
+@@ -21,6 +21,9 @@
          self.map = OccupancyMap(lo, hi, map_cfg)
          self.map.table_top = self.table_z
          self.palm_field = self.finger_field = self.arm_field = None
 +        self.held_field = self.unknown_arm_field = self.unknown_hand_field = None   # v5
++        self.slow_fields = None                                                   # v5b: {group: field}
 +        self.interior_boxes = ()                                                   # v5: [(lo, hi)] world AABBs
          self.update(obs, map_cfg.rays_per_side_first)
  
      arm_role_points = None
-@@ -33,11 +35,15 @@
+@@ -33,11 +36,15 @@
          self.arm_role_points = whole_body_points
  
      affordance = None
@@ -45,7 +53,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
  
      def set_targets(self, points):
          """Target memory: 3-D points of the instructed object(s), e.g. a one-time detection back-projected."""
-@@ -60,6 +66,7 @@
+@@ -60,6 +67,7 @@
                                 min_range=self.map_cfg.wrist_min_range_m if view.is_wrist else 0.0)
          if self.safety_cfg.obstacle_mode == "named":
              self._named_fields(held, held_clear_pad, robot)
@@ -53,7 +61,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
              return
          policy, cfg, acm = self.safety_cfg.unknown_policy, self.safety_cfg, self.safety_cfg.allowed
          all_obstacles = self.map.obstacles(policy)
-@@ -113,25 +120,62 @@
+@@ -113,25 +121,78 @@
                  arole = binary_dilation(arole, iterations=self.safety_cfg.role_dilation_voxels)
              arm = base & ~arole
          if self.affordance is not None:            # per-part permissions replace the object-level roles
@@ -74,6 +82,14 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 -            self.arm_field = DistanceField.from_obstacles(g, base & ~allowed(hp), sm)
 +            self.finger_field = DistanceField.from_obstacles(g, base & ~allowed(fp, ff), sm)
 +            self.palm_field = DistanceField.from_obstacles(g, base & ~allowed(pp, pf), sm)
++            self.slow_fields = None
++            if self.safety_cfg.slow_speed_m > 0:          # v5b: permitted surfaces (+ unseen shadow) are slow, not free
++                U = self._unseen_shadow(held, held_clear_pad, robot) if self.safety_cfg.slow_unknown else None
++                mk = lambda S: DistanceField.from_obstacles(g, S, sm) if S.any() else None
++                with_u = lambda S: S | U if U is not None else S
++                self.slow_fields = dict(finger=mk(with_u(base & allowed(fp, ff))), palm=mk(with_u(base & allowed(pp, pf))),
++                                        held=mk(with_u(base & allowed(hp, hf))),
++                                        arm=mk(U) if U is not None else None)
 +            if self.safety_cfg.separate_held_field:      # v5: the arm may touch nothing; held keeps its permissions
 +                self.arm_field = DistanceField.from_obstacles(g, base, sm)
 +                self.held_field = DistanceField.from_obstacles(g, base & ~allowed(hp, hf), sm)
@@ -106,6 +122,14 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +        Uh = U & ~inside
 +        self.unknown_hand_field = DistanceField.from_obstacles(g, Uh, sm) if Uh.any() else None
 +
++    def _unseen_shadow(self, held, held_clear_pad, robot):
++        """v5b: unseen voxels hidden behind a real surface, minus table, robot and held object (as _visibility_fields)."""
++        m = self.map
++        U = m.unknown & m.shadow & ~m.table_surface() & ~self._inside(robot, 0.0)
++        if held is not None:
++            U &= ~self._inside(held, held_clear_pad)
++        return U
++
      def _inside(self, spheres, pad):
          g = self.map.grid
          d = np.linalg.norm(g.centres[:, None] - spheres.centres[None], axis=2) - spheres.radii[None] - pad
@@ -129,7 +153,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +    return m
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py	2026-11-10 01:07:20.706354546 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py	2026-11-20 03:52:57.598429536 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py	2026-11-22 03:05:04.138153215 +0000
 @@ -56,11 +56,15 @@
          self.S = np.diag([scale.metres_per_step] * 3 + [scale.radians_per_step] * 3)
          self.W = np.diag([cfg.weight_position] * 3 + [cfg.weight_rotation] * 3)
@@ -137,7 +161,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 -    def filter(self, data, spheres, palm_field, finger_field, u_vla, arm_field=None):
 -        """arm_field: field for the arm links and the held object (allowed-contact table); None = palm_field."""
 +    def filter(self, data, spheres, palm_field, finger_field, u_vla, arm_field=None, held_field=None,
-+               unknown_arm_field=None, unknown_hand_field=None):
++               unknown_arm_field=None, unknown_hand_field=None, slow_fields=None):
 +        """arm_field: field for the arm links and the held object (allowed-contact table); None = palm_field.
 +        v5: held_field (own field for the held object), unknown_*_field (unseen voxels, margin + Delta)."""
          u_vla = np.asarray(u_vla, float)
@@ -149,11 +173,55 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
          active = clearance < self.cfg.activation_m
          if self.cfg.allowed.finger_from_above and u_vla[GRIPPER] <= 0:
              fingers = spheres.mask(SphereGroup.FINGER)
-@@ -103,19 +107,36 @@
+@@ -79,13 +83,16 @@
+                 soft &= ~spheres.mask(SphereGroup.FINGER)
+         rows_needed = np.where(active | soft)[0]
+         active = np.where(active)[0]
+-        if len(rows_needed) == 0:
++        slow_idx, slow_G, slow_b = self._slow(data, spheres, slow_fields, closing=u_vla[GRIPPER] > 0)
++        if len(rows_needed) == 0 and len(slow_idx) == 0:
+             return SafetyResult(u_vla.copy(), min_clearance=float(clearance.min()))
+         u_ref = np.clip(u_vla[ARM], -1, 1)
+-        rows, _ = self._constraints(data, spheres, clearance, gradient, rows_needed)
++        rows, _ = self._constraints(data, spheres, clearance, gradient, rows_needed) if len(rows_needed) else ([], None)
+         row_of = {i: r for i, r in zip(rows_needed, rows)}
+         G = np.array([row_of[i] for i in active]).reshape(len(active), 6)
+         b = -self.cfg.gamma * clearance[active]
++        if len(slow_idx):                                          # v5b: speed caps toward slow surfaces
++            G, b = np.vstack([G, slow_G]), np.concatenate([b, slow_b])
+         P_extra = self._soft_cost(row_of, clearance, np.where(soft)[0], u_ref)
+         if self.cfg.brake_only:
+             u_arm, slack, solved = self._brake(u_ref, G, b)
+@@ -103,19 +110,61 @@
          return SafetyResult(u_safe, float(np.linalg.norm(u_arm - np.clip(u_vla[ARM], -1, 1))),
                              float(clearance.min()), slack, tuple(spheres.names[i] for i in active), solved, blocker)
  
 -    def _clearances(self, spheres, palm_field, finger_field, closing, arm_field=None):
++    def _slow(self, data, spheres, slow_fields, closing):
++        """v5b: rows grad h . dx >= -(gamma * max(h, 0) + v) for spheres within slow_range_m of a slow surface
++        (h = distance - radius, no margin: touching is allowed, only the approach speed is capped)."""
++        v = self.cfg.slow_speed_m
++        if v <= 0 or not slow_fields:
++            return np.zeros(0, int), np.zeros((0, 6)), np.zeros(0)
++        groups = dict(arm=spheres.mask(SphereGroup.ARM), palm=spheres.mask(SphereGroup.PALM),
++                      finger=spheres.mask(SphereGroup.FINGER) & (not closing), held=spheres.mask(SphereGroup.HELD))
++        idx, grads, hs = [], [], []
++        for k, mask in groups.items():
++            field = slow_fields.get(k)
++            if field is None or not np.any(mask):
++                continue
++            ii = np.where(mask)[0]
++            D, Gr = field.query(spheres.centres[ii])
++            h = D - spheres.radii[ii]
++            near = h < self.cfg.slow_range_m
++            idx += list(ii[near]); grads += list(Gr[near]); hs += list(h[near])
++        if not idx:
++            return np.zeros(0, int), np.zeros((0, 6)), np.zeros(0)
++        idx = np.asarray(idx); grad = np.zeros((spheres.centres.shape[0], 3))
++        grad[idx] = np.asarray(grads)
++        rows, _ = self._constraints(data, spheres, np.zeros(len(grad)), grad, idx)
++        return idx, rows.reshape(len(idx), 6), -(self.cfg.gamma * np.maximum(np.asarray(hs), 0.0) + v)
++
 +    def _clearances(self, spheres, palm_field, finger_field, closing, arm_field=None, held_field=None,
 +                    unknown_arm_field=None, unknown_hand_field=None):
          D, G = palm_field.query(spheres.centres)
@@ -190,7 +258,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
          jp = np.zeros((3, self.model.nv)); jr = np.zeros((3, self.model.nv))
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/stowsafe.py stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/stowsafe.py	2026-11-10 04:57:08.759535992 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py	2026-11-22 02:23:27.022481600 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/stowsafe.py	2026-11-22 03:05:04.138153215 +0000
 @@ -103,12 +103,16 @@
          self._external_targets = True
          self.perception.set_roles(whole_body_points, hand_only_points)
@@ -210,21 +278,22 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
  
      def set_targets(self, points):
          self._external_targets = points is not None
-@@ -173,7 +177,9 @@
+@@ -173,7 +177,10 @@
          start = time.perf_counter()
          result = (self.safety_relaxed if relaxed else self.safety).filter(self.data, concat(self.spheres.in_world(self.data), self.held.in_world(self.data)),
                                      self.perception.palm_field, self.perception.finger_field, action,
 -                                    arm_field=self.perception.arm_field)
 +                                    arm_field=self.perception.arm_field, held_field=self.perception.held_field,
 +                                    unknown_arm_field=self.perception.unknown_arm_field,
-+                                    unknown_hand_field=self.perception.unknown_hand_field)
++                                    unknown_hand_field=self.perception.unknown_hand_field,
++                                    slow_fields=self.perception.slow_fields)
          self.stats.qp_ms.append(1000 * (time.perf_counter() - start))
          self.stats.correction.append(result.correction)
          if result.blocker is not None and result.correction > 0.05:
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/tests/test_v5_visibility.py stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py
 --- stowsafe_kit_v4/stowsafe/tests/test_v5_visibility.py	1970-01-01 00:00:00.000000000 +0000
-+++ stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py	2026-11-22 02:23:50.654042192 +0000
-@@ -0,0 +1,78 @@
++++ stowsafe_kit_v5/stowsafe/tests/test_v5_visibility.py	2026-11-22 03:05:18.729007549 +0000
+@@ -0,0 +1,99 @@
 +"""v5 (next_hidden PREREG_main.md §3): visibility-dependent margin and the separate held-object field."""
 +import numpy as np
 +from stowsafe.config import SafetyConfig
@@ -303,3 +372,24 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +    assert new[10, 10, 10] and new[9, 10, 10] and new.sum() == old.sum() - 1
 +    both = permission_voxels(GRID, np.stack([handle, wall]), wall[None], 1)
 +    assert both[11, 10, 10]                                  # an explicitly allowed point is never removed
++
++
++def test_slow_surface_caps_approach_speed_but_allows_contact():
++    f = _filter(slow_speed_m=0.001, gamma=0.5)
++    S = _spheres([[0.21, 0.21, 0.244]], [SphereGroup.PALM])          # 1.4 cm above a slow voxel, radius 1 cm
++    calls = {}
++    f._constraints = lambda data, sp, c, g, idx: (calls.setdefault("g", g[idx]) is not None and np.array([[0, 0, 1.0, 0, 0, 0]]), None)
++    idx, G, b = f._slow(None, S, dict(palm=UNSEEN), closing=False)
++    D, _ = UNSEEN.query(S.centres)
++    h = D[0] - 0.01
++    assert list(idx) == [0] and abs(b[0] + (0.5 * h + 0.001)) < 1e-9        # no margin: touching is allowed
++    assert calls["g"][0][2] > 0                                              # gradient points away from the surface
++    far = _spheres([[0.21, 0.21, 0.35]], [SphereGroup.PALM])
++    assert len(f._slow(None, far, dict(palm=UNSEEN), closing=False)[0]) == 0  # beyond slow_range_m: no row
++
++
++def test_slow_off_and_closing_fingers_are_unconstrained():
++    S = _spheres([[0.21, 0.21, 0.244]], [SphereGroup.FINGER])
++    assert len(_filter()._slow(None, S, dict(finger=UNSEEN), closing=False)[0]) == 0       # slow_speed_m = 0 -> v5
++    f = _filter(slow_speed_m=0.001)
++    assert len(f._slow(None, S, dict(finger=UNSEEN), closing=True)[0]) == 0                # grasping: fingers free

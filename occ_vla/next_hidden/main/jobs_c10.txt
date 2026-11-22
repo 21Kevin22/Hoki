@@ -1,0 +1,15 @@
+C10 T1 dev 0-4 c10 {"margin_m":0.0,"gamma":0.5}
+C10 T2 dev 0-4 c10 {"margin_m":0.0,"gamma":0.5}
+C10 T3 dev 0-4 c10 {"margin_m":0.0,"gamma":0.5}
+C10 T5 dev 0-4 c10 {"margin_m":0.0,"gamma":0.5}
+C10 T6 dev 0-4 c10 {"margin_m":0.0,"gamma":0.5}
+C9 T1 dev 0-4 c9n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C9 T2 dev 0-4 c9n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C9 T3 dev 0-4 c9n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C9 T5 dev 0-4 c9n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C9 T6 dev 0-4 c9n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C10 T1 dev 0-4 c10n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C10 T2 dev 0-4 c10n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C10 T3 dev 0-4 c10n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C10 T5 dev 0-4 c10n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
+C10 T6 dev 0-4 c10n25 {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}

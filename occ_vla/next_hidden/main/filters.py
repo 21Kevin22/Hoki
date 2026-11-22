@@ -7,6 +7,7 @@ Filter.act(obs, u) -> (a, info).
   C3  hand-only CBF + drawer part affordances             = MODES["hand_aff_fresh"] (+ AffordancePoints, refresh boxes)
   C4  PROPOSED: container part roles (GT, main/parts.py) + visibility-dependent margin (Delta)
   C5  C4 without the visibility margin (Delta = 0)
+  C10 C9 + speed limits: permitted surfaces and unseen shadow are slow (capped approach), not free / kept out
   C9  C5 + affordance refinements (inner surfaces for the held object, no permission leak, phase) -- PREREG 2026-11-22
   C6  C4 without part roles (the whole task container is touchable like a target)
   C8  C4 on the TRUE geometry (oracle map: every non-robot collision surface occupied, nothing unknown)
@@ -56,6 +57,9 @@ def base_config(cond, p):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
     elif cond in ("C5", "C9"):
         c = _C4
+    elif cond == "C10":              # PREREG 2026-11-22 (2): C9 with permitted surfaces and unseen shadow speed-limited
+        c = dc.replace(_C4, safety=dc.replace(_C4.safety, slow_speed_m=float(p.get("slow_speed_m", 0.001)),
+                                              slow_range_m=float(p.get("slow_range_m", 0.03))))
     else:
         raise ValueError(cond)
     # PREREG §7 (2026-11-20): gamma = 0.5 for every filter unless tuned (alpha = 10 at 20 Hz in AEGIS / multi-link)
@@ -153,6 +157,18 @@ class PartPointsV2(PartPoints):
             return allc[~np.isfinite(dist)]
         fh, fd = (None, None) if "forbid" in self.off else (forbid(hand), forbid(held))
         return (hand, hand, held), (fh, fh, fd)
+
+
+def flip_roles(parts: TaskParts, p, stem):
+    """PREREG 2026-11-22 (2) role-error test: each task-container geom's role is flipped with probability p
+    (touchable handle/panel/floor -> wall, wall -> panel), seeded by the init state. Only the FILTER's copy of the
+    parts changes; the collision metric builds its own TaskParts (run_closed_loop.py)."""
+    import zlib
+    rng = np.random.default_rng(zlib.crc32(stem.encode()))
+    for g in sorted(parts.part):
+        if rng.random() < p:
+            parts.part[g] = "panel" if parts.part[g] == "wall" else "wall"
+    parts.flipped = p
 
 
 def site_box(m, d, name):
@@ -310,7 +326,9 @@ class Filter:
             self.guard.set_refresh_boxes(articulated_sweep_boxes(m, d, env.env.sim, ooi, only={nd} if nd else None))
         else:                                              # C4 family (C7 overrides parts_pts with estimated roles)
             parts = TaskParts(task, m, d)
-            if cond == "C9":
+            if cond in ("C9", "C10") and params.get("role_noise", 0) > 0:
+                flip_roles(parts, params["role_noise"], params["state_stem"])
+            if cond in ("C9", "C10"):
                 self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
                                               off=params.get("c9_off", ()))
             elif cond != "C7":
@@ -333,7 +351,7 @@ class Filter:
         if self.aff is not None:
             self.guard.set_affordance(*self.aff(self.d))
         if self.parts_pts is not None:
-            if self.cond == "C9":
+            if self.cond in ("C9", "C10"):
                 allow, forbid = self.parts_pts(self.d)
                 self.guard.set_affordance(*allow, forbid=forbid)
             else:

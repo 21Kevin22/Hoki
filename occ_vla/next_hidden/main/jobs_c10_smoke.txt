@@ -1,0 +1,2 @@
+C10 T1 dev 0-0 smoke10 {"margin_m":0.0,"gamma":0.5}
+C10 T3 dev 0-0 smoke10n {"margin_m":0.0,"gamma":0.5,"role_noise":0.25}
