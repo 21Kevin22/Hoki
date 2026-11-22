@@ -162,7 +162,7 @@ def main():
         stem = out / f"{a.task}_{a.split}{i:02d}"
         if pathlib.Path(f"{stem}.json").exists():
             continue                                     # resume: never re-run a finished episode
-        p_i = dict(params, state_stem=f"{a.task}_{a.split}{i:02d}") if a.cond in ("C7", "C9", "C10") else params
+        p_i = dict(params, state_stem=f"{a.task}_{a.split}{i:02d}") if a.cond in ("C7", "C9", "C10", "C7v9") else params
         r = run_episode(env, client, a.task, states[i], a.cond, str(stem), params=p_i, twin=twin)
         (HERE / "results" / "last_episode_done").touch()
         print(json.dumps({k: r[k] for k in ("task", "cond", "success", "cf_success", "steps", "wall_s")} |

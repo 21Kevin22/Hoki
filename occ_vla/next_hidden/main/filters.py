@@ -11,6 +11,7 @@ Filter.act(obs, u) -> (a, info).
   C9  C5 + affordance refinements (inner surfaces for the held object, no permission leak, phase) -- PREREG 2026-11-22
   C6  C4 without part roles (the whole task container is touchable like a target)
   C8  C4 on the TRUE geometry (oracle map: every non-robot collision surface occupied, nothing unknown)
+  C6v9 / C7v9 / C8v9 / C9_5Hz: C6 / C7 / C8 / C4-5Hz rebuilt on the proposal C9 (PREREG 2026-11-22 (4))
   (C7 = C4 with roles estimated by Qwen2.5-VL-3B: main/roles_qwen.py, added separately)
 C1-C3 are the main-line modes unchanged except for the tuned values (§7); with the v5 options off v5 == v4 (53 tests)."""
 import dataclasses as dc
@@ -55,7 +56,7 @@ def base_config(cond, p):
         c = MODES["hand_aff_fresh"]
     elif cond in ("C4", "C6", "C7", "C8", "C4_5Hz"):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
-    elif cond in ("C5", "C9"):
+    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz"):
         c = _C4
     elif cond == "C10":              # PREREG 2026-11-22 (2): C9 with permitted surfaces and unseen shadow speed-limited
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, slow_speed_m=float(p.get("slow_speed_m", 0.001)),
@@ -69,7 +70,7 @@ def base_config(cond, p):
         off = s.margin_arm_m - s.margin_palm_m
         c = dc.replace(c, safety=dc.replace(s, margin_arm_m=p["margin_m"] + off, margin_palm_m=p["margin_m"],
                                             margin_finger_m=p["margin_m"], margin_held_m=p["margin_m"]))
-    if cond == "C4_5Hz":
+    if cond in ("C4_5Hz", "C9_5Hz"):
         c = dc.replace(c, map=dc.replace(c.map, update_every_steps=4))
     return c
 
@@ -236,6 +237,41 @@ class QwenRoles:
         return hand, hand, cat(tg, de, self.held_pts)
 
 
+class QwenRolesV2:
+    """C7v9 (PREREG 2026-11-22 (4)): C7's estimated parts (QwenRoles, fixed at t0) with C9's three refinements.
+    No floor/wall labels are estimated, so: inner = the lifted container_box points (all inside the estimated interior);
+    floor = those within 2 cm of their 5th-percentile height; container = the same points. Not parsed -> C6v9."""
+
+    def __init__(self, stem, parts: TaskParts, m, guard):
+        self.q = QwenRoles(stem, parts, m)
+        self.ok, self.guard = self.q.ok, guard
+        if self.ok:
+            C = self.q.held_pts
+            self.cont = C
+            self.floor = C[C[:, 2] <= np.percentile(C[:, 2], 5) + 0.02] if len(C) else C
+            self.interior = self.q.interior
+            self.meta = self.q.meta
+
+    def __call__(self, d):
+        b = self.q.base
+        tg, de = b._world(b.targets, d), b._world(b.dests, d)
+        cat = lambda *A: (lambda L: np.concatenate(L) if L else None)([a for a in A if a is not None and len(a)])
+        if not self.ok:
+            h, _, hd = self.q(d)
+            return (h, h, hd), (None, None, None)
+        held = cat(tg, de, self.cont)
+        hand = cat(tg, de, self.floor) if self.guard.held.attached else cat(tg, self.q.hand_pts)
+
+        def forbid(allowed):
+            if allowed is None or not len(allowed):
+                return self.cont
+            from scipy.spatial import cKDTree
+            dist, _ = cKDTree(allowed).query(self.cont, distance_upper_bound=0.005)
+            return self.cont[~np.isfinite(dist)]
+        fh = forbid(hand)
+        return (hand, hand, held), (fh, fh, forbid(held))
+
+
 class OracleMap:
     """C8: the map is replaced by the true geometry every update (all non-robot, non-table collision surfaces
     occupied, everything else free -> nothing unknown, no depth noise)."""
@@ -328,9 +364,17 @@ class Filter:
             parts = TaskParts(task, m, d)
             if cond in ("C9", "C10") and params.get("role_noise", 0) > 0:
                 flip_roles(parts, params["role_noise"], params["state_stem"])
-            if cond in ("C9", "C10"):
+            if cond in ("C9", "C10", "C8v9", "C9_5Hz"):
                 self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
                                               off=params.get("c9_off", ()))
+            elif cond == "C6v9":
+                self.parts_pts = PartPoints(parts, m, whole_container=True)
+            elif cond == "C7v9":
+                self.parts_pts = QwenRolesV2(params["state_stem"], parts, m, self.guard)
+                if not self.parts_pts.ok:                  # PREREG: not parsed -> no part roles (= C6v9)
+                    self.parts_pts = PartPoints(parts, m, whole_container=True)
+                elif self.parts_pts.interior is not None:
+                    self.interior_fixed = self.parts_pts.interior
             elif cond != "C7":
                 self.parts_pts = PartPoints(parts, m, whole_container=(cond == "C6"))
             else:
@@ -341,7 +385,7 @@ class Filter:
                 jb = m.body(m.jnt_bodyid[parts.joint]).name
                 self.guard.set_refresh_boxes(articulated_sweep_boxes(m, d, env.env.sim, (parts.container_root,),
                                                                      only={jb}))
-            if cond == "C8":
+            if cond in ("C8", "C8v9"):
                 OracleMap(self.guard, m).install()
                 self.oracle_held = OracleHeld(self.guard, parts, m, d)
 
@@ -351,14 +395,14 @@ class Filter:
         if self.aff is not None:
             self.guard.set_affordance(*self.aff(self.d))
         if self.parts_pts is not None:
-            if self.cond in ("C9", "C10"):
+            if isinstance(self.parts_pts, (PartPointsV2, QwenRolesV2)):
                 allow, forbid = self.parts_pts(self.d)
                 self.guard.set_affordance(*allow, forbid=forbid)
             else:
                 self.guard.set_affordance(*self.parts_pts(self.d))
         if getattr(self, "interior_fixed", None) is not None:            # C7: estimated, fixed at t0
             self.guard.set_interior_boxes([self.interior_fixed])
-        elif self.interior is not None and self.cond != "C7":
+        elif self.interior is not None and self.cond not in ("C7", "C7v9"):
             self.guard.set_interior_boxes([site_box(self.m, self.d, self.interior)])
         if getattr(self, "oracle_held", None) is not None:
             self._t = getattr(self, "_t", 0) + 1
