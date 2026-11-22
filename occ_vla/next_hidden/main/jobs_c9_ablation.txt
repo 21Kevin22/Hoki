@@ -1,0 +1,15 @@
+C9 T1 dev 0-4 c9no_inner {"margin_m":0.0,"gamma":0.5,"c9_off":["inner"]}
+C9 T2 dev 0-4 c9no_inner {"margin_m":0.0,"gamma":0.5,"c9_off":["inner"]}
+C9 T3 dev 0-4 c9no_inner {"margin_m":0.0,"gamma":0.5,"c9_off":["inner"]}
+C9 T5 dev 0-4 c9no_inner {"margin_m":0.0,"gamma":0.5,"c9_off":["inner"]}
+C9 T6 dev 0-4 c9no_inner {"margin_m":0.0,"gamma":0.5,"c9_off":["inner"]}
+C9 T1 dev 0-4 c9no_forbid {"margin_m":0.0,"gamma":0.5,"c9_off":["forbid"]}
+C9 T2 dev 0-4 c9no_forbid {"margin_m":0.0,"gamma":0.5,"c9_off":["forbid"]}
+C9 T3 dev 0-4 c9no_forbid {"margin_m":0.0,"gamma":0.5,"c9_off":["forbid"]}
+C9 T5 dev 0-4 c9no_forbid {"margin_m":0.0,"gamma":0.5,"c9_off":["forbid"]}
+C9 T6 dev 0-4 c9no_forbid {"margin_m":0.0,"gamma":0.5,"c9_off":["forbid"]}
+C9 T1 dev 0-4 c9no_phase {"margin_m":0.0,"gamma":0.5,"c9_off":["phase"]}
+C9 T2 dev 0-4 c9no_phase {"margin_m":0.0,"gamma":0.5,"c9_off":["phase"]}
+C9 T3 dev 0-4 c9no_phase {"margin_m":0.0,"gamma":0.5,"c9_off":["phase"]}
+C9 T5 dev 0-4 c9no_phase {"margin_m":0.0,"gamma":0.5,"c9_off":["phase"]}
+C9 T6 dev 0-4 c9no_phase {"margin_m":0.0,"gamma":0.5,"c9_off":["phase"]}

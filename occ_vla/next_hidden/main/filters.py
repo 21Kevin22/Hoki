@@ -116,8 +116,9 @@ class PartPointsV2(PartPoints):
 
     PAD = 0.02
 
-    def __init__(self, parts: TaskParts, m, guard, interior_site):
+    def __init__(self, parts: TaskParts, m, guard, interior_site, off=()):
         super().__init__(parts, m)
+        self.off = set(off)                           # ablation: subset of {"inner", "forbid", "phase"} switched off
         self.guard, self.site = guard, interior_site
         kind = lambda ks: [(m.geom_bodyid[g], geom_points(m, g)) for g, k in parts.part.items() if k in ks]
         self.cont = kind(("handle", "panel", "floor", "wall"))
@@ -134,9 +135,9 @@ class PartPointsV2(PartPoints):
     def __call__(self, d):
         W = lambda items: self._world(items, d)
         cat = lambda *A: (lambda L: np.concatenate(L) if L else None)([a for a in A if a is not None and len(a)])
-        inner = self._inside(W(self.cont), d)
+        inner = None if "inner" in self.off else self._inside(W(self.cont), d)
         held = cat(W(self.targets), W(self.dests), W(self.floor), inner)
-        if self.guard.held.attached:
+        if self.guard.held.attached and "phase" not in self.off:
             hand = cat(W(self.targets), W(self.dests), W(self.floor))
         else:
             hand = cat(W(self.targets), W(self.handle_panel))
@@ -150,7 +151,7 @@ class PartPointsV2(PartPoints):
             from scipy.spatial import cKDTree
             dist, _ = cKDTree(allowed).query(allc, distance_upper_bound=0.005)
             return allc[~np.isfinite(dist)]
-        fh, fd = forbid(hand), forbid(held)
+        fh, fd = (None, None) if "forbid" in self.off else (forbid(hand), forbid(held))
         return (hand, hand, held), (fh, fh, fd)
 
 
@@ -310,7 +311,8 @@ class Filter:
         else:                                              # C4 family (C7 overrides parts_pts with estimated roles)
             parts = TaskParts(task, m, d)
             if cond == "C9":
-                self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task])
+                self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
+                                              off=params.get("c9_off", ()))
             elif cond != "C7":
                 self.parts_pts = PartPoints(parts, m, whole_container=(cond == "C6"))
             else:
