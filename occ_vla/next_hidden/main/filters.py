@@ -56,7 +56,7 @@ def base_config(cond, p):
         c = MODES["hand_aff_fresh"]
     elif cond in ("C4", "C6", "C7", "C8", "C4_5Hz"):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
-    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz"):
+    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB"):
         c = _C4
     elif cond == "C10":              # PREREG 2026-11-22 (2): C9 with permitted surfaces and unseen shadow speed-limited
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, slow_speed_m=float(p.get("slow_speed_m", 0.001)),
@@ -70,6 +70,8 @@ def base_config(cond, p):
         off = s.margin_arm_m - s.margin_palm_m
         c = dc.replace(c, safety=dc.replace(s, margin_arm_m=p["margin_m"] + off, margin_palm_m=p["margin_m"],
                                             margin_finger_m=p["margin_m"], margin_held_m=p["margin_m"]))
+    if cond == "CQB":                # fences hold bystanders only (never the target): closing fingers stay constrained
+        c = dc.replace(c, safety=dc.replace(c.safety, allowed=dc.replace(c.safety.allowed, fingers_free_when_closing=False)))
     if cond in ("C4_5Hz", "C9_5Hz"):
         c = dc.replace(c, map=dc.replace(c.map, update_every_steps=4))
     return c
@@ -310,6 +312,65 @@ class OracleMap:
         per.update = update
 
 
+class DynamicOracleMap(OracleMap):
+    """CQB (PREREG 2026-11-23 (6)): true geometry of ONLY the bystanders the consequence check predicted to move
+    (fences), kept for HOLD steps after the last such prediction. Everything else is free -> no fence."""
+    HOLD = 20
+
+    def __init__(self, guard, m, bystanders):
+        self.g, self.m = guard, m
+        roots = {m.body_rootid[b] for b in bystanders}
+        self.items_by_root = {}
+        for b in range(1, m.nbody):
+            if m.body_rootid[b] in roots:
+                P = body_surface_points(m, b, include_visual=False, spacing=0.01)
+                if len(P):
+                    self.items_by_root.setdefault(m.body_rootid[b], []).append((b, P))
+        self.until = {}
+        self.t = 0
+        self.items = []
+
+    def set_predicted(self, moved_bodies):
+        self.t += 1
+        for b in moved_bodies:
+            self.until[self.m.body_rootid[b]] = self.t + self.HOLD
+        active = [r for r, u in self.until.items() if u >= self.t]
+        self.items = [it for r in active for it in self.items_by_root.get(r, [])]
+        return len(active)
+
+    def install(self):
+        per = self.g.perception
+        orig_named, orig_vis = per._named_fields, per._visibility_fields
+
+        def update(obs, rays_per_side=None, held=None, held_clear_pad=0.0):
+            d = self.g.data
+            mp = per.map
+            lo = np.full(mp.grid.shape, mp.cfg.log_odds_min, np.float32)
+            zmax = np.full(mp.grid.shape, -np.inf, np.float32)
+            if self.items:
+                P = np.concatenate([Q @ d.xmat[b].reshape(3, 3).T + d.xpos[b] for b, Q in self.items])
+                P = P[mp.grid.contains(P)]
+                if len(P):
+                    idx = np.unique(mp.grid.flat_index(P))
+                    lo.reshape(-1)[idx] = mp.cfg.log_odds_max
+                    np.maximum.at(zmax.reshape(-1), mp.grid.flat_index(P), P[:, 2].astype(np.float32))
+            mp.log_odds[...] = lo
+            mp.hit_zmax[...] = zmax
+            robot = per.self_filter.in_world(d)
+            # true-geometry fences need none of the camera-map heuristics: do not drop the bottom table layers of an
+            # object, nor voxels under the robot's / held object's spheres (pre-run check, PREREG 2026-11-23 (6))
+            none = np.zeros(mp.grid.shape, bool)
+            orig_inside, orig_table = per._inside, mp.table_surface
+            per._inside = lambda *a, **k: none
+            mp.table_surface = lambda *a, **k: none
+            try:
+                orig_named(held, held_clear_pad, robot)
+                orig_vis(held, held_clear_pad, robot)
+            finally:
+                per._inside, mp.table_surface = orig_inside, orig_table
+        per.update = update
+
+
 class OracleHeld:
     """C8: the held object is also ground truth. Held = both fingers touch a target (same rule as the metric,
     collisions.py); its spheres are fitted to the TRUE surface with StowSafe's own fit (map-based attach is off)."""
@@ -364,7 +425,9 @@ class Filter:
             parts = TaskParts(task, m, d)
             if cond in ("C9", "C10") and params.get("role_noise", 0) > 0:
                 flip_roles(parts, params["role_noise"], params["state_stem"])
-            if cond in ("C9", "C10", "C8v9", "C9_5Hz"):
+            if cond == "CQB":                              # fences only on predicted-harm bystanders, no roles
+                self.parts_pts = None
+            elif cond in ("C9", "C10", "C8v9", "C9_5Hz"):
                 self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
                                               off=params.get("c9_off", ()))
             elif cond == "C6v9":
@@ -387,6 +450,11 @@ class Filter:
                                                                      only={jb}))
             if cond in ("C8", "C8v9"):
                 OracleMap(self.guard, m).install()
+                self.oracle_held = OracleHeld(self.guard, parts, m, d)
+            if cond == "CQB":
+                from collisions import CollisionRecorder
+                self.dyn_map = DynamicOracleMap(self.guard, m, CollisionRecorder(parts, m, d).bystanders)
+                self.dyn_map.install()
                 self.oracle_held = OracleHeld(self.guard, parts, m, d)
 
     def act(self, obs, u):

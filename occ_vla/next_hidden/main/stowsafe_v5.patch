@@ -1,7 +1,16 @@
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/config.py stowsafe_kit_v5/stowsafe/stowsafe/config.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/config.py	2026-11-10 04:57:08.758536000 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/config.py	2026-11-22 03:05:04.134153255 +0000
-@@ -113,6 +113,20 @@
++++ stowsafe_kit_v5/stowsafe/stowsafe/config.py	2026-11-23 13:03:27.848513588 +0000
+@@ -68,6 +68,8 @@
+     held_below: bool = True             # the held object may be put down          [no held object in v3]
+     finger_from_above: bool = False     # open fingers may approach any obstacle from ABOVE (to grasp), never sideways
+     fingers_unconstrained: bool = False # diagnosis only: the fingers are never constrained
++    fingers_free_when_closing: bool = True  # v5c: closing fingers ignore obstacles (to grasp). False when the obstacle
++                                            # set never contains the target (occ_vla CQB fences on bystanders only)
+ 
+     def table(self):
+         """Rows for the paper's appendix: (robot part, target, table, other small objects, below)."""
+@@ -113,6 +115,20 @@
                                          #   along the obstacle surface (second QP, same hard constraints)
      gradient_smoothing_vox: float = 0.0 # Gaussian smoothing (voxels) of the field GRADIENT only (values unchanged)
      role_dilation_voxels: int = 1       # "named": role voxels are grown by this many voxels (2 cm)
@@ -153,7 +162,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +    return m
 diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py
 --- stowsafe_kit_v4/stowsafe/stowsafe/safety_filter.py	2026-11-10 01:07:20.706354546 +0000
-+++ stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py	2026-11-22 03:05:04.138153215 +0000
++++ stowsafe_kit_v5/stowsafe/stowsafe/safety_filter.py	2026-11-23 13:03:27.848513588 +0000
 @@ -56,11 +56,15 @@
          self.S = np.diag([scale.metres_per_step] * 3 + [scale.radians_per_step] * 3)
          self.W = np.diag([cfg.weight_position] * 3 + [cfg.weight_rotation] * 3)
@@ -192,7 +201,7 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
          P_extra = self._soft_cost(row_of, clearance, np.where(soft)[0], u_ref)
          if self.cfg.brake_only:
              u_arm, slack, solved = self._brake(u_ref, G, b)
-@@ -103,19 +110,61 @@
+@@ -103,19 +110,62 @@
          return SafetyResult(u_safe, float(np.linalg.norm(u_arm - np.clip(u_vla[ARM], -1, 1))),
                              float(clearance.min()), slack, tuple(spheres.names[i] for i in active), solved, blocker)
  
@@ -234,7 +243,8 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +            D[held], G[held] = held_field.query(spheres.centres[held])
          fingers = spheres.mask(SphereGroup.FINGER)
          if fingers.any():
-             if closing or self.cfg.allowed.fingers_unconstrained:                       # the fingers are closing on the object: leave them free
+-            if closing or self.cfg.allowed.fingers_unconstrained:                       # the fingers are closing on the object: leave them free
++            if (closing and self.cfg.allowed.fingers_free_when_closing) or self.cfg.allowed.fingers_unconstrained:  # closing on the object: free
                  D[fingers] = NOT_CONSTRAINED_M
              else:
                  D[fingers], G[fingers] = finger_field.query(spheres.centres[fingers])
@@ -242,7 +252,8 @@ diff -ruN -x __pycache__ -x .pytest_cache -x results -x '*.pyc' stowsafe_kit_v4/
 +        C = D - spheres.radii - _margins(self.cfg, spheres.groups)
 +        delta = self.cfg.visibility_margin_m                       # v5: unseen voxels with margin m0 + Delta
 +        if delta > 0:
-+            fingers_free = bool(closing or self.cfg.allowed.fingers_unconstrained)   # plain bool: never use ~ on it
++            fingers_free = bool((closing and self.cfg.allowed.fingers_free_when_closing)
++                                or self.cfg.allowed.fingers_unconstrained)   # plain bool: never use ~ on it
 +            hand = spheres.mask(SphereGroup.PALM) | (fingers if not fingers_free else np.zeros_like(fingers))
 +            for mask, field in ((spheres.mask(SphereGroup.ARM) | held, unknown_arm_field), (hand, unknown_hand_field)):
 +                if field is None or not mask.any():

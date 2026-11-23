@@ -62,6 +62,26 @@ class ConsequenceFilter:
         self.stats["rollouts"] += 1
         return worst
 
+    def predict(self, state, u, plan):
+        """Bystander bodies the UNCHANGED commands would move > THR within H steps (for CQB's fences)."""
+        tw = self.twin
+        tw.env.timestep = 0; tw.env.done = False
+        tw.sim.set_state_from_flattened(state); tw.sim.forward()
+        if self.env is not None:
+            sync_internal(self.env, tw)
+        d = tw.sim.data._data
+        p0 = {b: d.xpos[b].copy() for b in self.byst}
+        moved = set()
+        seq = [np.asarray(u, float)] + [np.asarray(p, float) for p in plan]
+        seq += [seq[-1]] * (H - len(seq))          # the plan holds <= 4 more steps: hold the last command up to H
+        for a in seq[:H]:
+            tw.step(np.clip(a, -1, 1).tolist())
+            moved |= {b for b in self.byst if float(np.abs(d.xpos[b] - p0[b]).sum()) > THR}
+        self.stats["checks"] += 1; self.stats["rollouts"] += 1
+        if moved:
+            self.stats["harm_predicted"] += 1
+        return moved
+
     def act(self, state, u, plan):
         """Returns (action, info). info['replan'] = True when the command was changed."""
         self.stats["checks"] += 1

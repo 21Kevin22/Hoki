@@ -54,7 +54,7 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
     m, d = env.sim.model._model, env.sim.data._data
     parts = TaskParts(task, m, d)
     rec = CollisionRecorder(parts, m, d)
-    filt = cq = None
+    filt = cq = cqb = None
     branches = collections.Counter()
     plan, frames, log = collections.deque(), [], collections.defaultdict(list)
     t, done, n_inf, inf_s, t0 = 0, False, 0, 0.0, time.time()
@@ -66,6 +66,10 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
                 rec.rebase()                 # displacement from the settled pose (objects drop ~7 cm at reset)
                 if cond == "CQ":                 # PREREG 2026-11-23 (5): consequence-gated safety (twin = true sim)
                     cq = ConsequenceFilter(twin, task, env)
+                elif cond == "CQB":              # PREREG 2026-11-23 (6): CBF fences on predicted-harm bystanders only
+                    cqb = ConsequenceFilter(twin, task, env)
+                    filt = make_filter(cond, env, obs, task, params, lang)
+                    n_fenced = []
                 else:
                     filt = make_filter(cond, env, obs, task, params, lang)   # built on the settled scene (main-line order)
             continue
@@ -85,6 +89,8 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
         elif filt is None:
             a = u
         else:
+            if cqb is not None:
+                n_fenced.append(filt.dyn_map.set_predicted(cqb.predict(env.sim.get_state().flatten().copy(), u, list(plan))))
             a, info = filt.act(obs, u)
             if info["corrected"] and twin is not None:      # justified vs over-conservative, in the closed loop
                 hit = branch_would_collide(twin, task, env.sim.get_state().flatten().copy(), [u] + list(plan))
@@ -111,7 +117,8 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
                                                   if k in ("map_ms", "qp_ms", "unsolved_qp", "replans", "mean_correction",
                                                            "attach_events")},
                blockers=None if filt is None else [list(map(str, b)) for b in filt.guard.stats.blockers[:30]],
-               cq=None if cq is None else cq.stats,
+               cq=cq.stats if cq is not None else (dict(cqb.stats, fenced_steps=int(sum(x > 0 for x in n_fenced)),
+                                                        max_fenced=int(max(n_fenced + [0]))) if cqb is not None else None),
                n_infer=n_inf, mean_infer_s=round(inf_s / max(n_inf, 1), 3), collision=col,
                cf_success=bool(done) and not col["l1"], render=os.environ.get("MUJOCO_GL"),
                held_steps=sum(bool(s["held"]) for s in rec.steps))
@@ -162,7 +169,7 @@ def main():
     env.seed(7)
     params = json.loads(a.params)
     no_branch = a.no_branch or os.environ.get("NO_BRANCH") == "1"      # tuning runs skip the counterfactual
-    twin = None if (a.cond in ("C0", "C0p") or no_branch) and a.cond != "CQ" else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
+    twin = None if (a.cond in ("C0", "C0p") or no_branch) and a.cond not in ("CQ", "CQB") else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
     if twin is not None:
         twin.seed(7); twin.reset()
     client = _wcp.WebsocketClientPolicy("127.0.0.1", a.port)
