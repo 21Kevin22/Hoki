@@ -1,0 +1,216 @@
+{
+ "task": "T10",
+ "suite": "libero_10",
+ "index": 4,
+ "language": "put the white mug on the left plate and put the yellow and white mug on the right plate",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0118,
+  "median": 0.02045
+ },
+ "sha256": "7e36c425fb80b44931a227009bdf47e58620a812451709f3a91845051e33a872",
+ "log": [
+  {
+   "seed": 960000,
+   "min_dist_to_official_m": 0.0226,
+   "kept": true
+  },
+  {
+   "seed": 960001,
+   "min_dist_to_official_m": 0.022,
+   "kept": true
+  },
+  {
+   "seed": 960002,
+   "min_dist_to_official_m": 0.0233,
+   "kept": true
+  },
+  {
+   "seed": 960003,
+   "min_dist_to_official_m": 0.0191,
+   "kept": true
+  },
+  {
+   "seed": 960004,
+   "min_dist_to_official_m": 0.0165,
+   "kept": true
+  },
+  {
+   "seed": 960005,
+   "min_dist_to_official_m": 0.0133,
+   "kept": true
+  },
+  {
+   "seed": 960006,
+   "min_dist_to_official_m": 0.0237,
+   "kept": true
+  },
+  {
+   "seed": 960007,
+   "min_dist_to_official_m": 0.0261,
+   "kept": true
+  },
+  {
+   "seed": 960008,
+   "min_dist_to_official_m": 0.0195,
+   "kept": true
+  },
+  {
+   "seed": 960009,
+   "min_dist_to_official_m": 0.0242,
+   "kept": true
+  },
+  {
+   "seed": 960010,
+   "min_dist_to_official_m": 0.0131,
+   "kept": true
+  },
+  {
+   "seed": 960011,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 960012,
+   "min_dist_to_official_m": 0.0232,
+   "kept": true
+  },
+  {
+   "seed": 960013,
+   "min_dist_to_official_m": 0.0258,
+   "kept": true
+  },
+  {
+   "seed": 960014,
+   "min_dist_to_official_m": 0.0178,
+   "kept": true
+  },
+  {
+   "seed": 960015,
+   "min_dist_to_official_m": 0.0209,
+   "kept": true
+  },
+  {
+   "seed": 960016,
+   "min_dist_to_official_m": 0.0147,
+   "kept": true
+  },
+  {
+   "seed": 960017,
+   "min_dist_to_official_m": 0.019,
+   "kept": true
+  },
+  {
+   "seed": 960018,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 960019,
+   "min_dist_to_official_m": 0.0227,
+   "kept": true
+  },
+  {
+   "seed": 960020,
+   "min_dist_to_official_m": 0.016,
+   "kept": true
+  },
+  {
+   "seed": 960021,
+   "min_dist_to_official_m": 0.0196,
+   "kept": true
+  },
+  {
+   "seed": 960022,
+   "min_dist_to_official_m": 0.0206,
+   "kept": true
+  },
+  {
+   "seed": 960023,
+   "min_dist_to_official_m": 0.0225,
+   "kept": true
+  },
+  {
+   "seed": 960024,
+   "min_dist_to_official_m": 0.0218,
+   "kept": true
+  },
+  {
+   "seed": 960025,
+   "min_dist_to_official_m": 0.0193,
+   "kept": true
+  },
+  {
+   "seed": 960026,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 960027,
+   "min_dist_to_official_m": 0.0118,
+   "kept": true
+  },
+  {
+   "seed": 960028,
+   "min_dist_to_official_m": 0.0185,
+   "kept": true
+  },
+  {
+   "seed": 960029,
+   "min_dist_to_official_m": 0.0207,
+   "kept": true
+  },
+  {
+   "seed": 960030,
+   "min_dist_to_official_m": 0.0198,
+   "kept": true
+  },
+  {
+   "seed": 960031,
+   "min_dist_to_official_m": 0.0211,
+   "kept": true
+  },
+  {
+   "seed": 960032,
+   "min_dist_to_official_m": 0.0212,
+   "kept": true
+  },
+  {
+   "seed": 960033,
+   "min_dist_to_official_m": 0.0203,
+   "kept": true
+  },
+  {
+   "seed": 960034,
+   "min_dist_to_official_m": 0.0274,
+   "kept": true
+  },
+  {
+   "seed": 960035,
+   "min_dist_to_official_m": 0.0171,
+   "kept": true
+  },
+  {
+   "seed": 960036,
+   "min_dist_to_official_m": 0.0237,
+   "kept": true
+  },
+  {
+   "seed": 960037,
+   "min_dist_to_official_m": 0.0186,
+   "kept": true
+  },
+  {
+   "seed": 960038,
+   "min_dist_to_official_m": 0.0243,
+   "kept": true
+  },
+  {
+   "seed": 960039,
+   "min_dist_to_official_m": 0.0214,
+   "kept": true
+  }
+ ]
+}

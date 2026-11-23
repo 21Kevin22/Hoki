@@ -14,10 +14,17 @@ ROBOT = ("robot0", "gripper0", "mount0")
 HAND = ("gripper0",)                       # palm + fingers (+ eef) bodies
 TASK_CONTAINER = {"T1": ("microwave_1", None), "T2": ("white_cabinet_1", "bottom"), "T3": ("wooden_cabinet_1", "top"),
                   "T4": ("wooden_cabinet_1", "middle"), "T5": ("desk_caddy_1", None),
-                  "T6": ("wooden_cabinet_1", "top"), "T7": ("basket_1", None)}
+                  "T6": ("wooden_cabinet_1", "top"), "T7": ("basket_1", None), "T8": ("basket_1", None),
+                  "T9": ("flat_stove_1", None), "T10": ("plate_1", None), "T11": ("plate_1", None),
+                  "T12": ("basket_1", None), "T13": ("flat_stove_1", None)}
 TARGETS = {"T1": ["white_yellow_mug_1"], "T2": ["akita_black_bowl_1"], "T3": ["akita_black_bowl_1"], "T4": [],
-           "T5": ["black_book_1"], "T6": ["akita_black_bowl_1"], "T7": ["alphabet_soup_1", "tomato_sauce_1"]}
-DEST_EXTRA = {"T6": ["plate_1"]}           # destination objects a held object may touch (besides container floors)
+           "T5": ["black_book_1"], "T6": ["akita_black_bowl_1"], "T7": ["alphabet_soup_1", "tomato_sauce_1"],
+           "T8": ["cream_cheese_1", "butter_1"], "T9": ["moka_pot_1"], "T10": ["porcelain_mug_1", "white_yellow_mug_1"],
+           "T11": ["porcelain_mug_1", "chocolate_pudding_1"], "T12": ["alphabet_soup_1", "cream_cheese_1"],
+           "T13": ["moka_pot_1", "moka_pot_2"]}
+DEST_EXTRA = {"T6": ["plate_1"], "T10": ["plate_2"]}
+# destination objects a held object may touch (besides container floors)
+PART_ALL = {"T9": "panel", "T13": "panel", "T10": "floor", "T11": "floor"}   # PREREG 2026-11-23 (2): stove / plates
 
 
 def _collides(m, g):
@@ -59,6 +66,8 @@ class TaskParts:
                 self.part[g] = "wall"
             else:                                       # caddy, basket: plates are floors
                 self.part[g] = "floor" if _thin_axis_vertical(m, d, g) else "wall"
+        if task in PART_ALL:                            # stove: knob + burner all "panel"; plates: all "floor"
+            self.part = {g: PART_ALL[task] for g in self.part}
         if "microwave" in root:                         # microwave floor = the lowest horizontal plate of the body
             plates = [g for g, p in self.part.items() if p == "wall" and _thin_axis_vertical(m, d, g)]
             if plates:

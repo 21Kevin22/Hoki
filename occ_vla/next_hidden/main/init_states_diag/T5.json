@@ -1,0 +1,216 @@
+{
+ "task": "T5",
+ "suite": "libero_10",
+ "index": 5,
+ "language": "pick up the book and place it in the back compartment of the caddy",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0023,
+  "median": 0.0093
+ },
+ "sha256": "71a6dcbe1ac0979d13bde99083a5dd99aba634a055ef3c34f7fa5046614b2f2a",
+ "log": [
+  {
+   "seed": 955000,
+   "min_dist_to_official_m": 0.0071,
+   "kept": true
+  },
+  {
+   "seed": 955001,
+   "min_dist_to_official_m": 0.0023,
+   "kept": true
+  },
+  {
+   "seed": 955002,
+   "min_dist_to_official_m": 0.0112,
+   "kept": true
+  },
+  {
+   "seed": 955003,
+   "min_dist_to_official_m": 0.009,
+   "kept": true
+  },
+  {
+   "seed": 955004,
+   "min_dist_to_official_m": 0.0062,
+   "kept": true
+  },
+  {
+   "seed": 955005,
+   "min_dist_to_official_m": 0.0088,
+   "kept": true
+  },
+  {
+   "seed": 955006,
+   "min_dist_to_official_m": 0.0105,
+   "kept": true
+  },
+  {
+   "seed": 955007,
+   "min_dist_to_official_m": 0.011,
+   "kept": true
+  },
+  {
+   "seed": 955008,
+   "min_dist_to_official_m": 0.0089,
+   "kept": true
+  },
+  {
+   "seed": 955009,
+   "min_dist_to_official_m": 0.0085,
+   "kept": true
+  },
+  {
+   "seed": 955010,
+   "min_dist_to_official_m": 0.0102,
+   "kept": true
+  },
+  {
+   "seed": 955011,
+   "min_dist_to_official_m": 0.0072,
+   "kept": true
+  },
+  {
+   "seed": 955012,
+   "min_dist_to_official_m": 0.0057,
+   "kept": true
+  },
+  {
+   "seed": 955013,
+   "min_dist_to_official_m": 0.0098,
+   "kept": true
+  },
+  {
+   "seed": 955014,
+   "min_dist_to_official_m": 0.0138,
+   "kept": true
+  },
+  {
+   "seed": 955015,
+   "min_dist_to_official_m": 0.009,
+   "kept": true
+  },
+  {
+   "seed": 955016,
+   "min_dist_to_official_m": 0.0082,
+   "kept": true
+  },
+  {
+   "seed": 955017,
+   "min_dist_to_official_m": 0.006,
+   "kept": true
+  },
+  {
+   "seed": 955018,
+   "min_dist_to_official_m": 0.0112,
+   "kept": true
+  },
+  {
+   "seed": 955019,
+   "min_dist_to_official_m": 0.0117,
+   "kept": true
+  },
+  {
+   "seed": 955020,
+   "min_dist_to_official_m": 0.0097,
+   "kept": true
+  },
+  {
+   "seed": 955021,
+   "min_dist_to_official_m": 0.0103,
+   "kept": true
+  },
+  {
+   "seed": 955022,
+   "min_dist_to_official_m": 0.0106,
+   "kept": true
+  },
+  {
+   "seed": 955023,
+   "min_dist_to_official_m": 0.01,
+   "kept": true
+  },
+  {
+   "seed": 955024,
+   "min_dist_to_official_m": 0.0105,
+   "kept": true
+  },
+  {
+   "seed": 955025,
+   "min_dist_to_official_m": 0.0148,
+   "kept": true
+  },
+  {
+   "seed": 955026,
+   "min_dist_to_official_m": 0.0114,
+   "kept": true
+  },
+  {
+   "seed": 955027,
+   "min_dist_to_official_m": 0.011,
+   "kept": true
+  },
+  {
+   "seed": 955028,
+   "min_dist_to_official_m": 0.0078,
+   "kept": true
+  },
+  {
+   "seed": 955029,
+   "min_dist_to_official_m": 0.0101,
+   "kept": true
+  },
+  {
+   "seed": 955030,
+   "min_dist_to_official_m": 0.0085,
+   "kept": true
+  },
+  {
+   "seed": 955031,
+   "min_dist_to_official_m": 0.0072,
+   "kept": true
+  },
+  {
+   "seed": 955032,
+   "min_dist_to_official_m": 0.0061,
+   "kept": true
+  },
+  {
+   "seed": 955033,
+   "min_dist_to_official_m": 0.0096,
+   "kept": true
+  },
+  {
+   "seed": 955034,
+   "min_dist_to_official_m": 0.017,
+   "kept": true
+  },
+  {
+   "seed": 955035,
+   "min_dist_to_official_m": 0.0087,
+   "kept": true
+  },
+  {
+   "seed": 955036,
+   "min_dist_to_official_m": 0.0097,
+   "kept": true
+  },
+  {
+   "seed": 955037,
+   "min_dist_to_official_m": 0.0068,
+   "kept": true
+  },
+  {
+   "seed": 955038,
+   "min_dist_to_official_m": 0.0082,
+   "kept": true
+  },
+  {
+   "seed": 955039,
+   "min_dist_to_official_m": 0.0028,
+   "kept": true
+  }
+ ]
+}

@@ -1,0 +1,216 @@
+{
+ "task": "T13",
+ "suite": "libero_10",
+ "index": 8,
+ "language": "put both moka pots on the stove",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0036,
+  "median": 0.01015
+ },
+ "sha256": "2d0197b653a385e118f499a6c938e5ecb7a1add41c01e0782216cdd773dc0ce0",
+ "log": [
+  {
+   "seed": 963000,
+   "min_dist_to_official_m": 0.0066,
+   "kept": true
+  },
+  {
+   "seed": 963001,
+   "min_dist_to_official_m": 0.0119,
+   "kept": true
+  },
+  {
+   "seed": 963002,
+   "min_dist_to_official_m": 0.0162,
+   "kept": true
+  },
+  {
+   "seed": 963003,
+   "min_dist_to_official_m": 0.006,
+   "kept": true
+  },
+  {
+   "seed": 963004,
+   "min_dist_to_official_m": 0.0144,
+   "kept": true
+  },
+  {
+   "seed": 963005,
+   "min_dist_to_official_m": 0.0074,
+   "kept": true
+  },
+  {
+   "seed": 963006,
+   "min_dist_to_official_m": 0.0038,
+   "kept": true
+  },
+  {
+   "seed": 963007,
+   "min_dist_to_official_m": 0.0148,
+   "kept": true
+  },
+  {
+   "seed": 963008,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 963009,
+   "min_dist_to_official_m": 0.0042,
+   "kept": true
+  },
+  {
+   "seed": 963010,
+   "min_dist_to_official_m": 0.0093,
+   "kept": true
+  },
+  {
+   "seed": 963011,
+   "min_dist_to_official_m": 0.0055,
+   "kept": true
+  },
+  {
+   "seed": 963012,
+   "min_dist_to_official_m": 0.0071,
+   "kept": true
+  },
+  {
+   "seed": 963013,
+   "min_dist_to_official_m": 0.008,
+   "kept": true
+  },
+  {
+   "seed": 963014,
+   "min_dist_to_official_m": 0.0123,
+   "kept": true
+  },
+  {
+   "seed": 963015,
+   "min_dist_to_official_m": 0.0092,
+   "kept": true
+  },
+  {
+   "seed": 963016,
+   "min_dist_to_official_m": 0.0104,
+   "kept": true
+  },
+  {
+   "seed": 963017,
+   "min_dist_to_official_m": 0.0132,
+   "kept": true
+  },
+  {
+   "seed": 963018,
+   "min_dist_to_official_m": 0.0107,
+   "kept": true
+  },
+  {
+   "seed": 963019,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 963020,
+   "min_dist_to_official_m": 0.0064,
+   "kept": true
+  },
+  {
+   "seed": 963021,
+   "min_dist_to_official_m": 0.0088,
+   "kept": true
+  },
+  {
+   "seed": 963022,
+   "min_dist_to_official_m": 0.0097,
+   "kept": true
+  },
+  {
+   "seed": 963023,
+   "min_dist_to_official_m": 0.0067,
+   "kept": true
+  },
+  {
+   "seed": 963024,
+   "min_dist_to_official_m": 0.0099,
+   "kept": true
+  },
+  {
+   "seed": 963025,
+   "min_dist_to_official_m": 0.0184,
+   "kept": true
+  },
+  {
+   "seed": 963026,
+   "min_dist_to_official_m": 0.0137,
+   "kept": true
+  },
+  {
+   "seed": 963027,
+   "min_dist_to_official_m": 0.0186,
+   "kept": true
+  },
+  {
+   "seed": 963028,
+   "min_dist_to_official_m": 0.0107,
+   "kept": true
+  },
+  {
+   "seed": 963029,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 963030,
+   "min_dist_to_official_m": 0.0144,
+   "kept": true
+  },
+  {
+   "seed": 963031,
+   "min_dist_to_official_m": 0.0091,
+   "kept": true
+  },
+  {
+   "seed": 963032,
+   "min_dist_to_official_m": 0.0036,
+   "kept": true
+  },
+  {
+   "seed": 963033,
+   "min_dist_to_official_m": 0.009,
+   "kept": true
+  },
+  {
+   "seed": 963034,
+   "min_dist_to_official_m": 0.0059,
+   "kept": true
+  },
+  {
+   "seed": 963035,
+   "min_dist_to_official_m": 0.02,
+   "kept": true
+  },
+  {
+   "seed": 963036,
+   "min_dist_to_official_m": 0.0118,
+   "kept": true
+  },
+  {
+   "seed": 963037,
+   "min_dist_to_official_m": 0.0061,
+   "kept": true
+  },
+  {
+   "seed": 963038,
+   "min_dist_to_official_m": 0.0122,
+   "kept": true
+  },
+  {
+   "seed": 963039,
+   "min_dist_to_official_m": 0.0126,
+   "kept": true
+  }
+ ]
+}

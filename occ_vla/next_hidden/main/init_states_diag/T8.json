@@ -1,0 +1,216 @@
+{
+ "task": "T8",
+ "suite": "libero_10",
+ "index": 1,
+ "language": "put both the cream cheese box and the butter in the basket",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0144,
+  "median": 0.0247
+ },
+ "sha256": "1744df9fc644d776a2561251d30bd5a397cc99a07d27346f4f1cee347d9074a8",
+ "log": [
+  {
+   "seed": 958000,
+   "min_dist_to_official_m": 0.0255,
+   "kept": true
+  },
+  {
+   "seed": 958001,
+   "min_dist_to_official_m": 0.0264,
+   "kept": true
+  },
+  {
+   "seed": 958002,
+   "min_dist_to_official_m": 0.0248,
+   "kept": true
+  },
+  {
+   "seed": 958003,
+   "min_dist_to_official_m": 0.0199,
+   "kept": true
+  },
+  {
+   "seed": 958004,
+   "min_dist_to_official_m": 0.0253,
+   "kept": true
+  },
+  {
+   "seed": 958005,
+   "min_dist_to_official_m": 0.0251,
+   "kept": true
+  },
+  {
+   "seed": 958006,
+   "min_dist_to_official_m": 0.0199,
+   "kept": true
+  },
+  {
+   "seed": 958007,
+   "min_dist_to_official_m": 0.0281,
+   "kept": true
+  },
+  {
+   "seed": 958008,
+   "min_dist_to_official_m": 0.0278,
+   "kept": true
+  },
+  {
+   "seed": 958009,
+   "min_dist_to_official_m": 0.0246,
+   "kept": true
+  },
+  {
+   "seed": 958010,
+   "min_dist_to_official_m": 0.0275,
+   "kept": true
+  },
+  {
+   "seed": 958011,
+   "min_dist_to_official_m": 0.0147,
+   "kept": true
+  },
+  {
+   "seed": 958012,
+   "min_dist_to_official_m": 0.0285,
+   "kept": true
+  },
+  {
+   "seed": 958013,
+   "min_dist_to_official_m": 0.0275,
+   "kept": true
+  },
+  {
+   "seed": 958014,
+   "min_dist_to_official_m": 0.0245,
+   "kept": true
+  },
+  {
+   "seed": 958015,
+   "min_dist_to_official_m": 0.0306,
+   "kept": true
+  },
+  {
+   "seed": 958016,
+   "min_dist_to_official_m": 0.0288,
+   "kept": true
+  },
+  {
+   "seed": 958017,
+   "min_dist_to_official_m": 0.0144,
+   "kept": true
+  },
+  {
+   "seed": 958018,
+   "min_dist_to_official_m": 0.0243,
+   "kept": true
+  },
+  {
+   "seed": 958019,
+   "min_dist_to_official_m": 0.0217,
+   "kept": true
+  },
+  {
+   "seed": 958020,
+   "min_dist_to_official_m": 0.0279,
+   "kept": true
+  },
+  {
+   "seed": 958021,
+   "min_dist_to_official_m": 0.0295,
+   "kept": true
+  },
+  {
+   "seed": 958022,
+   "min_dist_to_official_m": 0.0219,
+   "kept": true
+  },
+  {
+   "seed": 958023,
+   "min_dist_to_official_m": 0.0214,
+   "kept": true
+  },
+  {
+   "seed": 958024,
+   "min_dist_to_official_m": 0.0271,
+   "kept": true
+  },
+  {
+   "seed": 958025,
+   "min_dist_to_official_m": 0.0308,
+   "kept": true
+  },
+  {
+   "seed": 958026,
+   "min_dist_to_official_m": 0.0173,
+   "kept": true
+  },
+  {
+   "seed": 958027,
+   "min_dist_to_official_m": 0.023,
+   "kept": true
+  },
+  {
+   "seed": 958028,
+   "min_dist_to_official_m": 0.0257,
+   "kept": true
+  },
+  {
+   "seed": 958029,
+   "min_dist_to_official_m": 0.0222,
+   "kept": true
+  },
+  {
+   "seed": 958030,
+   "min_dist_to_official_m": 0.0231,
+   "kept": true
+  },
+  {
+   "seed": 958031,
+   "min_dist_to_official_m": 0.022,
+   "kept": true
+  },
+  {
+   "seed": 958032,
+   "min_dist_to_official_m": 0.0249,
+   "kept": true
+  },
+  {
+   "seed": 958033,
+   "min_dist_to_official_m": 0.0257,
+   "kept": true
+  },
+  {
+   "seed": 958034,
+   "min_dist_to_official_m": 0.0262,
+   "kept": true
+  },
+  {
+   "seed": 958035,
+   "min_dist_to_official_m": 0.0206,
+   "kept": true
+  },
+  {
+   "seed": 958036,
+   "min_dist_to_official_m": 0.0193,
+   "kept": true
+  },
+  {
+   "seed": 958037,
+   "min_dist_to_official_m": 0.0212,
+   "kept": true
+  },
+  {
+   "seed": 958038,
+   "min_dist_to_official_m": 0.0208,
+   "kept": true
+  },
+  {
+   "seed": 958039,
+   "min_dist_to_official_m": 0.0236,
+   "kept": true
+  }
+ ]
+}

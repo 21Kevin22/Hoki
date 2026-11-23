@@ -142,7 +142,7 @@ def main():
     ap.add_argument("--no-branch", action="store_true", help="skip the branch counterfactual (faster)")
     a = ap.parse_args()
     lo, hi = map(int, a.idx.split("-"))
-    states = np.load(HERE / "main" / "init_states" / f"{a.task}.npz")[a.split]
+    states = np.load(HERE / "main" / ("init_states_diag" if a.split == "diag" else "init_states") / f"{a.task}.npz")[a.split]
     bddl, lang = bddl_path(*TASKS[a.task][:2])
     # depth on for EVERY condition (StowSafe needs it; the RGB the policy sees is unchanged) -> same env for all
     env = OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=256, camera_widths=256, camera_depths=True,

@@ -1,0 +1,216 @@
+{
+ "task": "T9",
+ "suite": "libero_10",
+ "index": 2,
+ "language": "turn on the stove and put the moka pot on it",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.004,
+  "median": 0.00925
+ },
+ "sha256": "623506ccdc1fbdfa2619c700f28e6665c5382f73da148c0d56405efae793e6e1",
+ "log": [
+  {
+   "seed": 959000,
+   "min_dist_to_official_m": 0.005,
+   "kept": true
+  },
+  {
+   "seed": 959001,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 959002,
+   "min_dist_to_official_m": 0.007,
+   "kept": true
+  },
+  {
+   "seed": 959003,
+   "min_dist_to_official_m": 0.0095,
+   "kept": true
+  },
+  {
+   "seed": 959004,
+   "min_dist_to_official_m": 0.0055,
+   "kept": true
+  },
+  {
+   "seed": 959005,
+   "min_dist_to_official_m": 0.0101,
+   "kept": true
+  },
+  {
+   "seed": 959006,
+   "min_dist_to_official_m": 0.0073,
+   "kept": true
+  },
+  {
+   "seed": 959007,
+   "min_dist_to_official_m": 0.0115,
+   "kept": true
+  },
+  {
+   "seed": 959008,
+   "min_dist_to_official_m": 0.0116,
+   "kept": true
+  },
+  {
+   "seed": 959009,
+   "min_dist_to_official_m": 0.009,
+   "kept": true
+  },
+  {
+   "seed": 959010,
+   "min_dist_to_official_m": 0.0089,
+   "kept": true
+  },
+  {
+   "seed": 959011,
+   "min_dist_to_official_m": 0.014,
+   "kept": true
+  },
+  {
+   "seed": 959012,
+   "min_dist_to_official_m": 0.0084,
+   "kept": true
+  },
+  {
+   "seed": 959013,
+   "min_dist_to_official_m": 0.0147,
+   "kept": true
+  },
+  {
+   "seed": 959014,
+   "min_dist_to_official_m": 0.0093,
+   "kept": true
+  },
+  {
+   "seed": 959015,
+   "min_dist_to_official_m": 0.0074,
+   "kept": true
+  },
+  {
+   "seed": 959016,
+   "min_dist_to_official_m": 0.01,
+   "kept": true
+  },
+  {
+   "seed": 959017,
+   "min_dist_to_official_m": 0.0097,
+   "kept": true
+  },
+  {
+   "seed": 959018,
+   "min_dist_to_official_m": 0.0102,
+   "kept": true
+  },
+  {
+   "seed": 959019,
+   "min_dist_to_official_m": 0.0096,
+   "kept": true
+  },
+  {
+   "seed": 959020,
+   "min_dist_to_official_m": 0.0118,
+   "kept": true
+  },
+  {
+   "seed": 959021,
+   "min_dist_to_official_m": 0.007,
+   "kept": true
+  },
+  {
+   "seed": 959022,
+   "min_dist_to_official_m": 0.0062,
+   "kept": true
+  },
+  {
+   "seed": 959023,
+   "min_dist_to_official_m": 0.0052,
+   "kept": true
+  },
+  {
+   "seed": 959024,
+   "min_dist_to_official_m": 0.0045,
+   "kept": true
+  },
+  {
+   "seed": 959025,
+   "min_dist_to_official_m": 0.006,
+   "kept": true
+  },
+  {
+   "seed": 959026,
+   "min_dist_to_official_m": 0.0092,
+   "kept": true
+  },
+  {
+   "seed": 959027,
+   "min_dist_to_official_m": 0.0101,
+   "kept": true
+  },
+  {
+   "seed": 959028,
+   "min_dist_to_official_m": 0.0169,
+   "kept": true
+  },
+  {
+   "seed": 959029,
+   "min_dist_to_official_m": 0.0115,
+   "kept": true
+  },
+  {
+   "seed": 959030,
+   "min_dist_to_official_m": 0.0087,
+   "kept": true
+  },
+  {
+   "seed": 959031,
+   "min_dist_to_official_m": 0.012,
+   "kept": true
+  },
+  {
+   "seed": 959032,
+   "min_dist_to_official_m": 0.0085,
+   "kept": true
+  },
+  {
+   "seed": 959033,
+   "min_dist_to_official_m": 0.004,
+   "kept": true
+  },
+  {
+   "seed": 959034,
+   "min_dist_to_official_m": 0.0122,
+   "kept": true
+  },
+  {
+   "seed": 959035,
+   "min_dist_to_official_m": 0.0069,
+   "kept": true
+  },
+  {
+   "seed": 959036,
+   "min_dist_to_official_m": 0.0181,
+   "kept": true
+  },
+  {
+   "seed": 959037,
+   "min_dist_to_official_m": 0.0047,
+   "kept": true
+  },
+  {
+   "seed": 959038,
+   "min_dist_to_official_m": 0.0047,
+   "kept": true
+  },
+  {
+   "seed": 959039,
+   "min_dist_to_official_m": 0.0119,
+   "kept": true
+  }
+ ]
+}

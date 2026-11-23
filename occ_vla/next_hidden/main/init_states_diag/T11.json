@@ -1,0 +1,216 @@
+{
+ "task": "T11",
+ "suite": "libero_10",
+ "index": 6,
+ "language": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+ "n_official": 50,
+ "n_kept": 40,
+ "n_tried": 40,
+ "min_dist_to_official_m": {
+  "min": 0.0091,
+  "median": 0.0181
+ },
+ "sha256": "9e4501b3bbdd3b596954ba1c5dd8c8d4b651b3cd1e0b7d9ebfbf79017f7593eb",
+ "log": [
+  {
+   "seed": 961000,
+   "min_dist_to_official_m": 0.017,
+   "kept": true
+  },
+  {
+   "seed": 961001,
+   "min_dist_to_official_m": 0.0214,
+   "kept": true
+  },
+  {
+   "seed": 961002,
+   "min_dist_to_official_m": 0.0173,
+   "kept": true
+  },
+  {
+   "seed": 961003,
+   "min_dist_to_official_m": 0.0155,
+   "kept": true
+  },
+  {
+   "seed": 961004,
+   "min_dist_to_official_m": 0.0158,
+   "kept": true
+  },
+  {
+   "seed": 961005,
+   "min_dist_to_official_m": 0.0257,
+   "kept": true
+  },
+  {
+   "seed": 961006,
+   "min_dist_to_official_m": 0.0091,
+   "kept": true
+  },
+  {
+   "seed": 961007,
+   "min_dist_to_official_m": 0.0195,
+   "kept": true
+  },
+  {
+   "seed": 961008,
+   "min_dist_to_official_m": 0.0239,
+   "kept": true
+  },
+  {
+   "seed": 961009,
+   "min_dist_to_official_m": 0.0144,
+   "kept": true
+  },
+  {
+   "seed": 961010,
+   "min_dist_to_official_m": 0.019,
+   "kept": true
+  },
+  {
+   "seed": 961011,
+   "min_dist_to_official_m": 0.0229,
+   "kept": true
+  },
+  {
+   "seed": 961012,
+   "min_dist_to_official_m": 0.0155,
+   "kept": true
+  },
+  {
+   "seed": 961013,
+   "min_dist_to_official_m": 0.0179,
+   "kept": true
+  },
+  {
+   "seed": 961014,
+   "min_dist_to_official_m": 0.0157,
+   "kept": true
+  },
+  {
+   "seed": 961015,
+   "min_dist_to_official_m": 0.0149,
+   "kept": true
+  },
+  {
+   "seed": 961016,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 961017,
+   "min_dist_to_official_m": 0.0181,
+   "kept": true
+  },
+  {
+   "seed": 961018,
+   "min_dist_to_official_m": 0.019,
+   "kept": true
+  },
+  {
+   "seed": 961019,
+   "min_dist_to_official_m": 0.0205,
+   "kept": true
+  },
+  {
+   "seed": 961020,
+   "min_dist_to_official_m": 0.0222,
+   "kept": true
+  },
+  {
+   "seed": 961021,
+   "min_dist_to_official_m": 0.0186,
+   "kept": true
+  },
+  {
+   "seed": 961022,
+   "min_dist_to_official_m": 0.0208,
+   "kept": true
+  },
+  {
+   "seed": 961023,
+   "min_dist_to_official_m": 0.0154,
+   "kept": true
+  },
+  {
+   "seed": 961024,
+   "min_dist_to_official_m": 0.0183,
+   "kept": true
+  },
+  {
+   "seed": 961025,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 961026,
+   "min_dist_to_official_m": 0.0196,
+   "kept": true
+  },
+  {
+   "seed": 961027,
+   "min_dist_to_official_m": 0.0241,
+   "kept": true
+  },
+  {
+   "seed": 961028,
+   "min_dist_to_official_m": 0.0204,
+   "kept": true
+  },
+  {
+   "seed": 961029,
+   "min_dist_to_official_m": 0.0151,
+   "kept": true
+  },
+  {
+   "seed": 961030,
+   "min_dist_to_official_m": 0.0232,
+   "kept": true
+  },
+  {
+   "seed": 961031,
+   "min_dist_to_official_m": 0.0181,
+   "kept": true
+  },
+  {
+   "seed": 961032,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 961033,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 961034,
+   "min_dist_to_official_m": 0.0243,
+   "kept": true
+  },
+  {
+   "seed": 961035,
+   "min_dist_to_official_m": 0.0172,
+   "kept": true
+  },
+  {
+   "seed": 961036,
+   "min_dist_to_official_m": 0.0184,
+   "kept": true
+  },
+  {
+   "seed": 961037,
+   "min_dist_to_official_m": 0.0158,
+   "kept": true
+  },
+  {
+   "seed": 961038,
+   "min_dist_to_official_m": 0.0262,
+   "kept": true
+  },
+  {
+   "seed": 961039,
+   "min_dist_to_official_m": 0.0133,
+   "kept": true
+  }
+ ]
+}

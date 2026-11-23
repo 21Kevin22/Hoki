@@ -28,6 +28,8 @@ def movable_pos(m, flat):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--task", required=True); ap.add_argument("--n", type=int, default=40)
+    ap.add_argument("--diag", action="store_true", help="PREREG 2026-11-23 (2): write split 'diag' to main/init_states_diag, "
+                    "also >= 1 mm from our own eval states")
     a = ap.parse_args()
     suite, idx, lang = TASKS[a.task]
     bddl, l2 = bddl_path(suite, idx); assert l2 == lang
@@ -36,9 +38,12 @@ def main():
     env.reset()
     m = env.sim.model._model
     off_pos = [movable_pos(m, s) for s in official]
+    own_eval = os.path.join(HERE, "main", "init_states", f"{a.task}.npz")
+    if a.diag and os.path.exists(own_eval):
+        off_pos += [movable_pos(m, s) for s in np.load(own_eval)["eval"]]
     kept, log, i = [], [], 0
     while len(kept) < a.n and i < 5 * a.n:
-        seed = SEED_BASE + 1000 * int(a.task[1:]) + i; i += 1
+        seed = SEED_BASE + (50_000 if a.diag else 0) + 1000 * int(a.task[1:]) + i; i += 1
         env.seed(seed); np.random.seed(seed); random.seed(seed)
         env.reset()
         st = env.sim.get_state().flatten().copy()
@@ -50,10 +55,13 @@ def main():
         if ok:
             kept.append(st)
     kept = np.array(kept)
-    out = os.path.join(HERE, "main", "init_states"); os.makedirs(out, exist_ok=True)
+    out = os.path.join(HERE, "main", "init_states_diag" if a.diag else "init_states"); os.makedirs(out, exist_ok=True)
     path = os.path.join(out, f"{a.task}.npz")
-    np.savez_compressed(path, dev=kept[:10], eval=kept[10:30], spare=kept[30:],
-                        seeds=np.array([e["seed"] for e in log if e["kept"]]))
+    seeds = np.array([e["seed"] for e in log if e["kept"]])
+    if a.diag:
+        np.savez_compressed(path, diag=kept, seeds=seeds)
+    else:
+        np.savez_compressed(path, dev=kept[:10], eval=kept[10:30], spare=kept[30:], seeds=seeds)
     sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
     json.dump(dict(task=a.task, suite=suite, index=idx, language=lang, n_official=len(official), n_kept=len(kept),
                    n_tried=len(log), min_dist_to_official_m=dict(min=min(e["min_dist_to_official_m"] for e in log),
