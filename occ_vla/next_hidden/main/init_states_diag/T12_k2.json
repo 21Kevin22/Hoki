@@ -1,0 +1,116 @@
+{
+ "task": "T12",
+ "suite": "libero_10",
+ "index": 7,
+ "language": "put both the alphabet soup and the cream cheese box in the basket",
+ "n_official": 50,
+ "n_kept": 20,
+ "n_tried": 20,
+ "min_dist_to_official_m": {
+  "min": Infinity,
+  "median": Infinity
+ },
+ "sha256": "aef343159500ff18354d2615bbadfd936fe93d3954a7ad00c14219a568e6c003",
+ "log": [
+  {
+   "seed": 982000,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982001,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982002,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982003,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982004,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982005,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982006,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982007,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982008,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982009,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982010,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982011,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982012,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982013,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982014,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982015,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982016,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982017,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982018,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 982019,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  }
+ ]
+}

@@ -1,0 +1,116 @@
+{
+ "task": "T10",
+ "suite": "libero_10",
+ "index": 4,
+ "language": "put the white mug on the left plate and put the yellow and white mug on the right plate",
+ "n_official": 50,
+ "n_kept": 20,
+ "n_tried": 20,
+ "min_dist_to_official_m": {
+  "min": Infinity,
+  "median": Infinity
+ },
+ "sha256": "b1307c7386176f213264a6fffa74dfe153e73fa891efda388419aca7a51026fb",
+ "log": [
+  {
+   "seed": 1000000,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000001,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000002,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000003,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000004,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000005,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000006,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000007,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000008,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000009,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000010,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000011,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000012,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000013,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000014,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000015,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000016,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000017,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000018,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 1000019,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  }
+ ]
+}

@@ -30,33 +30,37 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--task", required=True); ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--diag", action="store_true", help="PREREG 2026-11-23 (2): write split 'diag' to main/init_states_diag, "
                     "also >= 1 mm from our own eval states")
+    ap.add_argument("--clutter", type=int, default=0, help="PREREG 2026-11-23 (3): use main/bddl_clutter/<task>_k<k>.bddl "
+                    "(official states have other objects -> no overlap check possible), writes init_states_diag/<task>_k<k>.npz")
     a = ap.parse_args()
     suite, idx, lang = TASKS[a.task]
     bddl, l2 = bddl_path(suite, idx); assert l2 == lang
+    if a.clutter:
+        bddl = os.path.join(HERE, "main", "bddl_clutter", f"{a.task}_k{a.clutter}.bddl"); a.diag = True
     official = np.asarray(benchmark.get_benchmark_dict()[suite]().get_task_init_states(idx))
     env = OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=64, camera_widths=64)
     env.reset()
     m = env.sim.model._model
-    off_pos = [movable_pos(m, s) for s in official]
+    off_pos = [] if a.clutter else [movable_pos(m, s) for s in official]
     own_eval = os.path.join(HERE, "main", "init_states", f"{a.task}.npz")
-    if a.diag and os.path.exists(own_eval):
+    if a.diag and not a.clutter and os.path.exists(own_eval):
         off_pos += [movable_pos(m, s) for s in np.load(own_eval)["eval"]]
     kept, log, i = [], [], 0
     while len(kept) < a.n and i < 5 * a.n:
-        seed = SEED_BASE + (50_000 if a.diag else 0) + 1000 * int(a.task[1:]) + i; i += 1
+        seed = SEED_BASE + (50_000 if a.diag else 0) + 10_000 * a.clutter + 1000 * int(a.task[1:]) + i; i += 1
         env.seed(seed); np.random.seed(seed); random.seed(seed)
         env.reset()
         st = env.sim.get_state().flatten().copy()
-        assert len(st) == official.shape[1], (len(st), official.shape)
+        assert a.clutter or len(st) == official.shape[1], (len(st), official.shape)
         p = movable_pos(env.sim.model._model, st)
-        dmin = min(float(np.abs(p - q).max()) for q in off_pos)
+        dmin = min([float(np.abs(p - q).max()) for q in off_pos] + [np.inf])
         ok = dmin >= 0.001
         log.append(dict(seed=seed, min_dist_to_official_m=round(dmin, 4), kept=ok))
         if ok:
             kept.append(st)
     kept = np.array(kept)
     out = os.path.join(HERE, "main", "init_states_diag" if a.diag else "init_states"); os.makedirs(out, exist_ok=True)
-    path = os.path.join(out, f"{a.task}.npz")
+    path = os.path.join(out, f"{a.task}_k{a.clutter}.npz" if a.clutter else f"{a.task}.npz")
     seeds = np.array([e["seed"] for e in log if e["kept"]])
     if a.diag:
         np.savez_compressed(path, diag=kept, seeds=seeds)
@@ -66,7 +70,7 @@ def main():
     json.dump(dict(task=a.task, suite=suite, index=idx, language=lang, n_official=len(official), n_kept=len(kept),
                    n_tried=len(log), min_dist_to_official_m=dict(min=min(e["min_dist_to_official_m"] for e in log),
                    median=float(np.median([e["min_dist_to_official_m"] for e in log]))), sha256=sha, log=log),
-              open(os.path.join(out, f"{a.task}.json"), "w"), indent=1)
+              open(path.replace(".npz", ".json"), "w"), indent=1)
     print(a.task, "kept", len(kept), "/ tried", len(log), "min dist to official (m):",
           min(e["min_dist_to_official_m"] for e in log), "sha256", sha[:12], flush=True)
     env.close()

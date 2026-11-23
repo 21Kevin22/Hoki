@@ -1,0 +1,116 @@
+{
+ "task": "T11",
+ "suite": "libero_10",
+ "index": 6,
+ "language": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+ "n_official": 50,
+ "n_kept": 20,
+ "n_tried": 20,
+ "min_dist_to_official_m": {
+  "min": Infinity,
+  "median": Infinity
+ },
+ "sha256": "02a815a9cf9d48c462023d0dab3d16e835f8f9137ecd796335965b205010cfd6",
+ "log": [
+  {
+   "seed": 981000,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981001,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981002,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981003,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981004,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981005,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981006,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981007,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981008,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981009,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981010,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981011,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981012,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981013,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981014,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981015,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981016,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981017,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981018,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  },
+  {
+   "seed": 981019,
+   "min_dist_to_official_m": Infinity,
+   "kept": true
+  }
+ ]
+}

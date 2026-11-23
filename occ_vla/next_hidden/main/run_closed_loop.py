@@ -142,12 +142,16 @@ def main():
     ap.add_argument("--no-branch", action="store_true", help="skip the branch counterfactual (faster)")
     a = ap.parse_args()
     lo, hi = map(int, a.idx.split("-"))
-    states = np.load(HERE / "main" / ("init_states_diag" if a.split == "diag" else "init_states") / f"{a.task}.npz")[a.split]
-    bddl, lang = bddl_path(*TASKS[a.task][:2])
+    base, _, var = a.task.partition("@")                     # PREREG 2026-11-23 (3): "T1@k2" = clutter variant of T1
+    states = np.load(HERE / "main" / ("init_states_diag" if a.split == "diag" else "init_states")
+                     / (f"{base}_{var}.npz" if var else f"{a.task}.npz"))[a.split]
+    bddl, lang = bddl_path(*TASKS[base][:2])
+    if var:
+        bddl = str(HERE / "main" / "bddl_clutter" / f"{base}_{var}.bddl")
     # depth on for EVERY condition (StowSafe needs it; the RGB the policy sees is unchanged) -> same env for all
     env = OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=256, camera_widths=256, camera_depths=True,
                              camera_names=["agentview", "robot0_eye_in_hand"],
-                             horizon=MAX_STEPS[TASKS[a.task][0]] + 50)    # never truncated before our own limit
+                             horizon=MAX_STEPS[TASKS[base][0]] + 50)    # never truncated before our own limit
     env.seed(7)
     params = json.loads(a.params)
     no_branch = a.no_branch or os.environ.get("NO_BRANCH") == "1"      # tuning runs skip the counterfactual
@@ -159,11 +163,11 @@ def main():
     for i in range(lo, hi + 1):
         if (HERE / "results" / "STOP_NEW_EPISODES").exists():
             print("STOP_NEW_EPISODES present; stopping", flush=True); break
-        stem = out / f"{a.task}_{a.split}{i:02d}"
+        stem = out / f"{a.task.replace('@', '_')}_{a.split}{i:02d}"
         if pathlib.Path(f"{stem}.json").exists():
             continue                                     # resume: never re-run a finished episode
-        p_i = dict(params, state_stem=f"{a.task}_{a.split}{i:02d}") if a.cond in ("C7", "C9", "C10", "C7v9") else params
-        r = run_episode(env, client, a.task, states[i], a.cond, str(stem), params=p_i, twin=twin)
+        p_i = dict(params, state_stem=f"{base}_{a.split}{i:02d}") if a.cond in ("C7", "C9", "C10", "C7v9") else params
+        r = run_episode(env, client, base, states[i], a.cond, str(stem), params=p_i, twin=twin)
         (HERE / "results" / "last_episode_done").touch()
         print(json.dumps({k: r[k] for k in ("task", "cond", "success", "cf_success", "steps", "wall_s")} |
                          {"l1": r["collision"]["l1"], "moved_1mm": r["collision"]["moved_1mm"]}), flush=True)
