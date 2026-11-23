@@ -66,7 +66,7 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
                 rec.rebase()                 # displacement from the settled pose (objects drop ~7 cm at reset)
                 if cond == "CQ":                 # PREREG 2026-11-23 (5): consequence-gated safety (twin = true sim)
                     cq = ConsequenceFilter(twin, task, env)
-                elif cond == "CQB":              # PREREG 2026-11-23 (6): CBF fences on predicted-harm bystanders only
+                elif cond in ("CQB", "CQB2"):    # PREREG 2026-11-23 (6)(7): CBF fences on predicted-harm bystanders only
                     cqb = ConsequenceFilter(twin, task, env)
                     filt = make_filter(cond, env, obs, task, params, lang)
                     n_fenced = []
@@ -157,8 +157,11 @@ def main():
     a = ap.parse_args()
     lo, hi = map(int, a.idx.split("-"))
     base, _, var = a.task.partition("@")                     # PREREG 2026-11-23 (3): "T1@k2" = clutter variant of T1
-    states = np.load(HERE / "main" / ("init_states_diag" if a.split == "diag" else "init_states")
-                     / (f"{base}_{var}.npz" if var else f"{a.task}.npz"))[a.split]
+    if a.split == "new":                 # PREREG 2026-11-23 (7): fresh clutter states that passed the stability screen
+        states = np.load(HERE / "main" / "init_states_diag" / f"{base}_{var}_new_stable.npz")["diag"]
+    else:
+        states = np.load(HERE / "main" / ("init_states_diag" if a.split == "diag" else "init_states")
+                         / (f"{base}_{var}.npz" if var else f"{a.task}.npz"))[a.split]
     bddl, lang = bddl_path(*TASKS[base][:2])
     if var:
         bddl = str(HERE / "main" / "bddl_clutter" / f"{base}_{var}.bddl")
@@ -169,7 +172,7 @@ def main():
     env.seed(7)
     params = json.loads(a.params)
     no_branch = a.no_branch or os.environ.get("NO_BRANCH") == "1"      # tuning runs skip the counterfactual
-    twin = None if (a.cond in ("C0", "C0p") or no_branch) and a.cond not in ("CQ", "CQB") else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
+    twin = None if (a.cond in ("C0", "C0p") or no_branch) and a.cond not in ("CQ", "CQB", "CQB2") else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
     if twin is not None:
         twin.seed(7); twin.reset()
     client = _wcp.WebsocketClientPolicy("127.0.0.1", a.port)

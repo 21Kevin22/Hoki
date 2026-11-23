@@ -32,6 +32,8 @@ def main():
                     "also >= 1 mm from our own eval states")
     ap.add_argument("--clutter", type=int, default=0, help="PREREG 2026-11-23 (3): use main/bddl_clutter/<task>_k<k>.bddl "
                     "(official states have other objects -> no overlap check possible), writes init_states_diag/<task>_k<k>.npz")
+    ap.add_argument("--start", type=int, default=0, help="PREREG 2026-11-23 (7): first seed index (new states only)")
+    ap.add_argument("--suffix", default="", help="PREREG 2026-11-23 (7): output <task>_k<k><suffix>.npz (never overwrite)")
     a = ap.parse_args()
     suite, idx, lang = TASKS[a.task]
     bddl, l2 = bddl_path(suite, idx); assert l2 == lang
@@ -45,8 +47,11 @@ def main():
     own_eval = os.path.join(HERE, "main", "init_states", f"{a.task}.npz")
     if a.diag and not a.clutter and os.path.exists(own_eval):
         off_pos += [movable_pos(m, s) for s in np.load(own_eval)["eval"]]
-    kept, log, i = [], [], 0
-    while len(kept) < a.n and i < 5 * a.n:
+    if a.clutter and a.suffix:                 # new clutter states must differ from the ones already used
+        old = os.path.join(HERE, "main", "init_states_diag", f"{a.task}_k{a.clutter}.npz")
+        off_pos += [movable_pos(m, s) for s in np.load(old)["diag"]]
+    kept, log, i = [], [], a.start
+    while len(kept) < a.n and i < a.start + 5 * a.n:
         seed = SEED_BASE + (50_000 if a.diag else 0) + 10_000 * a.clutter + 1000 * int(a.task[1:]) + i; i += 1
         env.seed(seed); np.random.seed(seed); random.seed(seed)
         env.reset()
@@ -60,7 +65,7 @@ def main():
             kept.append(st)
     kept = np.array(kept)
     out = os.path.join(HERE, "main", "init_states_diag" if a.diag else "init_states"); os.makedirs(out, exist_ok=True)
-    path = os.path.join(out, f"{a.task}_k{a.clutter}.npz" if a.clutter else f"{a.task}.npz")
+    path = os.path.join(out, f"{a.task}_k{a.clutter}{a.suffix}.npz" if a.clutter else f"{a.task}.npz")
     seeds = np.array([e["seed"] for e in log if e["kept"]])
     if a.diag:
         np.savez_compressed(path, diag=kept, seeds=seeds)

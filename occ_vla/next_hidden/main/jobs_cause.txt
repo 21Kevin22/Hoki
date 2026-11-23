@@ -1,0 +1,12 @@
+CQB T1@k2 diag 0-4 cause {"margin_m":0.005,"gamma":0.5}
+CQB T1@k2 diag 5-9 cause {"margin_m":0.005,"gamma":0.5}
+CQB T1@k2 diag 10-14 cause {"margin_m":0.005,"gamma":0.5}
+CQB T1@k2 diag 15-19 cause {"margin_m":0.005,"gamma":0.5}
+CQB T2@k2 diag 0-4 cause {"margin_m":0.005,"gamma":0.5}
+CQB T2@k2 diag 5-9 cause {"margin_m":0.005,"gamma":0.5}
+CQB T2@k2 diag 10-14 cause {"margin_m":0.005,"gamma":0.5}
+CQB T2@k2 diag 15-19 cause {"margin_m":0.005,"gamma":0.5}
+CQB T5@k2 diag 0-4 cause {"margin_m":0.005,"gamma":0.5}
+CQB T5@k2 diag 5-9 cause {"margin_m":0.005,"gamma":0.5}
+CQB T5@k2 diag 10-14 cause {"margin_m":0.005,"gamma":0.5}
+CQB T5@k2 diag 15-19 cause {"margin_m":0.005,"gamma":0.5}

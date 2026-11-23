@@ -56,7 +56,7 @@ def base_config(cond, p):
         c = MODES["hand_aff_fresh"]
     elif cond in ("C4", "C6", "C7", "C8", "C4_5Hz"):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
-    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB"):
+    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB", "CQB2"):
         c = _C4
     elif cond == "C10":              # PREREG 2026-11-22 (2): C9 with permitted surfaces and unseen shadow speed-limited
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, slow_speed_m=float(p.get("slow_speed_m", 0.001)),
@@ -70,7 +70,7 @@ def base_config(cond, p):
         off = s.margin_arm_m - s.margin_palm_m
         c = dc.replace(c, safety=dc.replace(s, margin_arm_m=p["margin_m"] + off, margin_palm_m=p["margin_m"],
                                             margin_finger_m=p["margin_m"], margin_held_m=p["margin_m"]))
-    if cond == "CQB":                # fences hold bystanders only (never the target): closing fingers stay constrained
+    if cond in ("CQB", "CQB2"):      # fences hold bystanders only (never the target): closing fingers stay constrained
         c = dc.replace(c, safety=dc.replace(c.safety, allowed=dc.replace(c.safety.allowed, fingers_free_when_closing=False)))
     if cond in ("C4_5Hz", "C9_5Hz"):
         c = dc.replace(c, map=dc.replace(c.map, update_every_steps=4))
@@ -375,8 +375,9 @@ class OracleHeld:
     """C8: the held object is also ground truth. Held = both fingers touch a target (same rule as the metric,
     collisions.py); its spheres are fitted to the TRUE surface with StowSafe's own fit (map-based attach is off)."""
 
-    def __init__(self, guard, parts, m, d):
+    def __init__(self, guard, parts, m, d, push=False):
         from collisions import CollisionRecorder
+        self.push = push
         from stowsafe.spheres import fit_spheres_slab
         self.g, self.m, self.d, self.fit = guard, m, d, fit_spheres_slab
         self.rec = CollisionRecorder(parts, m, d)
@@ -389,19 +390,38 @@ class OracleHeld:
         guard.held.update = lambda *a, **k: None          # map-based attachment off for the oracle
         self.current = None
 
+    def _touched(self):
+        """Targets in contact with any gripper body (hand or finger)."""
+        m, d, rec = self.m, self.d, self.rec
+        out = set()
+        for i in range(d.ncon):
+            c = d.contact[i]
+            b1, b2 = m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]
+            for a, o in ((b1, b2), (b2, b1)):
+                if rec.is_hand[a] and rec.obj_root(o) in self.pts:
+                    out.add(rec.obj_root(o))
+        return out
+
     def step(self, t):
         held = self.rec._held()
         h = self.g.held
         name = next(iter(sorted(held)), None)
+        if self.push and name is None:                     # pushed, not grasped: refit every step (moves vs the palm)
+            name = next(iter(sorted(self._touched())), None)
+            refit = name is not None
+        else:
+            refit = False
         if name is None and h.attached:
             h.local_centres = h.radii = None; h.events.append((t, "detach", 0)); self.current = None
-        elif name is not None and name != self.current and name in self.pts:
+        elif name is not None and (name != self.current or refit) and name in self.pts:
             b, P = self.pts[name]
             W = P @ self.d.xmat[b].reshape(3, 3).T + self.d.xpos[b]
             R, p = self.d.xmat[h.palm].reshape(3, 3), self.d.xpos[h.palm]
             local = (W - p) @ R
             h.local_centres, h.radii = self.fit(local, h.cfg.max_spheres, pad=h.cfg.pad_m)
-            h.events.append((t, "attach_oracle", len(local))); self.current = name
+            if name != self.current:
+                h.events.append((t, "attach_oracle", len(local)))
+            self.current = name
 
 
 class Filter:
@@ -425,7 +445,7 @@ class Filter:
             parts = TaskParts(task, m, d)
             if cond in ("C9", "C10") and params.get("role_noise", 0) > 0:
                 flip_roles(parts, params["role_noise"], params["state_stem"])
-            if cond == "CQB":                              # fences only on predicted-harm bystanders, no roles
+            if cond in ("CQB", "CQB2"):                    # fences only on predicted-harm bystanders, no roles
                 self.parts_pts = None
             elif cond in ("C9", "C10", "C8v9", "C9_5Hz"):
                 self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
@@ -451,11 +471,13 @@ class Filter:
             if cond in ("C8", "C8v9"):
                 OracleMap(self.guard, m).install()
                 self.oracle_held = OracleHeld(self.guard, parts, m, d)
-            if cond == "CQB":
+            if cond in ("CQB", "CQB2"):
                 from collisions import CollisionRecorder
                 self.dyn_map = DynamicOracleMap(self.guard, m, CollisionRecorder(parts, m, d).bystanders)
                 self.dyn_map.install()
-                self.oracle_held = OracleHeld(self.guard, parts, m, d)
+                # CQB2 (PREREG 2026-11-23 (7)): a target touched by the hand / fingers (pushed, not only grasped)
+                # is treated as part of the robot, so the fences also keep it away from predicted-harm bystanders
+                self.oracle_held = OracleHeld(self.guard, parts, m, d, push=(cond == "CQB2"))
 
     def act(self, obs, u):
         if self.split is not None:
