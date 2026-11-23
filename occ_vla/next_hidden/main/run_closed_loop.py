@@ -19,6 +19,7 @@ from tasks import TASKS, MAX_STEPS, bddl_path
 from parts import TaskParts
 from collisions import CollisionRecorder
 from filters import make_filter
+from consequence import ConsequenceFilter
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 DUMMY = [0.0] * 6 + [-1.0]
@@ -53,7 +54,7 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
     m, d = env.sim.model._model, env.sim.data._data
     parts = TaskParts(task, m, d)
     rec = CollisionRecorder(parts, m, d)
-    filt = None
+    filt = cq = None
     branches = collections.Counter()
     plan, frames, log = collections.deque(), [], collections.defaultdict(list)
     t, done, n_inf, inf_s, t0 = 0, False, 0, 0.0, time.time()
@@ -63,7 +64,10 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
             obs, _, done, _ = env.step(DUMMY); rec.step(t); t += 1
             if t == 10:
                 rec.rebase()                 # displacement from the settled pose (objects drop ~7 cm at reset)
-                filt = make_filter(cond, env, obs, task, params, lang)   # built on the settled scene (main-line order)
+                if cond == "CQ":                 # PREREG 2026-11-23 (5): consequence-gated safety (twin = true sim)
+                    cq = ConsequenceFilter(twin, task, env)
+                else:
+                    filt = make_filter(cond, env, obs, task, params, lang)   # built on the settled scene (main-line order)
             continue
         img = image_tools.convert_to_uint8(image_tools.resize_with_pad(np.ascontiguousarray(obs["agentview_image"][::-1, ::-1]), 224, 224))
         wimg = image_tools.convert_to_uint8(image_tools.resize_with_pad(np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1]), 224, 224))
@@ -76,7 +80,9 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
             plan.extend(chunk[:replan])
         u = np.asarray(plan.popleft(), float)
         info = {}
-        if filt is None:
+        if cq is not None:
+            a, info = cq.act(env.sim.get_state().flatten().copy(), u, list(plan))
+        elif filt is None:
             a = u
         else:
             a, info = filt.act(obs, u)
@@ -88,7 +94,7 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
         log["grip_q"].append(obs["robot0_gripper_qpos"].copy())
         obs, _, done, _ = env.step(a.tolist())
         rec.step(t)
-        if filt is not None and filt.last_replan:           # StowSafe asked to re-query the policy (main-line rule)
+        if (filt is not None and filt.last_replan) or info.get("replan"):   # re-query the policy (main-line rule)
             plan.clear()
         t += 1
         if done:
@@ -105,6 +111,7 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
                                                   if k in ("map_ms", "qp_ms", "unsolved_qp", "replans", "mean_correction",
                                                            "attach_events")},
                blockers=None if filt is None else [list(map(str, b)) for b in filt.guard.stats.blockers[:30]],
+               cq=None if cq is None else cq.stats,
                n_infer=n_inf, mean_infer_s=round(inf_s / max(n_inf, 1), 3), collision=col,
                cf_success=bool(done) and not col["l1"], render=os.environ.get("MUJOCO_GL"),
                held_steps=sum(bool(s["held"]) for s in rec.steps))
@@ -155,7 +162,7 @@ def main():
     env.seed(7)
     params = json.loads(a.params)
     no_branch = a.no_branch or os.environ.get("NO_BRANCH") == "1"      # tuning runs skip the counterfactual
-    twin = None if (a.cond in ("C0", "C0p") or no_branch) else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
+    twin = None if (a.cond in ("C0", "C0p") or no_branch) and a.cond != "CQ" else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
     if twin is not None:
         twin.seed(7); twin.reset()
     client = _wcp.WebsocketClientPolicy("127.0.0.1", a.port)
