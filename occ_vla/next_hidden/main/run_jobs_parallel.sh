@@ -13,10 +13,10 @@ trap cleanup EXIT
 until grep -q "server listening" "$LOG/${NAME}_server.log"; do kill -0 $SRV 2>/dev/null || { echo "server died"; exit 1; }; sleep 5; done
 source /home/ubuntu/slocal1/third_party/stowsafe_env.sh
 export CUDA_VISIBLE_DEVICES=0 PYTHONPATH=/home/ubuntu/slocal1/third_party/openpi_client_site:$PYTHONPATH
-export OMP_NUM_THREADS=6 MKL_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 NO_BRANCH=${NO_BRANCH:-0}
+export OMP_NUM_THREADS=6 MKL_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 NO_BRANCH=${NO_BRANCH:-0} SCRIPT=${SCRIPT:-main/run_closed_loop.py}
 run_one() {
   read -r COND TASK SPLIT IDX TAG PARAMS <<< "$1"
-  python main/run_closed_loop.py --cond "$COND" --task "$TASK" --split "$SPLIT" --idx "$IDX" --tag "$TAG" \
+  python "${SCRIPT:-main/run_closed_loop.py}" --cond "$COND" --task "$TASK" --split "$SPLIT" --idx "$IDX" --tag "$TAG" \
      --params "${PARAMS:-{\}}" 2>> "results/logs/${NAME}_${COND}_${TASK}_${TAG}.err" | grep '^{'
 }
 export -f run_one; export NAME
