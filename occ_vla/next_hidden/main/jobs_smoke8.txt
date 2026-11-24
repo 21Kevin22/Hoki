@@ -1,0 +1,4 @@
+C0 T1@hid dev 0-0 smoke8 {}
+VIS T1@hid dev 0-0 smoke8 {"margin_m":0.0,"gamma":0.5}
+PROP T1@hid dev 0-0 smoke8 {"margin_m":0.0,"gamma":0.5,"delta_m":0.02}
+ORACLE T1@hid dev 0-0 smoke8 {"margin_m":0.0,"gamma":0.5}

@@ -56,7 +56,8 @@ def rgb_diff(env, m, d, qa):
 
 
 def build(task, offset, seed, env, save_img=None):
-    sp = SPEC[task]
+    visible = task.endswith("v")                         # PREREG (8) visible version: no teleport, must be seen
+    sp = SPEC.get(task, dict(jitter=0.0))
     env.seed(seed); np.random.seed(seed); random.seed(seed)
     env.reset()
     m, d = env.sim.model._model, env.sim.data._data                 # handles AFTER reset (robosuite rebuilds)
@@ -64,8 +65,12 @@ def build(task, offset, seed, env, save_img=None):
     for _ in range(10):
         env.step(DUMMY)
     rng = np.random.default_rng(seed)
-    p = anchor_pos(d, sp["anchor"]) + np.array(offset) + np.array([*rng.uniform(-sp["jitter"], sp["jitter"], 2), 0.0])
-    d.qpos[qa:qa + 3] = p; d.qvel[va:va + 6] = 0.0; mujoco.mj_forward(m, d)
+    if visible:
+        p = None
+    else:
+        p = anchor_pos(d, sp["anchor"]) + np.array(offset) + np.array([*rng.uniform(-sp["jitter"], sp["jitter"], 2), 0.0])
+    if p is not None:
+        d.qpos[qa:qa + 3] = p; d.qvel[va:va + 6] = 0.0; mujoco.mj_forward(m, d)
     for _ in range(40):
         env.step(DUMMY)
     movable = [b for b in range(1, m.nbody) if m.body_rootid[b] == b and not m.body(b).name.startswith(("robot", "mount", "gripper"))
@@ -88,6 +93,8 @@ def build(task, offset, seed, env, save_img=None):
              pix_seg=[obj_pixels(obs, m, cm) for cm in CAMS], pix_rgb=rgb_diff(env, m, d, qa),
              still_max_disp_mm=round(worst * 1000, 2), worst_body=wname, deepest_pen_mm=round(pen * 1000, 2))
     c["hidden"] = c["pix_seg"] == [0, 0] and c["pix_rgb"] == [0, 0]
+    if visible:
+        c["hidden"] = min(c["pix_seg"]) >= 1          # visible version: kept only if seen by BOTH cameras
     c["stable"] = worst <= 0.001
     c["no_overlap"] = pen < 0.001
     c["kept"] = c["hidden"] and c["stable"] and c["no_overlap"]
@@ -103,7 +110,7 @@ def main():
     a = ap.parse_args()
     env = OffScreenRenderEnv(bddl_file_name=os.path.join(HERE, "main", "bddl_hidden", f"{a.task}.bddl"),
                              camera_heights=RES, camera_widths=RES, camera_segmentations="element", horizon=10 ** 7)
-    tnum = int(a.task[1:])
+    tnum = int(a.task[1:].rstrip("v")) + (10 if a.task.endswith("v") else 0)
     if a.probe:
         for k, o in enumerate(a.probe.split(";")):
             off = tuple(map(float, o.split(",")))
@@ -115,7 +122,7 @@ def main():
     kept, log, i = [], [], 0
     while len(kept) < a.n and i < 3 * a.n:
         seed = SEED_BASE + 1000 * tnum + i; i += 1
-        c, st = build(a.task, SPEC[a.task]["offset"], seed, env,
+        c, st = build(a.task, SPEC.get(a.task, {}).get("offset"), seed, env,
                       save_img=os.path.join(out, "t0", f"{a.task}_seed{seed}"))
         log.append(c); print(json.dumps(c), flush=True)
         if c["kept"]:

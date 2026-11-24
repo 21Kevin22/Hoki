@@ -14,6 +14,11 @@ HIDDEN = {
     "H2": ("libero_10", 3, "kitchen_table", (0.18, -0.20)),   # black bowl -> bottom drawer, close it
     "H3": ("libero_10", 9, "kitchen_table", (0.18, 0.12)),    # mug -> microwave, close it
     "H5": ("libero_goal", 0, "main_table", (0.18, 0.10)),     # open the middle drawer (over-stopping check)
+    # visible versions (PREREG (8)): midpoint of target init-region centre and container interior centre; shifted in x
+    # away from the container by 5 cm steps while inside the container's swept volume (drawer: above the box -> 0 steps;
+    # microwave door sweep x <= 0.094 m at table height -> 3 steps)
+    "H1v": ("libero_goal", 3, "main_table", (-0.029, -0.1295)),
+    "H3v": ("libero_10", 9, "kitchen_table", (0.1535, 0.185)),
     "H4": ("clutter:T5_k2", None, "study_table", (0.20, -0.15)),  # book -> caddy, our k2 clutter; box behind a tall object
 }
 OBJ, CLS = "butter_9", "butter"

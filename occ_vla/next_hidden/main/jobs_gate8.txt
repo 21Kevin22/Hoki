@@ -1,0 +1,6 @@
+C0 T3@hid dev 0-4 gate8 {}
+C0 T3@hid dev 5-9 gate8 {}
+C0 T1@hid dev 0-4 gate8 {}
+C0 T1@hid dev 5-9 gate8 {}
+C0 T4@hid dev 0-4 gate8 {}
+C0 T4@hid dev 5-9 gate8 {}

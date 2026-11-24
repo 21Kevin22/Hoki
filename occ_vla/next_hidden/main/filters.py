@@ -56,7 +56,9 @@ def base_config(cond, p):
         c = MODES["hand_aff_fresh"]
     elif cond in ("C4", "C6", "C7", "C8", "C4_5Hz"):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
-    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB", "CQB2"):
+    elif cond == "PROP":             # PREREG 2026-11-24 (8): C9 + Delta on unseen shadow for EVERY part (no interior exemption)
+        c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
+    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB", "CQB2", "VIS", "ORACLE"):
         c = _C4
     elif cond == "C10":              # PREREG 2026-11-22 (2): C9 with permitted surfaces and unseen shadow speed-limited
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, slow_speed_m=float(p.get("slow_speed_m", 0.001)),
@@ -371,6 +373,37 @@ class DynamicOracleMap(OracleMap):
         per.update = update
 
 
+class HiddenBoxOracle:
+    """ORACLE (PREREG 2026-11-24 (8)): the camera map as in VIS, plus the TRUE surface of the hidden box (butter_9)
+    written as occupied after every depth integration, before the obstacle fields are built (privileged)."""
+    NAME = "butter_9"
+
+    def __init__(self, guard, m):
+        self.g = guard
+        self.items = []
+        for b in range(1, m.nbody):
+            if m.body(m.body_rootid[b]).name.startswith(self.NAME):
+                P = body_surface_points(m, b, include_visual=False, spacing=0.01)
+                if len(P):
+                    self.items.append((b, P))
+        assert self.items, "no hidden box in this scene"
+
+    def install(self):
+        per = self.g.perception
+        orig_named = per._named_fields
+
+        def named(held, held_clear_pad, robot):
+            d, mp = self.g.data, per.map
+            P = np.concatenate([Q @ d.xmat[b].reshape(3, 3).T + d.xpos[b] for b, Q in self.items])
+            P = P[mp.grid.contains(P)]
+            if len(P):
+                idx = mp.grid.flat_index(P)
+                mp.log_odds.reshape(-1)[np.unique(idx)] = mp.cfg.log_odds_max
+                np.maximum.at(mp.hit_zmax.reshape(-1), idx, P[:, 2].astype(np.float32))
+            return orig_named(held, held_clear_pad, robot)
+        per._named_fields = named
+
+
 class OracleHeld:
     """C8: the held object is also ground truth. Held = both fingers touch a target (same rule as the metric,
     collisions.py); its spheres are fitted to the TRUE surface with StowSafe's own fit (map-based attach is off)."""
@@ -434,7 +467,8 @@ class Filter:
         self.guard = StowSafe(env, obs, self.cfg, instruction=instruction)
         ooi = tuple(env.env.obj_of_interest)
         self.split = self.aff = self.parts_pts = None
-        self.interior = INTERIOR_SITE[task] if cond not in ("C1", "C2", "C3") else None
+        # PROP (PREREG (8)): no interior box -> the hand also keeps Delta from unseen space inside the container
+        self.interior = INTERIOR_SITE[task] if cond not in ("C1", "C2", "C3", "PROP") else None
         if cond == "C2":
             self.split = SplitRolePoints(m, ooi, "whole")
         elif cond == "C3":
@@ -447,7 +481,7 @@ class Filter:
                 flip_roles(parts, params["role_noise"], params["state_stem"])
             if cond in ("CQB", "CQB2"):                    # fences only on predicted-harm bystanders, no roles
                 self.parts_pts = None
-            elif cond in ("C9", "C10", "C8v9", "C9_5Hz"):
+            elif cond in ("C9", "C10", "C8v9", "C9_5Hz", "VIS", "PROP", "ORACLE"):
                 self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
                                               off=params.get("c9_off", ()))
             elif cond == "C6v9":
@@ -468,6 +502,8 @@ class Filter:
                 jb = m.body(m.jnt_bodyid[parts.joint]).name
                 self.guard.set_refresh_boxes(articulated_sweep_boxes(m, d, env.env.sim, (parts.container_root,),
                                                                      only={jb}))
+            if cond == "ORACLE":                           # PREREG (8): the hidden box's TRUE surface is always occupied
+                HiddenBoxOracle(self.guard, m).install()
             if cond in ("C8", "C8v9"):
                 OracleMap(self.guard, m).install()
                 self.oracle_held = OracleHeld(self.guard, parts, m, d)

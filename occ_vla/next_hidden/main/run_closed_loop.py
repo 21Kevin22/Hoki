@@ -157,13 +157,19 @@ def main():
     a = ap.parse_args()
     lo, hi = map(int, a.idx.split("-"))
     base, _, var = a.task.partition("@")                     # PREREG 2026-11-23 (3): "T1@k2" = clutter variant of T1
-    if a.split == "new":                 # PREREG 2026-11-23 (7): fresh clutter states that passed the stability screen
+    HID = {"T3": "H1", "T1": "H3", "T4": "H5"}         # PREREG 2026-11-24 (8): hidden-box variants ("T3@hid", "T3@vis")
+    if var in ("hid", "vis"):
+        hname = HID[base] + ("v" if var == "vis" else "")
+        states = np.load(HERE / "main" / "init_states_hidden" / f"{hname}.npz")[a.split]
+    elif a.split == "new":               # PREREG 2026-11-23 (7): fresh clutter states that passed the stability screen
         states = np.load(HERE / "main" / "init_states_diag" / f"{base}_{var}_new_stable.npz")["diag"]
     else:
         states = np.load(HERE / "main" / ("init_states_diag" if a.split == "diag" else "init_states")
                          / (f"{base}_{var}.npz" if var else f"{a.task}.npz"))[a.split]
     bddl, lang = bddl_path(*TASKS[base][:2])
-    if var:
+    if var in ("hid", "vis"):
+        bddl = str(HERE / "main" / "bddl_hidden" / f"{hname}.bddl")
+    elif var:
         bddl = str(HERE / "main" / "bddl_clutter" / f"{base}_{var}.bddl")
     # depth on for EVERY condition (StowSafe needs it; the RGB the policy sees is unchanged) -> same env for all
     env = OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=256, camera_widths=256, camera_depths=True,
