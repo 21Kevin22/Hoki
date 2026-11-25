@@ -1,0 +1,6 @@
+C0 T1@hid dev 0-4 vis12 {}
+C0 T1@hid dev 5-9 vis12 {}
+VIS T1@hid dev 0-4 vis12 {"margin_m":0.0,"gamma":0.5}
+VIS T1@hid dev 5-9 vis12 {"margin_m":0.0,"gamma":0.5}
+OBJ T1@hid dev 0-4 vis12 {"margin_m":0.0,"gamma":0.5}
+OBJ T1@hid dev 5-9 vis12 {"margin_m":0.0,"gamma":0.5}
