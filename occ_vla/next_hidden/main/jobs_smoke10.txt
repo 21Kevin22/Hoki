@@ -1,0 +1,3 @@
+OBJ T1@hid dev 0-0 smoke10 {"margin_m":0.0,"gamma":0.5}
+LOOK T1@hid dev 0-0 smoke10 {}
+OBJLOOK T1@hid dev 0-0 smoke10 {"margin_m":0.0,"gamma":0.5}

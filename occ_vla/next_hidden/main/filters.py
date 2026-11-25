@@ -58,7 +58,7 @@ def base_config(cond, p):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
     elif cond == "PROP":             # PREREG 2026-11-24 (8): C9 + Delta on unseen shadow for EVERY part (no interior exemption)
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
-    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB", "CQB2", "VIS", "ORACLE"):
+    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB", "CQB2", "VIS", "ORACLE", "OBJ", "OBJLOOK"):
         c = _C4
     elif cond == "C10":              # PREREG 2026-11-22 (2): C9 with permitted surfaces and unseen shadow speed-limited
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, slow_speed_m=float(p.get("slow_speed_m", 0.001)),
@@ -373,6 +373,103 @@ class DynamicOracleMap(OracleMap):
         per.update = update
 
 
+class ForeignObjects:
+    """OBJ (PREREG 2026-11-25 (10)): object-level permissions. Depth points inside the task container's interior box
+    (+2 cm) that are > 1.0 cm from every container surface point, > 1.5 cm from the target / destination surfaces and
+    outside the robot's and the held object's spheres are 'foreign'. Voxels with >= 3 foreign points at a step are
+    remembered for the episode; those voxels grown by 1 voxel are removed from every part's permission (and from its
+    1-voxel growth). Inputs: depth (2 cameras) + the same container / target geometry the C9 roles already use."""
+    PAD, D_CONT, D_TGT, MIN_PTS, STRIDE = 0.02, 0.010, 0.015, 3, 4
+
+    def __init__(self, parts, m, guard, interior_site):
+        from scipy.spatial import cKDTree
+        self.m, self.g, self.site, self.KD = m, guard, interior_site, cKDTree
+        kind = lambda ks: [(m.geom_bodyid[g], geom_points(m, g)) for g, k in parts.part.items() if k in ks]
+        self.cont = kind(("handle", "panel", "floor", "wall"))
+        roots = set(parts.target_roots) | set(parts.dest_roots)
+        self.tgt = [(b, body_surface_points(m, b, include_visual=False, spacing=0.01)) for b in range(1, m.nbody)
+                    if m.body(m.body_rootid[b]).name in {r for r in roots} or
+                    m.body(m.body_rootid[b]).name.replace("_main", "") in roots]
+        self.vox = set()
+        self.n_steps_with_new = 0
+
+    @staticmethod
+    def _world(items, d):
+        L = [Q @ d.xmat[b].reshape(3, 3).T + d.xpos[b] for b, Q in items if len(Q)]
+        return np.concatenate(L) if L else np.zeros((0, 3))
+
+    def _points(self, obs, d):
+        from stowsafe.libero_env import camera_views, back_project
+        lo, hi = site_box(self.m, d, self.site)
+        lo, hi = np.asarray(lo) - self.PAD, np.asarray(hi) + self.PAD
+        out = []
+        for v in camera_views(self.g.perception.env, obs):
+            H, W = v.depth_m.shape
+            r, c = np.meshgrid(np.arange(0, H, self.STRIDE), np.arange(0, W, self.STRIDE), indexing="ij")
+            P = back_project(v, r.ravel(), c.ravel())
+            out.append(P[np.all((P >= lo) & (P <= hi), axis=1)])
+        return np.concatenate(out)
+
+    def update(self, obs, d):
+        P = self._points(obs, d)
+        if not len(P):
+            return
+        C = self._world(self.cont, d)
+        if len(C):
+            dc, _ = self.KD(C).query(P, distance_upper_bound=self.D_CONT)
+            P = P[~np.isfinite(dc)]
+        T = self._world(self.tgt, d)
+        if len(P) and len(T):
+            dt, _ = self.KD(T).query(P, distance_upper_bound=self.D_TGT)
+            P = P[~np.isfinite(dt)]
+        if len(P):
+            per = self.g.perception
+            S = [per.self_filter.in_world(d)]
+            h = self.g.held.in_world(d) if self.g.held.attached else None
+            if h is not None:
+                S.append(h)
+            keep = np.ones(len(P), bool)
+            for s in S:
+                dd = np.linalg.norm(P[:, None] - s.centres[None], axis=2) - s.radii[None]
+                keep &= dd.min(1) > 0
+            P = P[keep]
+        if len(P):
+            gr = self.g.perception.map.grid
+            P = P[gr.contains(P)]
+            idx, cnt = np.unique(gr.flat_index(P), return_counts=True)
+            new = set(idx[cnt >= self.MIN_PTS].tolist()) - self.vox
+            if new:
+                self.vox |= new; self.n_steps_with_new += 1
+
+    def mask(self):
+        from scipy.ndimage import binary_dilation
+        gr = self.g.perception.map.grid
+        M = np.zeros(gr.shape, bool)
+        if self.vox:
+            M.reshape(-1)[list(self.vox)] = True
+            M = binary_dilation(M, iterations=1)
+        return M
+
+    def apply(self, obs, d, allow, forbid):
+        self.update(obs, d)
+        if not self.vox:
+            return allow, forbid
+        gr = self.g.perception.map.grid
+        M = self.mask()
+        Fc = gr.centres[M.reshape(-1)]
+
+        def cut(P):
+            if P is None or not len(P):
+                return P
+            ok = gr.contains(P)
+            bad = np.zeros(len(P), bool)
+            bad[ok] = M.reshape(-1)[gr.flat_index(P[ok])]
+            return P[~bad]
+        allow = tuple(cut(P) for P in allow)
+        forbid = tuple(Fc if F is None else np.concatenate([F, Fc]) for F in forbid)
+        return allow, forbid
+
+
 class HiddenBoxOracle:
     """ORACLE (PREREG 2026-11-24 (8)): the camera map as in VIS, plus the TRUE surface of the hidden box (butter_9)
     written as occupied after every depth integration, before the obstacle fields are built (privileged)."""
@@ -481,7 +578,7 @@ class Filter:
                 flip_roles(parts, params["role_noise"], params["state_stem"])
             if cond in ("CQB", "CQB2"):                    # fences only on predicted-harm bystanders, no roles
                 self.parts_pts = None
-            elif cond in ("C9", "C10", "C8v9", "C9_5Hz", "VIS", "PROP", "ORACLE"):
+            elif cond in ("C9", "C10", "C8v9", "C9_5Hz", "VIS", "PROP", "ORACLE", "OBJ", "OBJLOOK"):
                 self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
                                               off=params.get("c9_off", ()))
             elif cond == "C6v9":
@@ -502,6 +599,8 @@ class Filter:
                 jb = m.body(m.jnt_bodyid[parts.joint]).name
                 self.guard.set_refresh_boxes(articulated_sweep_boxes(m, d, env.env.sim, (parts.container_root,),
                                                                      only={jb}))
+            if cond in ("OBJ", "OBJLOOK"):                 # PREREG (10): permissions never cover a foreign object
+                self.foreign = ForeignObjects(parts, m, self.guard, INTERIOR_SITE[task])
             if cond == "ORACLE":                           # PREREG (8): the hidden box's TRUE surface is always occupied
                 HiddenBoxOracle(self.guard, m).install()
             if cond in ("C8", "C8v9"):
@@ -523,6 +622,8 @@ class Filter:
         if self.parts_pts is not None:
             if isinstance(self.parts_pts, (PartPointsV2, QwenRolesV2)):
                 allow, forbid = self.parts_pts(self.d)
+                if getattr(self, "foreign", None) is not None:
+                    allow, forbid = self.foreign.apply(obs, self.d, allow, forbid)
                 self.guard.set_affordance(*allow, forbid=forbid)
             else:
                 self.guard.set_affordance(*self.parts_pts(self.d))
@@ -547,6 +648,6 @@ class Filter:
 
 
 def make_filter(cond, env, obs, task, params=None, instruction=""):
-    if cond in ("C0", "C0p"):
+    if cond in ("C0", "C0p", "LOOK"):
         return None
     return Filter(cond, env, obs, task, params or {}, instruction)
