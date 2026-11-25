@@ -1,0 +1,2 @@
+C0 T1@hidb dev 0-4 gate13 {}
+C0 T1@hidb dev 5-9 gate13 {}

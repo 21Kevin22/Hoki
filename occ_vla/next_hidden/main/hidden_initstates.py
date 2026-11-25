@@ -28,6 +28,8 @@ SPEC = {
     "H5": dict(anchor=("site", "wooden_cabinet_1_middle_region"), offset=(0.0, -0.05, 0.0), jitter=0.01),
     "H2": dict(anchor=("site", "white_cabinet_1_bottom_region"), offset=(0.0, 0.05, 0.0), jitter=0.01),
     "H3": dict(anchor=("site", "microwave_1_heating_region"), offset=(0.0, 0.05, 0.0), jitter=0.01),
+    # PREREG (13) H3b: same task, box moved off the back wall (no hidden check)
+    "H3b": dict(anchor=("site", "microwave_1_heating_region"), offset=(-0.115, 0.0, 0.0), jitter=0.005, check_hidden=False),
     "H4": dict(anchor=("body", "milk_9_main"), offset=(-0.045, 0.0, 0.0), jitter=0.005),
 }
 
@@ -56,7 +58,7 @@ def rgb_diff(env, m, d, qa):
 
 
 def build(task, offset, seed, env, save_img=None):
-    visible = task.endswith("v")                         # PREREG (8) visible version: no teleport, must be seen
+    visible = task.endswith("v") and task != "H3b"                         # PREREG (8) visible version: no teleport, must be seen
     sp = SPEC.get(task, dict(jitter=0.0))
     env.seed(seed); np.random.seed(seed); random.seed(seed)
     env.reset()
@@ -97,6 +99,8 @@ def build(task, offset, seed, env, save_img=None):
         c["hidden"] = min(c["pix_seg"]) >= 1          # visible version: kept only if seen by BOTH cameras
     c["stable"] = worst <= 0.001
     c["no_overlap"] = pen < 0.001
+    if not sp.get("check_hidden", True):
+        c["hidden"] = True                                # (13) H3b: visibility not required
     c["kept"] = c["hidden"] and c["stable"] and c["no_overlap"]
     if save_img:
         for cm in CAMS:
@@ -110,7 +114,7 @@ def main():
     a = ap.parse_args()
     env = OffScreenRenderEnv(bddl_file_name=os.path.join(HERE, "main", "bddl_hidden", f"{a.task}.bddl"),
                              camera_heights=RES, camera_widths=RES, camera_segmentations="element", horizon=10 ** 7)
-    tnum = int(a.task[1:].rstrip("v")) + (10 if a.task.endswith("v") else 0)
+    tnum = 23 if a.task == "H3b" else int(a.task[1:].rstrip("v")) + (10 if a.task.endswith("v") else 0)
     if a.probe:
         for k, o in enumerate(a.probe.split(";")):
             off = tuple(map(float, o.split(",")))

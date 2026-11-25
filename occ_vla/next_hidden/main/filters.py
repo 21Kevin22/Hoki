@@ -652,6 +652,6 @@ class Filter:
 
 
 def make_filter(cond, env, obs, task, params=None, instruction=""):
-    if cond in ("C0", "C0p", "LOOK"):
+    if cond in ("C0", "C0p", "LOOK", "LOOKFB", "LOOK32", "LOOK32FB"):
         return None
     return Filter(cond, env, obs, task, params or {}, instruction)

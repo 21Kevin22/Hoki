@@ -48,6 +48,9 @@ def branch_would_collide(twin, task, state, raw_actions):
 
 
 LOOK_N = 8                           # PREREG 2026-11-25 (10): candidates per replan
+# PREREG (13): 16 constant translation offsets = 8 directions x magnitudes {0.3, 0.6} (action units)
+OFFSETS = [mag * np.array([np.cos(a), np.sin(a), 0.0]) / max(abs(np.cos(a)), abs(np.sin(a)))
+           for mag in (0.3, 0.6) for a in np.arange(8) * np.pi / 4]
 
 
 def lookahead_score(twin, task, state, chunk):
@@ -117,6 +120,28 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
                 k = int(np.argmin(scores))              # ties -> earliest candidate
                 chunk = cands[k]
                 log["look"].append((t, k, round(min(scores), 4), round(scores[0], 4), round(max(scores), 4)))
+            elif cond in ("LOOKFB", "LOOK32", "LOOK32FB"):   # PREREG (13): diverse candidates and / or fallback
+                st = env.sim.get_state().flatten().copy()
+                n_pol = 16 if cond.startswith("LOOK32") else LOOK_N
+                cands = [np.asarray(chunk, float)] + [np.asarray(client.infer(el)["actions"], float) for _ in range(n_pol - 1)]
+                n_inf += n_pol - 1
+                if cond.startswith("LOOK32"):
+                    for j, off in enumerate(OFFSETS):
+                        c = cands[j // 4].copy(); c[:, :3] = np.clip(c[:, :3] + off, -1, 1); cands.append(c)
+                scores = [lookahead_score(twin, task, st, c) for c in cands]
+                k = int(np.argmin(scores)); fb = None
+                if cond.endswith("FB") and min(scores) > 0.001:
+                    g = float(log["a"][-1][6]) if log["a"] else -1.0
+                    H = len(cands[0])
+                    stay = np.zeros((H, 7)); stay[:, 6] = g
+                    back = np.zeros((H, 7)); back[:, 0] = -0.3; back[:, 2] = 0.5; back[:, 6] = g
+                    fs = [lookahead_score(twin, task, st, c) for c in (stay, back)]
+                    if min(fs) < min(scores):           # ties -> keep the policy / offset candidate
+                        fb = int(np.argmin(fs)); chunk = (stay, back)[fb]
+                if fb is None:
+                    chunk = cands[k]
+                log["look"].append((t, k if fb is None else -1 - fb, round(min(scores), 4), round(scores[0], 4),
+                                    round(max(scores), 4)))
             plan.extend(chunk[:replan])
         u = np.asarray(plan.popleft(), float)
         info = {}
@@ -159,6 +184,7 @@ def run_episode(env, client, task, state, cond, out_stem, replan=5, params=None,
                cf_success=bool(done) and not col["l1"], render=os.environ.get("MUJOCO_GL"),
                held_steps=sum(bool(s["held"]) for s in rec.steps),
                look=dict(n=len(log["look"]), switched=sum(x[1] != 0 for x in log["look"]),
+                         fallback=sum(x[1] < 0 for x in log["look"]), offset_chosen=sum(x[1] >= 16 for x in log["look"]),
                          nominal_unsafe=sum(x[3] > 0.001 for x in log["look"]),
                          all_unsafe=sum(x[2] > 0.001 for x in log["look"]), first=log["look"][:60]) if log["look"] else None)
     np.savez_compressed(f"{out_stem}.npz", u=np.array(log["u"]), a=np.array(log["a"]), eef=np.array(log["eef"]),
@@ -197,8 +223,8 @@ def main():
     lo, hi = map(int, a.idx.split("-"))
     base, _, var = a.task.partition("@")                     # PREREG 2026-11-23 (3): "T1@k2" = clutter variant of T1
     HID = {"T3": "H1", "T1": "H3", "T4": "H5"}         # PREREG 2026-11-24 (8): hidden-box variants ("T3@hid", "T3@vis")
-    if var in ("hid", "vis"):
-        hname = HID[base] + ("v" if var == "vis" else "")
+    if var in ("hid", "vis", "hidb"):                     # (13): "T1@hidb" = H3b (box moved)
+        hname = HID[base] + {"hid": "", "vis": "v", "hidb": "b"}[var]
         states = np.load(HERE / "main" / "init_states_hidden" / f"{hname}.npz")[a.split]
     elif a.split in ("new", "new2"):     # PREREG 2026-11-23 (7) / (11): fresh clutter states that passed the stability screen
         states = np.load(HERE / "main" / "init_states_diag" / f"{base}_{var}_{a.split}_stable.npz")["diag"]
@@ -206,7 +232,7 @@ def main():
         states = np.load(HERE / "main" / ("init_states_diag" if a.split == "diag" else "init_states")
                          / (f"{base}_{var}.npz" if var else f"{a.task}.npz"))[a.split]
     bddl, lang = bddl_path(*TASKS[base][:2])
-    if var in ("hid", "vis"):
+    if var in ("hid", "vis", "hidb"):
         bddl = str(HERE / "main" / "bddl_hidden" / f"{hname}.bddl")
     elif var:
         bddl = str(HERE / "main" / "bddl_clutter" / f"{base}_{var}.bddl")
@@ -217,7 +243,7 @@ def main():
     env.seed(7)
     params = json.loads(a.params)
     no_branch = a.no_branch or os.environ.get("NO_BRANCH") == "1"      # tuning runs skip the counterfactual
-    twin = None if (a.cond in ("C0", "C0p") or no_branch) and a.cond not in ("CQ", "CQB", "CQB2", "CQBR", "LOOK", "OBJLOOK") else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
+    twin = None if (a.cond in ("C0", "C0p") or no_branch) and a.cond not in ("CQ", "CQB", "CQB2", "CQBR", "LOOK", "OBJLOOK", "LOOKFB", "LOOK32", "LOOK32FB") else OffScreenRenderEnv(bddl_file_name=bddl, camera_heights=8, camera_widths=8, horizon=10**7)
     if twin is not None:
         twin.seed(7); twin.reset()
     client = _wcp.WebsocketClientPolicy("127.0.0.1", a.port)

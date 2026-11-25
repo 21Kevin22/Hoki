@@ -129,7 +129,7 @@ _mk = rcl.make_filter
 def make_filter(cond, env, obs, task, params=None, instruction=""):
     f = _mk(cond, env, obs, task, params, instruction)
     S.update(env=env, filt=f, cond=cond, shadow=None)
-    if f is None and cond in ("C0", "C0p", "LOOK"):
+    if f is None and cond in ("C0", "C0p", "LOOK", "LOOKFB", "LOOK32", "LOOK32FB"):
         S["shadow"] = _mk("VIS", env, obs, task, {"margin_m": 0.0, "gamma": 0.5}, instruction)
     return f
 
