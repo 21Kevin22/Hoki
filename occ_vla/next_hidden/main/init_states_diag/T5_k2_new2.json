@@ -1,0 +1,316 @@
+{
+ "task": "T5",
+ "suite": "libero_10",
+ "index": 5,
+ "language": "pick up the book and place it in the back compartment of the caddy",
+ "n_official": 50,
+ "n_kept": 60,
+ "n_tried": 60,
+ "min_dist_to_official_m": {
+  "min": 0.0065,
+  "median": 0.01325
+ },
+ "sha256": "00f6a9d67911079f20482973f15dd7e070a22c047c68bd225fc0c59fd4428f52",
+ "log": [
+  {
+   "seed": 975100,
+   "min_dist_to_official_m": 0.0136,
+   "kept": true
+  },
+  {
+   "seed": 975101,
+   "min_dist_to_official_m": 0.0167,
+   "kept": true
+  },
+  {
+   "seed": 975102,
+   "min_dist_to_official_m": 0.0185,
+   "kept": true
+  },
+  {
+   "seed": 975103,
+   "min_dist_to_official_m": 0.0138,
+   "kept": true
+  },
+  {
+   "seed": 975104,
+   "min_dist_to_official_m": 0.0087,
+   "kept": true
+  },
+  {
+   "seed": 975105,
+   "min_dist_to_official_m": 0.0101,
+   "kept": true
+  },
+  {
+   "seed": 975106,
+   "min_dist_to_official_m": 0.0111,
+   "kept": true
+  },
+  {
+   "seed": 975107,
+   "min_dist_to_official_m": 0.0111,
+   "kept": true
+  },
+  {
+   "seed": 975108,
+   "min_dist_to_official_m": 0.0101,
+   "kept": true
+  },
+  {
+   "seed": 975109,
+   "min_dist_to_official_m": 0.012,
+   "kept": true
+  },
+  {
+   "seed": 975110,
+   "min_dist_to_official_m": 0.0139,
+   "kept": true
+  },
+  {
+   "seed": 975111,
+   "min_dist_to_official_m": 0.0104,
+   "kept": true
+  },
+  {
+   "seed": 975112,
+   "min_dist_to_official_m": 0.008,
+   "kept": true
+  },
+  {
+   "seed": 975113,
+   "min_dist_to_official_m": 0.0117,
+   "kept": true
+  },
+  {
+   "seed": 975114,
+   "min_dist_to_official_m": 0.012,
+   "kept": true
+  },
+  {
+   "seed": 975115,
+   "min_dist_to_official_m": 0.0132,
+   "kept": true
+  },
+  {
+   "seed": 975116,
+   "min_dist_to_official_m": 0.0108,
+   "kept": true
+  },
+  {
+   "seed": 975117,
+   "min_dist_to_official_m": 0.0127,
+   "kept": true
+  },
+  {
+   "seed": 975118,
+   "min_dist_to_official_m": 0.0124,
+   "kept": true
+  },
+  {
+   "seed": 975119,
+   "min_dist_to_official_m": 0.0138,
+   "kept": true
+  },
+  {
+   "seed": 975120,
+   "min_dist_to_official_m": 0.0141,
+   "kept": true
+  },
+  {
+   "seed": 975121,
+   "min_dist_to_official_m": 0.0143,
+   "kept": true
+  },
+  {
+   "seed": 975122,
+   "min_dist_to_official_m": 0.0133,
+   "kept": true
+  },
+  {
+   "seed": 975123,
+   "min_dist_to_official_m": 0.0154,
+   "kept": true
+  },
+  {
+   "seed": 975124,
+   "min_dist_to_official_m": 0.0102,
+   "kept": true
+  },
+  {
+   "seed": 975125,
+   "min_dist_to_official_m": 0.015,
+   "kept": true
+  },
+  {
+   "seed": 975126,
+   "min_dist_to_official_m": 0.0153,
+   "kept": true
+  },
+  {
+   "seed": 975127,
+   "min_dist_to_official_m": 0.0145,
+   "kept": true
+  },
+  {
+   "seed": 975128,
+   "min_dist_to_official_m": 0.0103,
+   "kept": true
+  },
+  {
+   "seed": 975129,
+   "min_dist_to_official_m": 0.0102,
+   "kept": true
+  },
+  {
+   "seed": 975130,
+   "min_dist_to_official_m": 0.0157,
+   "kept": true
+  },
+  {
+   "seed": 975131,
+   "min_dist_to_official_m": 0.0176,
+   "kept": true
+  },
+  {
+   "seed": 975132,
+   "min_dist_to_official_m": 0.0101,
+   "kept": true
+  },
+  {
+   "seed": 975133,
+   "min_dist_to_official_m": 0.0159,
+   "kept": true
+  },
+  {
+   "seed": 975134,
+   "min_dist_to_official_m": 0.0185,
+   "kept": true
+  },
+  {
+   "seed": 975135,
+   "min_dist_to_official_m": 0.0083,
+   "kept": true
+  },
+  {
+   "seed": 975136,
+   "min_dist_to_official_m": 0.0065,
+   "kept": true
+  },
+  {
+   "seed": 975137,
+   "min_dist_to_official_m": 0.0156,
+   "kept": true
+  },
+  {
+   "seed": 975138,
+   "min_dist_to_official_m": 0.0128,
+   "kept": true
+  },
+  {
+   "seed": 975139,
+   "min_dist_to_official_m": 0.0127,
+   "kept": true
+  },
+  {
+   "seed": 975140,
+   "min_dist_to_official_m": 0.0123,
+   "kept": true
+  },
+  {
+   "seed": 975141,
+   "min_dist_to_official_m": 0.0161,
+   "kept": true
+  },
+  {
+   "seed": 975142,
+   "min_dist_to_official_m": 0.0175,
+   "kept": true
+  },
+  {
+   "seed": 975143,
+   "min_dist_to_official_m": 0.0099,
+   "kept": true
+  },
+  {
+   "seed": 975144,
+   "min_dist_to_official_m": 0.0118,
+   "kept": true
+  },
+  {
+   "seed": 975145,
+   "min_dist_to_official_m": 0.015,
+   "kept": true
+  },
+  {
+   "seed": 975146,
+   "min_dist_to_official_m": 0.0103,
+   "kept": true
+  },
+  {
+   "seed": 975147,
+   "min_dist_to_official_m": 0.0136,
+   "kept": true
+  },
+  {
+   "seed": 975148,
+   "min_dist_to_official_m": 0.0121,
+   "kept": true
+  },
+  {
+   "seed": 975149,
+   "min_dist_to_official_m": 0.0168,
+   "kept": true
+  },
+  {
+   "seed": 975150,
+   "min_dist_to_official_m": 0.0082,
+   "kept": true
+  },
+  {
+   "seed": 975151,
+   "min_dist_to_official_m": 0.0133,
+   "kept": true
+  },
+  {
+   "seed": 975152,
+   "min_dist_to_official_m": 0.0136,
+   "kept": true
+  },
+  {
+   "seed": 975153,
+   "min_dist_to_official_m": 0.0135,
+   "kept": true
+  },
+  {
+   "seed": 975154,
+   "min_dist_to_official_m": 0.0195,
+   "kept": true
+  },
+  {
+   "seed": 975155,
+   "min_dist_to_official_m": 0.012,
+   "kept": true
+  },
+  {
+   "seed": 975156,
+   "min_dist_to_official_m": 0.0155,
+   "kept": true
+  },
+  {
+   "seed": 975157,
+   "min_dist_to_official_m": 0.0116,
+   "kept": true
+  },
+  {
+   "seed": 975158,
+   "min_dist_to_official_m": 0.0158,
+   "kept": true
+  },
+  {
+   "seed": 975159,
+   "min_dist_to_official_m": 0.0137,
+   "kept": true
+  }
+ ]
+}

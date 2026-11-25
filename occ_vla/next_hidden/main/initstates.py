@@ -50,6 +50,9 @@ def main():
     if a.clutter and a.suffix:                 # new clutter states must differ from the ones already used
         old = os.path.join(HERE, "main", "init_states_diag", f"{a.task}_k{a.clutter}.npz")
         off_pos += [movable_pos(m, s) for s in np.load(old)["diag"]]
+        prev = os.path.join(HERE, "main", "init_states_diag", f"{a.task}_k{a.clutter}_new.npz")
+        if a.suffix != "_new" and os.path.exists(prev):     # PREREG (11): also differ from the (7) states
+            off_pos += [movable_pos(m, s) for s in np.load(prev)["diag"]]
     kept, log, i = [], [], a.start
     while len(kept) < a.n and i < a.start + 5 * a.n:
         seed = SEED_BASE + (50_000 if a.diag else 0) + 10_000 * a.clutter + 1000 * int(a.task[1:]) + i; i += 1

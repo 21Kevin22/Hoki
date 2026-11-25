@@ -58,7 +58,7 @@ def base_config(cond, p):
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
     elif cond == "PROP":             # PREREG 2026-11-24 (8): C9 + Delta on unseen shadow for EVERY part (no interior exemption)
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, visibility_margin_m=p.get("delta_m", 0.02)))
-    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB", "CQB2", "VIS", "ORACLE", "OBJ", "OBJLOOK"):
+    elif cond in ("C5", "C9", "C6v9", "C7v9", "C8v9", "C9_5Hz", "CQB", "CQB2", "VIS", "ORACLE", "OBJ", "OBJLOOK", "CQBR"):
         c = _C4
     elif cond == "C10":              # PREREG 2026-11-22 (2): C9 with permitted surfaces and unseen shadow speed-limited
         c = dc.replace(_C4, safety=dc.replace(_C4.safety, slow_speed_m=float(p.get("slow_speed_m", 0.001)),
@@ -72,7 +72,7 @@ def base_config(cond, p):
         off = s.margin_arm_m - s.margin_palm_m
         c = dc.replace(c, safety=dc.replace(s, margin_arm_m=p["margin_m"] + off, margin_palm_m=p["margin_m"],
                                             margin_finger_m=p["margin_m"], margin_held_m=p["margin_m"]))
-    if cond in ("CQB", "CQB2"):      # fences hold bystanders only (never the target): closing fingers stay constrained
+    if cond in ("CQB", "CQB2"):      # (CQBR, PREREG (11): closing fingers keep StowSafe's default = free) fences hold bystanders only (never the target): closing fingers stay constrained
         c = dc.replace(c, safety=dc.replace(c.safety, allowed=dc.replace(c.safety.allowed, fingers_free_when_closing=False)))
     if cond in ("C4_5Hz", "C9_5Hz"):
         c = dc.replace(c, map=dc.replace(c.map, update_every_steps=4))
@@ -562,6 +562,10 @@ class Filter:
         self.m, self.d, self.task = m, d, task
         self.cfg = base_config(cond, params)
         self.guard = StowSafe(env, obs, self.cfg, instruction=instruction)
+        if cond == "CQBR":                                 # PREREG (11): arm spheres on links 6-7 + hand only
+            from stowsafe.spheres import RobotSpheres, SAFETY_LAYOUT
+            lay = {k: v for k, v in SAFETY_LAYOUT.items() if k not in ("robot0_link3", "robot0_link4", "robot0_link5")}
+            self.guard.spheres = RobotSpheres(m, lay, fit=self.cfg.safety.sphere_fit)
         ooi = tuple(env.env.obj_of_interest)
         self.split = self.aff = self.parts_pts = None
         # PROP (PREREG (8)): no interior box -> the hand also keeps Delta from unseen space inside the container
@@ -576,7 +580,7 @@ class Filter:
             parts = TaskParts(task, m, d)
             if cond in ("C9", "C10") and params.get("role_noise", 0) > 0:
                 flip_roles(parts, params["role_noise"], params["state_stem"])
-            if cond in ("CQB", "CQB2"):                    # fences only on predicted-harm bystanders, no roles
+            if cond in ("CQB", "CQB2", "CQBR"):            # fences only on predicted-harm bystanders, no roles
                 self.parts_pts = None
             elif cond in ("C9", "C10", "C8v9", "C9_5Hz", "VIS", "PROP", "ORACLE", "OBJ", "OBJLOOK"):
                 self.parts_pts = PartPointsV2(parts, m, self.guard, INTERIOR_SITE[task],
@@ -606,7 +610,7 @@ class Filter:
             if cond in ("C8", "C8v9"):
                 OracleMap(self.guard, m).install()
                 self.oracle_held = OracleHeld(self.guard, parts, m, d)
-            if cond in ("CQB", "CQB2"):
+            if cond in ("CQB", "CQB2", "CQBR"):
                 from collisions import CollisionRecorder
                 self.dyn_map = DynamicOracleMap(self.guard, m, CollisionRecorder(parts, m, d).bystanders)
                 self.dyn_map.install()

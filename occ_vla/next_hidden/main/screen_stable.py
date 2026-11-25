@@ -21,9 +21,10 @@ THR = 0.001
 
 ap = argparse.ArgumentParser(); ap.add_argument("--task", required=True); ap.add_argument("--split", default="new")
 ap.add_argument("--keep", type=int, default=40)
+ap.add_argument("--suffix", default="_new", help="PREREG (11): _new2 for the fresh states")
 a = ap.parse_args()
 base, _, var = a.task.partition("@")
-src = HERE / "main" / "init_states_diag" / (f"{base}_{var}_new.npz" if a.split == "new" else f"{base}_{var}.npz")
+src = HERE / "main" / "init_states_diag" / (f"{base}_{var}{a.suffix}.npz" if a.split == "new" else f"{base}_{var}.npz")
 states = np.load(src)["diag"]
 env = OffScreenRenderEnv(bddl_file_name=str(HERE / "main" / "bddl_clutter" / f"{base}_{var}.bddl"),
                          camera_heights=8, camera_widths=8, horizon=10 ** 7)
