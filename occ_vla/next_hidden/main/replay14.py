@@ -20,9 +20,22 @@ env = OffScreenRenderEnv(bddl_file_name=os.path.join(HERE, "main", "bddl_hidden"
 env.seed(7)
 rep = []
 SH = os.environ.get("SHARD", "0/1"); k_, n_ = map(int, SH.split("/"))
-jobs = [jf for tag in sys.argv[1:] for jf in sorted(glob.glob(os.path.join(HERE, "main", "runs", tag, "T1_hid_eval*.json")))]
-for jf in jobs[k_::n_]:
-    tag = os.path.basename(os.path.dirname(jf))
+# MuJoCo's warm start carries over between episodes of one process: replay each original job chunk (5 episodes,
+# idx 5c..5c+4, in order) in a FRESH env seeded like the original (env.seed(7)), exactly as run_closed_loop ran it.
+chunks = [(tag, c) for tag in sys.argv[1:] for c in range(8)]
+def episodes():
+    global env
+    for tag, c in chunks[k_::n_]:
+        env.close()
+        env = OffScreenRenderEnv(bddl_file_name=os.path.join(HERE, "main", "bddl_hidden", "H3.bddl"),
+                                 camera_heights=256, camera_widths=256, camera_depths=True,
+                                 camera_names=["agentview", "robot0_eye_in_hand"], horizon=10 ** 7)
+        env.seed(7)
+        for i in range(5 * c, 5 * c + 5):
+            jf = os.path.join(HERE, "main", "runs", tag, f"T1_hid_eval{i:02d}.json")
+            if os.path.exists(jf):
+                yield tag, jf
+for tag, jf in episodes():
     if True:
         stem = jf[:-5]; i = int(stem[-2:])
         J = json.load(open(jf)); A = np.load(stem + ".npz")["a"]
@@ -33,6 +46,8 @@ for jf in jobs[k_::n_]:
         box = {b for b in rec.bystanders if rec.root_name[b].startswith("butter_9")}
         rel = lambda b: d.xmat[ref].reshape(3, 3).T @ (d.xpos[b] - d.xpos[ref]) if b in box else d.xpos[b].copy()
         r = mujoco.Renderer(m, RES, RES)
+        r2 = mujoco.Renderer(m, 256, 256)
+        big = {}; prop = {}
         robot = np.array([rec.is_robot[b] for b in range(m.nbody)])
         tgt = {b for b in range(m.nbody) if rec.obj_root(b) in rec.p.target_roots}
         byst = set(rec.bystanders)
@@ -43,7 +58,7 @@ for jf in jobs[k_::n_]:
         def snap():
             out = []
             for cam in ("agentview", "robot0_eye_in_hand"):
-                r.update_scene(d, camera=cam); out.append(r.render().copy())
+                out.append(env.sim.render(width=RES, height=RES, camera_name=cam)[::-1].copy())   # LIBERO pipeline, upright
             r.update_scene(d, camera="agentview"); r.enable_segmentation_rendering(); s = r.render().copy(); r.disable_segmentation_rendering()
             g = np.where(s[..., 1] == int(mujoco.mjtObj.mjOBJ_GEOM), s[..., 0], -1)
             b = np.where(g >= 0, m.geom_bodyid[np.clip(g, 0, None)], -1)
@@ -51,12 +66,22 @@ for jf in jobs[k_::n_]:
             lab[(b >= 0) & robot[np.clip(b, 0, None)]] = 1
             lab[np.isin(b, list(tgt))] = 2; lab[np.isin(b, list(byst))] = 3
             return out[0], out[1], lab
-        a0, w0, l0 = snap(); imgs.append(a0); wrist.append(w0); seg.append(l0)
+        def snap_big(step):                      # 256-px frames (Cosmos Policy) at decision steps and t+16; proprio
+            if step % EVERY in (0, 1):
+                out = []
+                for cam in ("agentview", "robot0_eye_in_hand"):
+                    out.append(env.sim.render(width=256, height=256, camera_name=cam)[::-1].copy())
+                big[step] = out
+            if step % EVERY == 0:
+                ob = env.env._get_observations(force_update=False)
+                prop[step] = np.concatenate((ob["robot0_gripper_qpos"], ob["robot0_eef_pos"], ob["robot0_eef_quat"]))
+        a0, w0, l0 = snap(); imgs.append(a0); wrist.append(w0); seg.append(l0); snap_big(0)
         P.append(np.array([rel(b) for b in rec.bystanders]))
         for k, u in enumerate(A):
             env.step(np.asarray(u, float).tolist())
             P.append(np.array([rel(b) for b in rec.bystanders]))
             a_, w_, l_ = snap(); imgs.append(a_); wrist.append(w_); seg.append(l_)      # every step (index = step)
+            snap_big(k + 1)
         P = np.array(P)                                           # (T+1, nbyst, 3), index = step after 10 settle steps
         boxi = [j for j, b in enumerate(rec.bystanders) if b in box]
         maxbox = float(np.abs(P[:, boxi] - P[0, boxi]).sum(-1).max()) if boxi else 0.0
@@ -73,11 +98,14 @@ for jf in jobs[k_::n_]:
                             agent_future2=np.array([imgs[min(t + H + 1, len(imgs) - 1)] for t in dec]),
                             agent_future=np.array([imgs[t + H] for t in dec]),
                             actions=np.array([A[t:t + H] for t in dec]), label=np.array(lab), label_box=np.array(labb),
-                            t=np.array(dec))
+                            t=np.array(dec),
+                            agent256=np.array([big[t][0] for t in dec]), wrist256=np.array([big[t][1] for t in dec]),
+                            agent256_future=np.array([big[t + H][0] for t in dec]), proprio=np.array([prop[t] for t in dec]))
         dec = [dict(label=x) for x in lab]
         rep.append(dict(run=f"{tag}_{i:02d}", replay_box=round(maxbox, 4), orig_box=ref_box, ok=abs(maxbox - ref_box) <= 0.0005,
                         n_dec=n, pos=int(sum(d_["label"] for d_ in dec))))
         print(json.dumps(rep[-1]), flush=True)
+        del r
 json.dump(rep, open(os.path.join(OUT, f"replay_check_{k_}.json"), "w"), indent=1)
 ok = sum(r_["ok"] for r_ in rep)
 print(f"reproduced {ok}/{len(rep)}", flush=True)
